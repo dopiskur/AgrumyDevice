@@ -90,15 +90,7 @@ void setup()
 
   sensor.setupSensor(); // initialize sensors early for more precise mesurement
 
-
-
-
-
   Serial.println("[Initialization] Finished");
-  
-
-
-
 }
 
 void loop()
@@ -125,5 +117,6 @@ void loop()
     device.powerRailPrimary(false);
     device.powerRailSecondary(false);
   }
-  delay(10000);
+  delay(60000);
+  Serial.println("[Loop]-----> END <-----[Loop]");
 }

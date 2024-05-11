@@ -14,18 +14,6 @@ class SensorController
 
 private:
     SensorData sensorData;
-    
-
-public:
-    DeviceConfig deviceConfig;
-    ServiceRequest serviceRequest;
-
-    void buildSensorData(DeviceConfig deviceConfig);
-    void buildSensorDataPayload();
-    void pushSensorData(JsonDocument payload);
-    // var
-    JsonDocument sensorsArrayData(JsonDocument jsonDoc);
-    void setupSensor();
 
     void sensor_DHT11_temp();          // 1001
     void sensor_DHT11_humid();          // 1001
@@ -49,6 +37,20 @@ public:
     void sensor_liquid_PH(); // unavaiable
     void sensor_waterLevel(); // unavaiable
     void sensor_rainLevel(); // unavaiable
+    
+
+public:
+    DeviceConfig deviceConfig;
+    ServiceRequest serviceRequest;
+
+    void buildSensorData(DeviceConfig deviceConfig);
+    void buildSensorDataPayload();
+    void pushSensorData(JsonDocument payload);
+    // var
+    JsonDocument sensorsArrayData(JsonDocument jsonDoc);
+    void setupSensor();
+
+   
 };
 
 #endif
