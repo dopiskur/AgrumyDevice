@@ -227,7 +227,7 @@ struct SensorData
     String barometer;
     String liquidPH;
     String rainLevel;
-    String waterTank;
+    String waterLevel;
     String wind;
     String dateCreated;
     EventLog eventlog;

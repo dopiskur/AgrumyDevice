@@ -402,28 +402,27 @@ void SensorController::buildSensorDataPayload()
     Serial.println(sensorData.tvoc);
     Serial.println(sensorData.light);
 
-
     JsonDocument jsonSensorData;
-
 
     jsonSensorData["deviceID"]=deviceConfig.deviceID;
     jsonSensorData["tenantID"]=deviceConfig.tenantID;
     jsonSensorData["deviceUnitID"]=deviceConfig.deviceUnitID;
     jsonSensorData["deviceUnitZoneID"]=deviceConfig.deviceUnitZoneID;
 
-    jsonSensorData["temperature"]=sensorData.temperature;
-    jsonSensorData["soilTemperature"]=sensorData.temperatureSoil;
-    jsonSensorData["humidity"]=sensorData.humidity;
-    jsonSensorData["battery"]=sensorData.battery;
-    jsonSensorData["moisture"]=sensorData.moisture;
-    jsonSensorData["light"]=sensorData.light;
-    jsonSensorData["co2"]=sensorData.co2;
-    jsonSensorData["tvoc"]=sensorData.tvoc;
-    jsonSensorData["barometer"]=sensorData.barometer;
-    jsonSensorData["liquidPH"]=sensorData.liquidPH;
-    jsonSensorData["rainLevel"]=sensorData.rainLevel;
-    jsonSensorData["waterLevel"]=sensorData.waterTank;
-    jsonSensorData["wind"]=sensorData.wind;
+
+    jsonSensorData["temperature"]=(sensorData.temperature)!=""? sensorData.temperature:  (char*)0;
+    jsonSensorData["soilTemperature"]=(sensorData.temperatureSoil)!=""? sensorData.temperatureSoil:  (char*)0;
+    jsonSensorData["humidity"]=(sensorData.humidity)!=""? sensorData.humidity:  (char*)0;
+    jsonSensorData["battery"]=(sensorData.battery)!=""? sensorData.battery:  (char*)0;
+    jsonSensorData["moisture"]=(sensorData.moisture)!=""? sensorData.moisture:  (char*)0;
+    jsonSensorData["light"]=(sensorData.light)!=""? sensorData.light:  (char*)0;
+    jsonSensorData["co2"]=(sensorData.co2)!=""? sensorData.co2:  (char*)0;
+    jsonSensorData["tvoc"]=(sensorData.tvoc)!=""? sensorData.tvoc:  (char*)0;
+    jsonSensorData["barometer"]=(sensorData.barometer)!=""? sensorData.barometer:  (char*)0;
+    jsonSensorData["liquidPH"]=(sensorData.liquidPH)!=""? sensorData.liquidPH:  (char*)0;
+    jsonSensorData["rainLevel"]=(sensorData.rainLevel)!=""? sensorData.rainLevel:  (char*)0;
+    jsonSensorData["waterLevel"]=(sensorData.waterLevel)!=""? sensorData.waterLevel:  (char*)0;
+    jsonSensorData["wind"]=(sensorData.wind)!=""? sensorData.wind:  (char*)0;
 
 
     String sensorDataPayload;
@@ -481,7 +480,7 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
     sensorData.barometer="";
     sensorData.liquidPH="";
     sensorData.rainLevel="";
-    sensorData.waterTank="";
+    sensorData.waterLevel="";
     sensorData.wind="";
 
     // Battery
