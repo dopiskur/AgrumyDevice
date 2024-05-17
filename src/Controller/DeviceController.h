@@ -13,6 +13,10 @@ class DeviceController
 public:
     DeviceConfig deviceConfig;
 
+    // Mosfet activation
+    void powerRailPrimary(bool state);
+    void powerRailSecondary(bool state);
+
     // Device info
     String macAddr();
 
@@ -30,16 +34,10 @@ public:
 
     String serviceType(int deviceServiceTypeID); // fetch http, https, mqtt from deviceServiceTypeID
 
-
-
     // Modules
     String rtc();
     String lcd();
     String camera();
-
-    // Mosfet activation
-    void powerRailPrimary(bool state);
-    void powerRailSecondary(bool state);
 
     // device actions
     void sleep();

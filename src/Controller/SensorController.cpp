@@ -14,6 +14,7 @@
 #include <Adafruit_CCS811.h> // CCS811 CO2, TVOC
 
 #include "SensorController.h"
+#include "ControllerController.h"
 
 // Models
 DeviceConfig deviceConfig;
@@ -22,6 +23,7 @@ ServiceEndpoint serviceEndpoint;
 
 // Controllers
 ServiceController service;
+ControllerController controller;
 
 // Sensors
 static Adafruit_CCS811 ccs811;                               // Co2, Tvoc
@@ -435,26 +437,7 @@ void SensorController::buildSensorDataPayload()
 
     Serial.println(sensorDataPayload);
 
-    pushSensorData(result); // send POST
-
-    /*
-    Document jsonSensor; // initialize json document buffer
-    jsonDynaSensor.clear();
-    jsonSensor["id_user"] = deviceConfig.id_user;
-    jsonSensor["id_device"] = deviceConfig.id_device;
-    jsonSensor["apikey"] = deviceConfig.apikey;
-
-    JsonObject data = jsonSensor.createNestedObject("data");
-    JsonObject sensorDataValues = jsonSensor.createNestedObject("sensorDataValues");
-    data["SSID"] = "TheBatCave";
-    data["SSID2"] = "kurcic palac";
-
-    sensorDataValues["KUUURCINA"] = "velika kurcina";
-
-    String result;
-    serializeJsonPretty(jsonSensor, result);
-    Serial.println(result);
-    */
+    pushSensorData(result); 
 }
 
 void SensorController::pushSensorData(JsonDocument payload){
@@ -484,15 +467,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
     sensorData.wind="";
 
     // Battery
-    switch (deviceConfig.configSensor.sensorBattery)
-    {
-    case 2001:
-        sensor_analog_voltage();
-        break;
-
-    default:
-        break;
-    }
 
     // Temperature
     switch (deviceConfig.configSensor.sensorTemp)
@@ -678,5 +652,10 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
     }
 
     buildSensorDataPayload();
+
+    // start controller
+    if(deviceConfig.deviceControllerEnabled==true){
+        controller.initController(sensorData);
+    }
 
 }

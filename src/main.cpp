@@ -14,6 +14,7 @@
 #include "Controller/DeviceController.h"
 #include "Controller/SensorController.h"
 #include "Controller/ServiceController.h"
+#include "Controller/ControllerController.h"
 
 #include "HTTPClient.h" // privremeno ovdje dok se ne makne sve u drugi H
 
@@ -35,6 +36,7 @@ static ServiceData serviceData;       // initialize data structure
 static DeviceController device;   // initialize functions
 static ServiceController service; // initialize functions
 static SensorController sensor;
+static ControllerController controller;
 
 void setup()
 {
@@ -76,6 +78,7 @@ void setup()
   device.deviceConfig = deviceConfig;  // sending values to device
   sensor.deviceConfig = deviceConfig;  // sending values to sensor
   service.deviceConfig = deviceConfig; // sending values to service
+  controller.deviceConfig = deviceConfig;
 
   // Initialize serviceRequest defaults
   serviceRequest.serviceType = device.serviceType(deviceConfig.deviceTypeServiceID);
@@ -89,6 +92,7 @@ void setup()
   delay(1000);
 
   sensor.setupSensor(); // initialize sensors early for more precise mesurement
+  
 
   Serial.println("[Initialization] Finished");
 }
@@ -105,12 +109,10 @@ void loop()
 
   service.apiConfig(deviceConfig, serviceRequest); // check config
 
-  sensor.buildSensorData(deviceConfig);
-
-  // service.apiConfig(deviceConfig,serviceRequest);
-  // Serial.println(deviceConfig.configSensor.sensorBarometer);
-  // Serial.println(deviceConfig.configController.humidHigh);
-
+  if(deviceConfig.enabled==true){
+    sensor.buildSensorData(deviceConfig);
+  }
+  
   // Turn OFF power rail if battery enabled
   if (deviceConfig.batteryEnabled == true)
   {
@@ -119,4 +121,5 @@ void loop()
   }
   delay(60000);
   Serial.println("[Loop]-----> END <-----[Loop]");
+  Serial.println("");
 }
