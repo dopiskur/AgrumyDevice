@@ -94,7 +94,6 @@ void setup()
 
 // Start power rail by default
   device.powerRailPrimary(true);
-  device.powerRailSecondary(true);
   delay(1000);
 
   

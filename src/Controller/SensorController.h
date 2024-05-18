@@ -35,7 +35,7 @@ private:
     void sensor_analog_voltage(); // 2001
     void sensor_analog_moist();   // 2002
     void sensor_liquid_PH(); // unavaiable
-    void sensor_waterLevel(); // unavaiable
+    void sensor_analog_waterLevel(); // unavaiable
     void sensor_rainLevel(); // unavaiable
     
 

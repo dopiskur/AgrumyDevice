@@ -320,10 +320,15 @@ EventLog SensorController::sensor_CCS811_tvoc()
 
 void SensorController::sensor_analog_voltage()
 {
+    device.powerRailSecondary(true);
+    device.powerRailSecondary(false);
 }
 void SensorController::sensor_analog_moist()
 {
-     Serial.println("[Sensor moisture]");
+    
+    Serial.println("[Sensor moisture]");
+    device.powerRailSecondary(true);
+    
     int moisture = analogRead(device.deviceConfig.configPin.MOIST);
 
     Serial.print("Analog: ");
@@ -357,6 +362,7 @@ void SensorController::sensor_analog_moist()
         Serial.println("Moisture sensor not present");
     }
 
+    device.powerRailSecondary(false);
     Serial.println();
     // if 0 evenlog error, no sensor present!
 }
@@ -368,16 +374,19 @@ void SensorController::sensor_liquid_PH()
 {
 }
 
-void SensorController::sensor_waterLevel()
+void SensorController::sensor_analog_waterLevel()
 {
     Serial.println("[Sensor water level]");
+    device.powerRailSecondary(true);
+
     int waterTank = analogRead(device.deviceConfig.configPin.WaterTank);
 
     Serial.print("Analog: ");
     Serial.println(waterTank); // analog value
 
     sensorData.moisture = waterTank;
-
+    
+    device.powerRailSecondary(false);
 }
 
 void SensorController::sensor_rainLevel()
@@ -613,7 +622,7 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
     switch (deviceConfig.configSensor.sensorWaterLevel)
     {
     case 2003:
-        sensor_waterLevel();
+        sensor_analog_waterLevel();
         break;
 
     default:
