@@ -42,6 +42,7 @@ struct ConfigPin // default values, can not be changed during setup phaze
     int DHT=19;      // DHT sensor
     int TEMPSOIL=5; // Soil temperature
     int MOIST=34;
+    int WaterTank=35;
     int DEPTH_RX=13;
     int DEPTH_TX=12;
     int PH=33;
@@ -146,6 +147,20 @@ struct ConfigController
     int lightHigh;
     int waterLow;
     int waterHigh;
+
+    int ventilationIntervalEnabled;
+    int ventilationInterval;
+    int ventilationIntervalLenght;
+    int lightIntervalEnabled;
+    int lightInterval;
+    int lightIntervalLenght;
+    int heatingIntervalEnabled;
+    int heatingInterval;
+    int heatingIntervalLenght;
+    int waterPumpIntervalEnabled;
+    int waterPumpInterval;
+    int waterPumpIntervalLenght;
+
     int relayEnabled;
     int relay1;
     int relay2;

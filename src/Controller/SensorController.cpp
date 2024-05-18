@@ -18,12 +18,17 @@
 
 // Models
 DeviceConfig deviceConfig;
-JsonArray jsonArraySensorData;
 ServiceEndpoint serviceEndpoint;
 
 // Controllers
+DeviceController device;
 ServiceController service;
 ControllerController controller;
+
+// static vars
+static JsonDocument jsonDoc;
+static JsonArray sensorDataJsonArray = jsonDoc.to<JsonArray>(); // prepare array with structure
+static String dateTime;
 
 // Sensors
 static Adafruit_CCS811 ccs811;                               // Co2, Tvoc
@@ -36,6 +41,7 @@ BH1750 Bh1750;                                               // light
 static unsigned bmp280status;
 static unsigned bmp180status;
 static unsigned bh1750status;
+
 
 void SensorController::setupSensor()
 {
@@ -317,6 +323,42 @@ void SensorController::sensor_analog_voltage()
 }
 void SensorController::sensor_analog_moist()
 {
+     Serial.println("[Sensor moisture]");
+    int moisture = analogRead(device.deviceConfig.configPin.MOIST);
+
+    Serial.print("Analog: ");
+    Serial.println(moisture); // analog value
+
+    int soilWet = 1200; // Define max value we consider soil 'wet'
+    int soilDry = 3000;
+    if (moisture < soilWet)
+    {
+        Serial.println("Status: Soil is too wet");
+    }
+    else if (moisture >= soilWet && moisture < soilDry)
+    {
+        Serial.println("Status: Soil is moist");
+    }
+    else
+    {
+        Serial.println("Status: Soil is too dry");
+    }
+
+    // implementiraj racunanje u postotak!!@!
+    //  create % value, 100/4096=0,0244140625
+    // moisture = 100-moisture; //create to scale from 0 to 100;
+
+    if (!moisture == 0)
+    {
+        sensorData.moisture = moisture;
+    }
+    else
+    {
+        Serial.println("Moisture sensor not present");
+    }
+
+    Serial.println();
+    // if 0 evenlog error, no sensor present!
 }
 void SensorController::sensor_Wind()
 {
@@ -328,72 +370,19 @@ void SensorController::sensor_liquid_PH()
 
 void SensorController::sensor_waterLevel()
 {
+    Serial.println("[Sensor water level]");
+    int waterTank = analogRead(device.deviceConfig.configPin.WaterTank);
+
+    Serial.print("Analog: ");
+    Serial.println(waterTank); // analog value
+
+    sensorData.moisture = waterTank;
+
 }
 
 void SensorController::sensor_rainLevel()
 {
 }
-
-JsonDocument SensorController::sensorsArrayData(JsonDocument jsonDoc)
-{
-
-    delay(3000);
-    Serial.println("[SENSOR ARRAY]");
-    JsonDocument jsonSensorData;
-
-    /*
-    // Unified sensor data
-    Serial.println(sensorData.battery + "%\tbattery");
-    Serial.println(sensorData.temperature + "°C\ttemperature");
-    Serial.println(sensorData.temperatureSoil + "°C\tsoil temperature");
-    Serial.println(sensorData.humidity + "% \thumidity");
-    Serial.println(sensorData.moisture + "% \tmoisture");
-    Serial.println(sensorData.light + " \tlux");
-    Serial.println(sensorData.barometer + " \tPa");
-    Serial.println(sensorData.liquidPH + " \tpH ");
-    Serial.println(sensorData.co2 + " \tCO2 ppm");
-    Serial.println(sensorData.tvoc + " \tTVOC");
-    Serial.println(sensorData.rainLevel + " \tL");
-    Serial.println(sensorData.waterTank + " \tL");
-    Serial.println(sensorData.wind + " \tL");
-
-
-    // Build JSON
-    JsonArray capabilities = jsonDoc.createNestedArray("capabilities");
-
-    JsonObject capabilities_0 = capabilities.createNestedObject();
-    capabilities_0["interface"] = "Demo.Switch";
-    capabilities_0["type"] = "ONOFF";
-    capabilities_0["version"] = "1.0";
-    capabilities_0["sync"] = true;
-    capabilities_0["control_pin"] = 2;
-    capabilities_0["MQTT_SWITCH_TOPIC"] = "on";
-    */
-    /*
-    // sensor data
-    sensorResult["temperature"] = sensorData.temperature;
-    sensorResult["soilTemperature"] = sensorData.soilTemperature;
-    sensorResult["humidity"] = sensorData.humidity;
-    sensorResult["moisture"] = sensorData.moisture;
-    sensorResult["light"] = sensorData.light;
-    sensorResult["barometer"] = sensorData.barometer;
-    sensorResult["liquidPH"] = sensorData.liquidPH;
-    sensorResult["co2"] = sensorData.co2;
-    sensorResult["tvoc"] = sensorData.tvoc;
-    sensorResult["waterTank"] = sensorData.waterTank;
-    sensorResult["battery"] = sensorData.battery;
-
-    // eventlog
-    sensorResult["errorCode"] = (String)sensorData.eventlog.error;
-    sensorResult["errorCode"] = (String)sensorData.eventlog.errorCode;
-    serializeJsonPretty(sensorResult, jsonOut);
-
-    // return sensorData;
-
-    */
-
-    return jsonDoc;
-} // end sensorData() END
 
 void SensorController::buildSensorDataPayload()
 {
@@ -425,19 +414,17 @@ void SensorController::buildSensorDataPayload()
     jsonSensorData["rainLevel"]=(sensorData.rainLevel)!=""? sensorData.rainLevel:  (char*)0;
     jsonSensorData["waterLevel"]=(sensorData.waterLevel)!=""? sensorData.waterLevel:  (char*)0;
     jsonSensorData["wind"]=(sensorData.wind)!=""? sensorData.wind:  (char*)0;
+    jsonSensorData["dateCreated"]=(device.getDateTime())!=""? device.getDateTime():  (char*)0; // adding datetime stamp for buffering purposes
 
+    sensorDataJsonArray.add(jsonSensorData); // add document to array, buffering data if servicepoint not available
 
-    String sensorDataPayload;
-    serializeJsonPretty(jsonSensorData,sensorDataPayload);
+    String sensorDataDebug;
+    serializeJsonPretty(jsonSensorData,sensorDataDebug);
 
-    sensorDataPayload = "["+sensorDataPayload+"]";
+    Serial.println("[Sensor] Buffered sensorData:");
+    Serial.println(sensorDataDebug);
 
-    JsonDocument result;
-    deserializeJson(result,sensorDataPayload);
-
-    Serial.println(sensorDataPayload);
-
-    pushSensorData(result); 
+    pushSensorData(sensorDataJsonArray); 
 }
 
 void SensorController::pushSensorData(JsonDocument payload){
@@ -445,10 +432,14 @@ void SensorController::pushSensorData(JsonDocument payload){
     serviceRequest.endpoint = serviceEndpoint.apiSensorDataPost;
     serviceRequest.header.apiId = deviceConfig.apiId;
     //prvo to treba prevorit u array;
-    service.requestPost(payload,serviceRequest);
+    ServiceData serviceData = service.requestPost(payload,serviceRequest);
+    if(serviceData.eventlog.errorCode==200){
+        Serial.println("[Sensor] SensorData uploadad, reseting sensorData buffer");
+        sensorDataJsonArray = jsonDoc.to<JsonArray>();
+    }
+    
 
 }
-
 
 void SensorController::buildSensorData(DeviceConfig deviceConfig)
 {
@@ -621,7 +612,7 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
     // Water tank
     switch (deviceConfig.configSensor.sensorWaterLevel)
     {
-    case 0:
+    case 2003:
         sensor_waterLevel();
         break;
 

@@ -8,6 +8,9 @@
 #include "DeviceController.h"
 #include "ServiceController.h"
 
+#include <NTPClient.h> // Time library
+#include <WiFiUdp.h>   // Time library requriment
+
 static ServiceController service; // Static rjesava problem s konfliktom u mainu
 
 // Models
@@ -15,11 +18,35 @@ static DeviceDefaults deviceDefaults;
 static DeviceConfig deviceConfig;
 static ServiceEndpoint serviceEndpoint;
 
-
- 
 // MAC ID, ovo mozda vise nije potrebno jer imamo chipid = ESP.getEfuseMac(), ali i tako moram preradit MAC u string bez dvotocke;
 DeviceRegistration deviceRegistration;
 JsonDocument config;
+
+// Time
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP);
+
+String DeviceController::getDateTime()
+{
+
+  time_t epochTime = timeClient.getEpochTime();
+  struct tm *ptm = gmtime((time_t *)&epochTime);
+  int currentYear = ptm->tm_year + 1900;
+  int currentMonth = ptm->tm_mon + 1;
+  int monthDay = ptm->tm_mday;
+  String currentDate = String(currentYear) + "-" + String(currentMonth) + "-" + String(monthDay) + " " + String(timeClient.getFormattedTime());
+  Serial.print("[Device] Current datetime: ");
+  Serial.println(currentDate);
+
+  return currentDate;
+}
+
+void DeviceController::setupController()
+{
+
+  timeClient.begin();
+  timeClient.update();
+}
 
 void DeviceController::saveFile(String data, String filename)
 {
@@ -320,9 +347,10 @@ DeviceConfig DeviceController::loadConfig(String configJson)
   deviceConfig.reset = config["reset"];
   deviceConfig.firmwareUpdate = config["firmwareUpdate"];
 
-  if(deviceConfig.deviceSensorEnabled==true){
+  if (deviceConfig.deviceSensorEnabled == true)
+  {
     JsonObject deviceConfigSensor = config["deviceConfigSensor"];
-    
+
     deviceConfig.configSensor.sensorBattery = deviceConfigSensor["sensorBattery"];
     deviceConfig.configSensor.sensorTemp = deviceConfigSensor["sensorTemp"];
     deviceConfig.configSensor.sensorTempSoil = deviceConfigSensor["sensorTempSoil"];
@@ -338,8 +366,8 @@ DeviceConfig DeviceController::loadConfig(String configJson)
     deviceConfig.configSensor.sensorWind = deviceConfigSensor["sensorWind"];
   }
 
-
-  if(deviceConfig.deviceControllerEnabled==true){
+  if (deviceConfig.deviceControllerEnabled == true)
+  {
     JsonObject deviceConfigController = config["deviceConfigController"];
 
     deviceConfig.configController.tempLow = deviceConfigController["tempLow"];
@@ -352,6 +380,20 @@ DeviceConfig DeviceController::loadConfig(String configJson)
     deviceConfig.configController.lightHigh = deviceConfigController["lightHigh"];
     deviceConfig.configController.waterLow = deviceConfigController["waterLow"];
     deviceConfig.configController.waterHigh = deviceConfigController["waterHigh"];
+
+    deviceConfig.configController.ventilationIntervalEnabled = deviceConfigController["ventilationIntervalEnabled"];
+    deviceConfig.configController.ventilationInterval = deviceConfigController["ventilationInterval"];
+    deviceConfig.configController.ventilationIntervalLenght = deviceConfigController["ventilationIntervalLenght"];
+    deviceConfig.configController.lightIntervalEnabled = deviceConfigController["lightIntervalEnabled"];
+    deviceConfig.configController.lightInterval = deviceConfigController["lightInterval"];
+    deviceConfig.configController.lightIntervalLenght = deviceConfigController["lightIntervalLenght"];
+    deviceConfig.configController.heatingIntervalEnabled = deviceConfigController["heatingIntervalEnabled"];
+    deviceConfig.configController.heatingInterval = deviceConfigController["heatingInterval"];
+    deviceConfig.configController.heatingIntervalLenght = deviceConfigController["heatingIntervalLenght"];
+    deviceConfig.configController.waterPumpIntervalEnabled = deviceConfigController["waterPumpIntervalEnabled"];
+    deviceConfig.configController.waterPumpInterval = deviceConfigController["waterPumpInterval"];
+    deviceConfig.configController.waterPumpIntervalLenght = deviceConfigController["waterPumpIntervalLenght"];
+
     deviceConfig.configController.relayEnabled = deviceConfigController["relayEnabled"];
     deviceConfig.configController.relay1 = deviceConfigController["relay1"];
     deviceConfig.configController.relay2 = deviceConfigController["relay2"];
@@ -389,4 +431,3 @@ String DeviceController::serviceType(int deviceServiceTypeID)
 
   return serviceType;
 }
-

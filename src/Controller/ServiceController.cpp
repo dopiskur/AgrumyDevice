@@ -9,7 +9,7 @@
 // Model
 static ServiceRequest serviceRequest;
 static ServiceEndpoint serviceEndpoint; // zasto ga ne zeli inicijalizirat?!
-static String apiAuth=""; // authentication token, initialize to blank because of memory leak;
+static String apiAuth;
 
 // Controller
 static DeviceController device;
@@ -27,22 +27,24 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
         HTTPClient http;
         String serviceURL = service.serviceType + service.servicePoint + service.endpoint;
         Serial.println("[Service] POST: " + serviceURL);
+        Serial.println("[Service] apiId: " + service.header.apiId);
+        Serial.println("[Service] apiKey: " + service.header.apiKey);
+        Serial.println("[Service] authKey: " + apiAuth); // from static
+
         http.begin(serviceURL);
         http.addHeader("Content-Type", "application/json");
         http.addHeader("apiId", service.header.apiId);
         http.addHeader("apiKey", service.header.apiKey);
         http.addHeader("Authorization", apiAuth);
 
-        // Serial.println("[Service] POST: " +  (String)serviceEndpoint + "\n" + jsonRequest);
-        // start connection and send HTTP header
         int httpCode = http.POST(jsonRequest);
-        // int httpCode = http.GET();
 
         // httpCode will be negative on error
         if (httpCode > 0)
         {
             // HTTP header has been send and Server response header has been handled
-            Serial.printf("[HTTP] Code: %d\n", httpCode);
+            Serial.print("[HTTP] Code: ");
+            Serial.println(httpCode);
             serviceData.eventlog.errorCode = httpCode;
 
             // file found at server
@@ -101,16 +103,15 @@ void ServiceController::apiAuthenticate(DeviceConfig deviceConfig, ServiceReques
     // String apiAuth = payload["apiAuth"];
     String output = payload["apiAuth"];
     apiAuth = output;
-    Serial.println("[Service] apiAuth: " + apiAuth);
+    Serial.println("[Service] apiAuthentication authKey: " + apiAuth); // get authentication key
 }
 
 void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serviceRequest)
 {
     String configVersion=String(deviceConfig.configVersion); // Casting integer into string for print
 
-    Serial.println("[Service] configVersion: " + configVersion);
-    Serial.println("[Service] apiId: " + deviceConfig.apiId);
-    Serial.println("[Service] apiAuth: " + apiAuth);
+    Serial.print("[Service] Current configVersion: ");
+    Serial.println(configVersion);
 
     serviceRequest.endpoint = serviceEndpoint.apiConfig;
     serviceRequest.header.apiId = deviceConfig.apiId;
@@ -124,7 +125,8 @@ void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serv
     serviceData = requestPost(payload, serviceRequest);
 
     if(serviceData.eventlog.errorCode==401){
-               
+
+        Serial.println("[Service] apiConfig: failed to authenticate: ");      
         apiAuthenticate(deviceConfig,serviceRequest);
         serviceRequest.header.apiAuth = apiAuth;
         serviceData = requestPost(payload, serviceRequest); // trying with new token
@@ -132,7 +134,8 @@ void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serv
 
     if(serviceData.eventlog.error==true){
         // Send log, then reboot
-        Serial.println("[Service] Error accesing service point: "+serviceData.eventlog.errorCode); // if still failed, reboot
+        Serial.print("[Service] Error accesing service point: "); // if still failed, reboot
+        Serial.println(serviceData.eventlog.errorCode); // if still failed, reboot
         // device.reboot();
     }
 

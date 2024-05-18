@@ -12,7 +12,11 @@ class ControllerController
 {
 public:
     DeviceConfig deviceConfig;
+
+    void setupController();
     void initController(SensorData sensorData);
+
+
 
 private:
     void relayVentilation(int relayPin, SensorData sensorData);
@@ -20,5 +24,11 @@ private:
     void relayHeating(int relayPin, SensorData sensorData);
     void relayLight(int relayPin, SensorData sensorData);
     
+    void intervalVentilation();
+    void intervalLight();
+    void intervalHeating();
+    void intervalWaterPump();
+
+
 };
 #endif

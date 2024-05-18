@@ -13,6 +13,11 @@ class DeviceController
 public:
     DeviceConfig deviceConfig;
 
+    void setupController();
+
+    // Get time
+    String getDateTime();
+
     // Mosfet activation
     void powerRailPrimary(bool state);
     void powerRailSecondary(bool state);

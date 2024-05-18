@@ -6,6 +6,8 @@
 #include <Wire.h>        // I2C scanner
 #include <ArduinoJson.h> // JsonDocument
 
+
+
 // Model LIB
 #include "Model/DeviceModel.h"
 #include "Model/SensorModel.h"
@@ -15,8 +17,6 @@
 #include "Controller/SensorController.h"
 #include "Controller/ServiceController.h"
 #include "Controller/ControllerController.h"
-
-#include "HTTPClient.h" // privremeno ovdje dok se ne makne sve u drugi H
 
 // put function declarations here:
 const char *firmware = "0.1.1";
@@ -37,6 +37,8 @@ static DeviceController device;   // initialize functions
 static ServiceController service; // initialize functions
 static SensorController sensor;
 static ControllerController controller;
+
+
 
 void setup()
 {
@@ -61,6 +63,7 @@ void setup()
     device.initializeDevice(); // build config
   }
 
+
   // Start WiFi
   device.initializeWifi();
   delay(1000);
@@ -72,6 +75,8 @@ void setup()
     Serial.println("[Main] Config file not found, starting initialization...");
     device.registerDevice(configRegistration); // build config
   }
+
+  
 
   // Loading Config
   deviceConfig = device.loadConfig(configDefaults);
@@ -86,15 +91,16 @@ void setup()
 
   service.serviceRequest = serviceRequest;
   sensor.serviceRequest = serviceRequest;
+
 // Start power rail by default
   device.powerRailPrimary(true);
   device.powerRailSecondary(true);
   delay(1000);
 
-  sensor.setupSensor(); // initialize sensors early for more precise mesurement
   
-
-  Serial.println("[Initialization] Finished");
+  sensor.setupSensor(); // initialize sensors early for more precise mesurement
+  device.setupController(); // initialize time
+  Serial.println("[Initialization] Finished: ");
 }
 
 void loop()
@@ -119,7 +125,9 @@ void loop()
     device.powerRailPrimary(false);
     device.powerRailSecondary(false);
   }
-  delay(60000);
+  
   Serial.println("[Loop]-----> END <-----[Loop]");
   Serial.println("");
+  delay(60000);
+
 }

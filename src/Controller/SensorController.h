@@ -40,15 +40,16 @@ private:
     
 
 public:
+    void setupSensor();
+
     DeviceConfig deviceConfig;
     ServiceRequest serviceRequest;
 
     void buildSensorData(DeviceConfig deviceConfig);
     void buildSensorDataPayload();
     void pushSensorData(JsonDocument payload);
-    // var
-    JsonDocument sensorsArrayData(JsonDocument jsonDoc);
-    void setupSensor();
+
+
 
    
 };
