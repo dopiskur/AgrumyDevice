@@ -26,8 +26,8 @@ private:
     void sensor_BME280_temp();         // 1005
     void sensor_BME280_humid();         // 1005
     void sensor_BME280_pres();         // 1005
-    EventLog sensor_CCS811_co2();         // 1006
-    EventLog sensor_CCS811_tvoc();         // 1006
+    void sensor_CCS811_co2();         // 1006
+    void sensor_CCS811_tvoc();         // 1006
     void sensor_DS18B20_temp();        // 1007
     void sensor_BH1750_lux();         // 1008
 

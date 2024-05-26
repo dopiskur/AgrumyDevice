@@ -92,8 +92,9 @@ void setup()
   service.serviceRequest = serviceRequest;
   sensor.serviceRequest = serviceRequest;
 
-// Start power rail by default
+// Start power rail on initializatin by default
   device.powerRailPrimary(true);
+  device.powerRailSecondary(true);
   delay(1000);
 
   
@@ -127,6 +128,6 @@ void loop()
   
   Serial.println("[Loop]-----> END <-----[Loop]");
   Serial.println("");
-  delay(60000);
+  delay(deviceConfig.sleepSeconds*1000);
 
 }

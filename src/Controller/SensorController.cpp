@@ -265,7 +265,7 @@ void SensorController::sensor_BH1750_lux()
 }
 
 // Co2 and Tvoc sensors
-EventLog SensorController::sensor_CCS811_co2()
+void SensorController::sensor_CCS811_co2()
 {
     // CO2 and TVOC sensor, needs time (~20min) to heat up and give info
     EventLog eventlog;
@@ -289,9 +289,8 @@ EventLog SensorController::sensor_CCS811_co2()
         }
     }
 
-    return eventlog;
 }
-EventLog SensorController::sensor_CCS811_tvoc()
+void SensorController::sensor_CCS811_tvoc()
 {
     // CO2 and TVOC sensor, needs time (~20min) to heat up and give info
     EventLog eventlog;
@@ -315,7 +314,6 @@ EventLog SensorController::sensor_CCS811_tvoc()
         }
     }
 
-    return eventlog;
 }
 
 void SensorController::sensor_analog_voltage()
