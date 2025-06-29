@@ -351,7 +351,7 @@ void SensorController::sensor_analog_moist()
     //  create % value, 100/4096=0,0244140625
     // moisture = 100-moisture; //create to scale from 0 to 100;
 
-    if (!moisture == 0)
+    if (moisture != 0)
     {
         sensorData.moisture = moisture;
     }
@@ -652,7 +652,7 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
     buildSensorDataPayload();
 
     // start controller
-    if(deviceConfig.deviceControllerEnabled==true){
+    if(deviceConfig.deviceControllerEnabled){
         controller.initController(sensorData);
     }
 

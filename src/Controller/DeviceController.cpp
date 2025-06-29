@@ -266,7 +266,7 @@ void DeviceController::sleep()
   int TIME_TO_SLEEP = deviceConfig.sleepSeconds;
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
 
-  if (deviceConfig.sleepDeep == 1)
+  if (deviceConfig.sleepDeep)
   {
     Serial.println("Setup ESP32 to sleep for every " + String(TIME_TO_SLEEP) + " Seconds");
     Serial.println("Going to sleep now");
@@ -347,7 +347,7 @@ DeviceConfig DeviceController::loadConfig(String configJson)
   deviceConfig.reset = config["reset"];
   deviceConfig.firmwareUpdate = config["firmwareUpdate"];
 
-  if (deviceConfig.deviceSensorEnabled == true)
+  if (deviceConfig.deviceSensorEnabled)
   {
     JsonObject deviceConfigSensor = config["deviceConfigSensor"];
 
@@ -366,7 +366,7 @@ DeviceConfig DeviceController::loadConfig(String configJson)
     deviceConfig.configSensor.sensorWind = deviceConfigSensor["sensorWind"];
   }
 
-  if (deviceConfig.deviceControllerEnabled == true)
+  if (deviceConfig.deviceControllerEnabled)
   {
     JsonObject deviceConfigController = config["deviceConfigController"];
 

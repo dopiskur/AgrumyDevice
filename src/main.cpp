@@ -57,7 +57,7 @@ void setup()
   // READ CONFIG
   String configRegistration = device.loadFile(CONFIG_BASE);
   delay(1000); // Solving problem with failed read by adding delay
-  if (configRegistration == NULL)
+  if (configRegistration == nullptr)
   {
     Serial.println("[Main] Registration file not found, starting initialization...");
     device.initializeDevice(); // build config
@@ -107,7 +107,7 @@ void loop()
 {
   Serial.println("[Loop]-----> Start <-----[Loop]");
   // Turn ON power rail if battery enabled
-  if (deviceConfig.batteryEnabled == true)
+  if (deviceConfig.batteryEnabled)
   {
     device.powerRailPrimary(true);
     device.powerRailSecondary(true);
@@ -115,12 +115,12 @@ void loop()
 
   service.apiConfig(deviceConfig, serviceRequest); // check config
 
-  if(deviceConfig.enabled==true){
+  if (deviceConfig.enabled) {
     sensor.buildSensorData(deviceConfig);
   }
   
   // Turn OFF power rail if battery enabled
-  if (deviceConfig.batteryEnabled == true)
+  if (deviceConfig.batteryEnabled)
   {
     device.powerRailPrimary(false);
     device.powerRailSecondary(false);

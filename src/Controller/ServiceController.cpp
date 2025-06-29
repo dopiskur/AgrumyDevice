@@ -132,14 +132,14 @@ void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serv
         serviceData = requestPost(payload, serviceRequest); // trying with new token
     }
 
-    if(serviceData.eventlog.error==true){
+    if(serviceData.eventlog.error){
         // Send log, then reboot
         Serial.print("[Service] Error accesing service point: "); // if still failed, reboot
         Serial.println(serviceData.eventlog.errorCode); // if still failed, reboot
         // device.reboot();
     }
 
-    if(serviceData.payload!=NULL){
+    if(serviceData.payload!=nullptr){
         Serial.println(serviceData.payload); 
         Serial.println("[Service] New config received, saving new config");
         device.saveFile(serviceData.payload, "config.json");

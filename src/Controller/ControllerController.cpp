@@ -35,7 +35,7 @@ void ControllerController::intervalVentilation()
     millisCurrent = millis();   
 
     // wait time before the loop starts again
-    if (deviceConfig.configController.ventilationIntervalEnabled == true)
+    if (deviceConfig.configController.ventilationIntervalEnabled)
     {
         if(!(millisCurrent - millisStartVentilation >= deviceConfig.configController.ventilationInterval*1000)){
             return;
@@ -91,7 +91,7 @@ void ControllerController::intervalLight()
 millisCurrent = millis();   
 
     // wait time before the loop starts again
-    if (deviceConfig.configController.lightIntervalEnabled == true)
+    if (deviceConfig.configController.lightIntervalEnabled)
     {
         if(!(millisCurrent - millisStartLight >= deviceConfig.configController.lightInterval*1000)){
             return;
@@ -107,35 +107,35 @@ millisCurrent = millis();
         int relay8=0;
 
         if(deviceConfig.configController.relay1==1) { relay1 = deviceConfig.configPin.RELAY_1; } ;// 1 is value of ventilation
-        if(deviceConfig.configController.relay2==1) { relay1 = deviceConfig.configPin.RELAY_2; } ;
-        if(deviceConfig.configController.relay3==1) { relay1 = deviceConfig.configPin.RELAY_3; } ;
-        if(deviceConfig.configController.relay4==1) { relay1 = deviceConfig.configPin.RELAY_4; } ;
-        if(deviceConfig.configController.relay5==1) { relay1 = deviceConfig.configPin.RELAY_5; } ;
-        if(deviceConfig.configController.relay6==1) { relay1 = deviceConfig.configPin.RELAY_6; } ;
-        if(deviceConfig.configController.relay7==1) { relay1 = deviceConfig.configPin.RELAY_7; } ;
-        if(deviceConfig.configController.relay8==1) { relay1 = deviceConfig.configPin.RELAY_8; } ;
+        if(deviceConfig.configController.relay2==1) { relay2 = deviceConfig.configPin.RELAY_2; } ;
+        if(deviceConfig.configController.relay3==1) { relay3 = deviceConfig.configPin.RELAY_3; } ;
+        if(deviceConfig.configController.relay4==1) { relay4 = deviceConfig.configPin.RELAY_4; } ;
+        if(deviceConfig.configController.relay5==1) { relay5 = deviceConfig.configPin.RELAY_5; } ;
+        if(deviceConfig.configController.relay6==1) { relay6 = deviceConfig.configPin.RELAY_6; } ;
+        if(deviceConfig.configController.relay7==1) { relay7 = deviceConfig.configPin.RELAY_7; } ;
+        if(deviceConfig.configController.relay8==1) { relay8 = deviceConfig.configPin.RELAY_8; } ;
 
         if (relay1!=0) {digitalWrite(deviceConfig.configController.relay1, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay2, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay3, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay4, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay5, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay6, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay7, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay8, HIGH);};
+        if (relay2!=0) {digitalWrite(deviceConfig.configController.relay2, HIGH);};
+        if (relay3!=0) {digitalWrite(deviceConfig.configController.relay3, HIGH);};
+        if (relay4!=0) {digitalWrite(deviceConfig.configController.relay4, HIGH);};
+        if (relay5!=0) {digitalWrite(deviceConfig.configController.relay5, HIGH);};
+        if (relay6!=0) {digitalWrite(deviceConfig.configController.relay6, HIGH);};
+        if (relay7!=0) {digitalWrite(deviceConfig.configController.relay7, HIGH);};
+        if (relay8!=0) {digitalWrite(deviceConfig.configController.relay8, HIGH);};
     
     if(!(millisCurrent - millisStartLightLenght >= deviceConfig.configController.lightInterval*1000)){
             return;
         }
 
         if (relay1!=0) {digitalWrite(deviceConfig.configController.relay1, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay2, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay3, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay4, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay5, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay6, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay7, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay8, LOW);};    
+        if (relay2!=0) {digitalWrite(deviceConfig.configController.relay2, LOW);};
+        if (relay3!=0) {digitalWrite(deviceConfig.configController.relay3, LOW);};
+        if (relay4!=0) {digitalWrite(deviceConfig.configController.relay4, LOW);};
+        if (relay5!=0) {digitalWrite(deviceConfig.configController.relay5, LOW);};
+        if (relay6!=0) {digitalWrite(deviceConfig.configController.relay6, LOW);};
+        if (relay7!=0) {digitalWrite(deviceConfig.configController.relay7, LOW);};
+        if (relay8!=0) {digitalWrite(deviceConfig.configController.relay8, LOW);};    
 
     }
 
@@ -146,7 +146,7 @@ void ControllerController::intervalHeating()
 millisCurrent = millis();   
 
     // wait time before the loop starts again
-    if (deviceConfig.configController.heatingIntervalEnabled == true)
+    if (deviceConfig.configController.heatingIntervalEnabled)
     {
         if(!(millisCurrent - millisStartHeating >= deviceConfig.configController.heatingInterval*1000)){
             return;
@@ -162,35 +162,35 @@ millisCurrent = millis();
         int relay8=0;
 
         if(deviceConfig.configController.relay1==1) { relay1 = deviceConfig.configPin.RELAY_1; } ;// 1 is value of ventilation
-        if(deviceConfig.configController.relay2==1) { relay1 = deviceConfig.configPin.RELAY_2; } ;
-        if(deviceConfig.configController.relay3==1) { relay1 = deviceConfig.configPin.RELAY_3; } ;
-        if(deviceConfig.configController.relay4==1) { relay1 = deviceConfig.configPin.RELAY_4; } ;
-        if(deviceConfig.configController.relay5==1) { relay1 = deviceConfig.configPin.RELAY_5; } ;
-        if(deviceConfig.configController.relay6==1) { relay1 = deviceConfig.configPin.RELAY_6; } ;
-        if(deviceConfig.configController.relay7==1) { relay1 = deviceConfig.configPin.RELAY_7; } ;
-        if(deviceConfig.configController.relay8==1) { relay1 = deviceConfig.configPin.RELAY_8; } ;
+        if(deviceConfig.configController.relay2==1) { relay2 = deviceConfig.configPin.RELAY_2; } ;
+        if(deviceConfig.configController.relay3==1) { relay3 = deviceConfig.configPin.RELAY_3; } ;
+        if(deviceConfig.configController.relay4==1) { relay4 = deviceConfig.configPin.RELAY_4; } ;
+        if(deviceConfig.configController.relay5==1) { relay5 = deviceConfig.configPin.RELAY_5; } ;
+        if(deviceConfig.configController.relay6==1) { relay6 = deviceConfig.configPin.RELAY_6; } ;
+        if(deviceConfig.configController.relay7==1) { relay7 = deviceConfig.configPin.RELAY_7; } ;
+        if(deviceConfig.configController.relay8==1) { relay8 = deviceConfig.configPin.RELAY_8; } ;
 
         if (relay1!=0) {digitalWrite(deviceConfig.configController.relay1, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay2, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay3, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay4, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay5, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay6, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay7, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay8, HIGH);};
+        if (relay2!=0) {digitalWrite(deviceConfig.configController.relay2, HIGH);};
+        if (relay3!=0) {digitalWrite(deviceConfig.configController.relay3, HIGH);};
+        if (relay4!=0) {digitalWrite(deviceConfig.configController.relay4, HIGH);};
+        if (relay5!=0) {digitalWrite(deviceConfig.configController.relay5, HIGH);};
+        if (relay6!=0) {digitalWrite(deviceConfig.configController.relay6, HIGH);};
+        if (relay7!=0) {digitalWrite(deviceConfig.configController.relay7, HIGH);};
+        if (relay8!=0) {digitalWrite(deviceConfig.configController.relay8, HIGH);};
     
     if(!(millisCurrent - millisStartHeatingLenght >= deviceConfig.configController.heatingInterval*1000)){
             return;
         }
 
         if (relay1!=0) {digitalWrite(deviceConfig.configController.relay1, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay2, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay3, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay4, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay5, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay6, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay7, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay8, LOW);};    
+        if (relay2!=0) {digitalWrite(deviceConfig.configController.relay2, LOW);};
+        if (relay3!=0) {digitalWrite(deviceConfig.configController.relay3, LOW);};
+        if (relay4!=0) {digitalWrite(deviceConfig.configController.relay4, LOW);};
+        if (relay5!=0) {digitalWrite(deviceConfig.configController.relay5, LOW);};
+        if (relay6!=0) {digitalWrite(deviceConfig.configController.relay6, LOW);};
+        if (relay7!=0) {digitalWrite(deviceConfig.configController.relay7, LOW);};
+        if (relay8!=0) {digitalWrite(deviceConfig.configController.relay8, LOW);};    
 
     }
 
@@ -201,7 +201,7 @@ void ControllerController::intervalWaterPump()
 millisCurrent = millis();   
 
     // wait time before the loop starts again
-    if (deviceConfig.configController.waterPumpIntervalEnabled == true)
+    if (deviceConfig.configController.waterPumpIntervalEnabled)
     {
         if(!(millisCurrent - millisStartWaterPump >= deviceConfig.configController.waterPumpInterval*1000)){
             return;
@@ -217,35 +217,35 @@ millisCurrent = millis();
         int relay8=0;
 
         if(deviceConfig.configController.relay1==1) { relay1 = deviceConfig.configPin.RELAY_1; } ;// 1 is value of ventilation
-        if(deviceConfig.configController.relay2==1) { relay1 = deviceConfig.configPin.RELAY_2; } ;
-        if(deviceConfig.configController.relay3==1) { relay1 = deviceConfig.configPin.RELAY_3; } ;
-        if(deviceConfig.configController.relay4==1) { relay1 = deviceConfig.configPin.RELAY_4; } ;
-        if(deviceConfig.configController.relay5==1) { relay1 = deviceConfig.configPin.RELAY_5; } ;
-        if(deviceConfig.configController.relay6==1) { relay1 = deviceConfig.configPin.RELAY_6; } ;
-        if(deviceConfig.configController.relay7==1) { relay1 = deviceConfig.configPin.RELAY_7; } ;
-        if(deviceConfig.configController.relay8==1) { relay1 = deviceConfig.configPin.RELAY_8; } ;
+        if(deviceConfig.configController.relay2==1) { relay2 = deviceConfig.configPin.RELAY_2; } ;
+        if(deviceConfig.configController.relay3==1) { relay3 = deviceConfig.configPin.RELAY_3; } ;
+        if(deviceConfig.configController.relay4==1) { relay4 = deviceConfig.configPin.RELAY_4; } ;
+        if(deviceConfig.configController.relay5==1) { relay5 = deviceConfig.configPin.RELAY_5; } ;
+        if(deviceConfig.configController.relay6==1) { relay6 = deviceConfig.configPin.RELAY_6; } ;
+        if(deviceConfig.configController.relay7==1) { relay7 = deviceConfig.configPin.RELAY_7; } ;
+        if(deviceConfig.configController.relay8==1) { relay8 = deviceConfig.configPin.RELAY_8; } ;
 
         if (relay1!=0) {digitalWrite(deviceConfig.configController.relay1, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay2, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay3, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay4, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay5, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay6, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay7, HIGH);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay8, HIGH);};
+        if (relay2!=0) {digitalWrite(deviceConfig.configController.relay2, HIGH);};
+        if (relay3!=0) {digitalWrite(deviceConfig.configController.relay3, HIGH);};
+        if (relay4!=0) {digitalWrite(deviceConfig.configController.relay4, HIGH);};
+        if (relay5!=0) {digitalWrite(deviceConfig.configController.relay5, HIGH);};
+        if (relay6!=0) {digitalWrite(deviceConfig.configController.relay6, HIGH);};
+        if (relay7!=0) {digitalWrite(deviceConfig.configController.relay7, HIGH);};
+        if (relay8!=0) {digitalWrite(deviceConfig.configController.relay8, HIGH);};
     
     if(!(millisCurrent - millisStartWaterPumpLenght >= deviceConfig.configController.waterPumpInterval*1000)){
             return;
         }
 
         if (relay1!=0) {digitalWrite(deviceConfig.configController.relay1, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay2, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay3, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay4, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay5, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay6, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay7, LOW);};
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay8, LOW);};    
+        if (relay2!=0) {digitalWrite(deviceConfig.configController.relay2, LOW);};
+        if (relay3!=0) {digitalWrite(deviceConfig.configController.relay3, LOW);};
+        if (relay4!=0) {digitalWrite(deviceConfig.configController.relay4, LOW);};
+        if (relay5!=0) {digitalWrite(deviceConfig.configController.relay5, LOW);};
+        if (relay6!=0) {digitalWrite(deviceConfig.configController.relay6, LOW);};
+        if (relay7!=0) {digitalWrite(deviceConfig.configController.relay7, LOW);};
+        if (relay8!=0) {digitalWrite(deviceConfig.configController.relay8, LOW);};    
 
     }
 
