@@ -59,27 +59,27 @@ void ControllerController::intervalVentilation()
         if(deviceConfig.configController.relay7==1) { relay7 = deviceConfig.configPin.RELAY_7; } ;
         if(deviceConfig.configController.relay8==1) { relay8 = deviceConfig.configPin.RELAY_8; } ;
 
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay1, HIGH);};
-        if (relay2!=0) {digitalWrite(deviceConfig.configController.relay2, HIGH);};
-        if (relay3!=0) {digitalWrite(deviceConfig.configController.relay3, HIGH);};
-        if (relay4!=0) {digitalWrite(deviceConfig.configController.relay4, HIGH);};
-        if (relay5!=0) {digitalWrite(deviceConfig.configController.relay5, HIGH);};
-        if (relay6!=0) {digitalWrite(deviceConfig.configController.relay6, HIGH);};
-        if (relay7!=0) {digitalWrite(deviceConfig.configController.relay7, HIGH);};
-        if (relay8!=0) {digitalWrite(deviceConfig.configController.relay8, HIGH);};
+        if (relay1!=0) {digitalWrite(relay1, HIGH);};
+        if (relay2!=0) {digitalWrite(relay2, HIGH);};
+        if (relay3!=0) {digitalWrite(relay3, HIGH);};
+        if (relay4!=0) {digitalWrite(relay4, HIGH);};
+        if (relay5!=0) {digitalWrite(relay5, HIGH);};
+        if (relay6!=0) {digitalWrite(relay6, HIGH);};
+        if (relay7!=0) {digitalWrite(relay7, HIGH);};
+        if (relay8!=0) {digitalWrite(relay8, HIGH);};
     
     if(!(millisCurrent - millisStartVentilationLenght >= deviceConfig.configController.ventilationInterval*1000)){
             return;
         }
 
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay1, LOW);};
-        if (relay2!=0) {digitalWrite(deviceConfig.configController.relay2, LOW);};
-        if (relay3!=0) {digitalWrite(deviceConfig.configController.relay3, LOW);};
-        if (relay4!=0) {digitalWrite(deviceConfig.configController.relay4, LOW);};
-        if (relay5!=0) {digitalWrite(deviceConfig.configController.relay5, LOW);};
-        if (relay6!=0) {digitalWrite(deviceConfig.configController.relay6, LOW);};
-        if (relay7!=0) {digitalWrite(deviceConfig.configController.relay7, LOW);};
-        if (relay8!=0) {digitalWrite(deviceConfig.configController.relay8, LOW);};    
+        if (relay1!=0) {digitalWrite(relay1, LOW);};
+        if (relay2!=0) {digitalWrite(relay2, LOW);};
+        if (relay3!=0) {digitalWrite(relay3, LOW);};
+        if (relay4!=0) {digitalWrite(relay4, LOW);};
+        if (relay5!=0) {digitalWrite(relay5, LOW);};
+        if (relay6!=0) {digitalWrite(relay6, LOW);};
+        if (relay7!=0) {digitalWrite(relay7, LOW);};
+        if (relay8!=0) {digitalWrite(relay8, LOW);};    
 
     }
 
@@ -115,27 +115,27 @@ millisCurrent = millis();
         if(deviceConfig.configController.relay7==1) { relay7 = deviceConfig.configPin.RELAY_7; } ;
         if(deviceConfig.configController.relay8==1) { relay8 = deviceConfig.configPin.RELAY_8; } ;
 
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay1, HIGH);};
-        if (relay2!=0) {digitalWrite(deviceConfig.configController.relay2, HIGH);};
-        if (relay3!=0) {digitalWrite(deviceConfig.configController.relay3, HIGH);};
-        if (relay4!=0) {digitalWrite(deviceConfig.configController.relay4, HIGH);};
-        if (relay5!=0) {digitalWrite(deviceConfig.configController.relay5, HIGH);};
-        if (relay6!=0) {digitalWrite(deviceConfig.configController.relay6, HIGH);};
-        if (relay7!=0) {digitalWrite(deviceConfig.configController.relay7, HIGH);};
-        if (relay8!=0) {digitalWrite(deviceConfig.configController.relay8, HIGH);};
+        if (relay1!=0) {digitalWrite(relay1, HIGH);};
+        if (relay2!=0) {digitalWrite(relay2, HIGH);};
+        if (relay3!=0) {digitalWrite(relay3, HIGH);};
+        if (relay4!=0) {digitalWrite(relay4, HIGH);};
+        if (relay5!=0) {digitalWrite(relay5, HIGH);};
+        if (relay6!=0) {digitalWrite(relay6, HIGH);};
+        if (relay7!=0) {digitalWrite(relay7, HIGH);};
+        if (relay8!=0) {digitalWrite(relay8, HIGH);};
     
     if(!(millisCurrent - millisStartLightLenght >= deviceConfig.configController.lightInterval*1000)){
             return;
         }
 
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay1, LOW);};
-        if (relay2!=0) {digitalWrite(deviceConfig.configController.relay2, LOW);};
-        if (relay3!=0) {digitalWrite(deviceConfig.configController.relay3, LOW);};
-        if (relay4!=0) {digitalWrite(deviceConfig.configController.relay4, LOW);};
-        if (relay5!=0) {digitalWrite(deviceConfig.configController.relay5, LOW);};
-        if (relay6!=0) {digitalWrite(deviceConfig.configController.relay6, LOW);};
-        if (relay7!=0) {digitalWrite(deviceConfig.configController.relay7, LOW);};
-        if (relay8!=0) {digitalWrite(deviceConfig.configController.relay8, LOW);};    
+        if (relay1!=0) {digitalWrite(relay1, LOW);};
+        if (relay2!=0) {digitalWrite(relay2, LOW);};
+        if (relay3!=0) {digitalWrite(relay3, LOW);};
+        if (relay4!=0) {digitalWrite(relay4, LOW);};
+        if (relay5!=0) {digitalWrite(relay5, LOW);};
+        if (relay6!=0) {digitalWrite(relay6, LOW);};
+        if (relay7!=0) {digitalWrite(relay7, LOW);};
+        if (relay8!=0) {digitalWrite(relay8, LOW);};    
 
     }
 
@@ -170,27 +170,27 @@ millisCurrent = millis();
         if(deviceConfig.configController.relay7==1) { relay7 = deviceConfig.configPin.RELAY_7; } ;
         if(deviceConfig.configController.relay8==1) { relay8 = deviceConfig.configPin.RELAY_8; } ;
 
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay1, HIGH);};
-        if (relay2!=0) {digitalWrite(deviceConfig.configController.relay2, HIGH);};
-        if (relay3!=0) {digitalWrite(deviceConfig.configController.relay3, HIGH);};
-        if (relay4!=0) {digitalWrite(deviceConfig.configController.relay4, HIGH);};
-        if (relay5!=0) {digitalWrite(deviceConfig.configController.relay5, HIGH);};
-        if (relay6!=0) {digitalWrite(deviceConfig.configController.relay6, HIGH);};
-        if (relay7!=0) {digitalWrite(deviceConfig.configController.relay7, HIGH);};
-        if (relay8!=0) {digitalWrite(deviceConfig.configController.relay8, HIGH);};
+        if (relay1!=0) {digitalWrite(relay1, HIGH);};
+        if (relay2!=0) {digitalWrite(relay2, HIGH);};
+        if (relay3!=0) {digitalWrite(relay3, HIGH);};
+        if (relay4!=0) {digitalWrite(relay4, HIGH);};
+        if (relay5!=0) {digitalWrite(relay5, HIGH);};
+        if (relay6!=0) {digitalWrite(relay6, HIGH);};
+        if (relay7!=0) {digitalWrite(relay7, HIGH);};
+        if (relay8!=0) {digitalWrite(relay8, HIGH);};
     
     if(!(millisCurrent - millisStartHeatingLenght >= deviceConfig.configController.heatingInterval*1000)){
             return;
         }
 
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay1, LOW);};
-        if (relay2!=0) {digitalWrite(deviceConfig.configController.relay2, LOW);};
-        if (relay3!=0) {digitalWrite(deviceConfig.configController.relay3, LOW);};
-        if (relay4!=0) {digitalWrite(deviceConfig.configController.relay4, LOW);};
-        if (relay5!=0) {digitalWrite(deviceConfig.configController.relay5, LOW);};
-        if (relay6!=0) {digitalWrite(deviceConfig.configController.relay6, LOW);};
-        if (relay7!=0) {digitalWrite(deviceConfig.configController.relay7, LOW);};
-        if (relay8!=0) {digitalWrite(deviceConfig.configController.relay8, LOW);};    
+        if (relay1!=0) {digitalWrite(relay1, LOW);};
+        if (relay2!=0) {digitalWrite(relay2, LOW);};
+        if (relay3!=0) {digitalWrite(relay3, LOW);};
+        if (relay4!=0) {digitalWrite(relay4, LOW);};
+        if (relay5!=0) {digitalWrite(relay5, LOW);};
+        if (relay6!=0) {digitalWrite(relay6, LOW);};
+        if (relay7!=0) {digitalWrite(relay7, LOW);};
+        if (relay8!=0) {digitalWrite(relay8, LOW);};    
 
     }
 
@@ -225,27 +225,27 @@ millisCurrent = millis();
         if(deviceConfig.configController.relay7==1) { relay7 = deviceConfig.configPin.RELAY_7; } ;
         if(deviceConfig.configController.relay8==1) { relay8 = deviceConfig.configPin.RELAY_8; } ;
 
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay1, HIGH);};
-        if (relay2!=0) {digitalWrite(deviceConfig.configController.relay2, HIGH);};
-        if (relay3!=0) {digitalWrite(deviceConfig.configController.relay3, HIGH);};
-        if (relay4!=0) {digitalWrite(deviceConfig.configController.relay4, HIGH);};
-        if (relay5!=0) {digitalWrite(deviceConfig.configController.relay5, HIGH);};
-        if (relay6!=0) {digitalWrite(deviceConfig.configController.relay6, HIGH);};
-        if (relay7!=0) {digitalWrite(deviceConfig.configController.relay7, HIGH);};
-        if (relay8!=0) {digitalWrite(deviceConfig.configController.relay8, HIGH);};
+        if (relay1!=0) {digitalWrite(relay1, HIGH);};
+        if (relay2!=0) {digitalWrite(relay2, HIGH);};
+        if (relay3!=0) {digitalWrite(relay3, HIGH);};
+        if (relay4!=0) {digitalWrite(relay4, HIGH);};
+        if (relay5!=0) {digitalWrite(relay5, HIGH);};
+        if (relay6!=0) {digitalWrite(relay6, HIGH);};
+        if (relay7!=0) {digitalWrite(relay7, HIGH);};
+        if (relay8!=0) {digitalWrite(relay8, HIGH);};
     
     if(!(millisCurrent - millisStartWaterPumpLenght >= deviceConfig.configController.waterPumpInterval*1000)){
             return;
         }
 
-        if (relay1!=0) {digitalWrite(deviceConfig.configController.relay1, LOW);};
-        if (relay2!=0) {digitalWrite(deviceConfig.configController.relay2, LOW);};
-        if (relay3!=0) {digitalWrite(deviceConfig.configController.relay3, LOW);};
-        if (relay4!=0) {digitalWrite(deviceConfig.configController.relay4, LOW);};
-        if (relay5!=0) {digitalWrite(deviceConfig.configController.relay5, LOW);};
-        if (relay6!=0) {digitalWrite(deviceConfig.configController.relay6, LOW);};
-        if (relay7!=0) {digitalWrite(deviceConfig.configController.relay7, LOW);};
-        if (relay8!=0) {digitalWrite(deviceConfig.configController.relay8, LOW);};    
+        if (relay1!=0) {digitalWrite(relay1, LOW);};
+        if (relay2!=0) {digitalWrite(relay2, LOW);};
+        if (relay3!=0) {digitalWrite(relay3, LOW);};
+        if (relay4!=0) {digitalWrite(relay4, LOW);};
+        if (relay5!=0) {digitalWrite(relay5, LOW);};
+        if (relay6!=0) {digitalWrite(relay6, LOW);};
+        if (relay7!=0) {digitalWrite(relay7, LOW);};
+        if (relay8!=0) {digitalWrite(relay8, LOW);};    
 
     }
 
