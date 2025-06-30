@@ -77,7 +77,7 @@ String DeviceController::loadFile(String filename)
   {
     Serial.println("Failed to open file for write");
     // napravi format!!!
-    data = "error";
+    data = "Failed to open file for write";
   }
   else
   {
