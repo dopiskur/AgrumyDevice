@@ -17,7 +17,7 @@ struct DeviceRegistration
   char userLogin[128];
   char devicePin[8];
   char servicePoint[256];
-  bool intialize=false;
+  bool initialize=false;
 };
 
 struct EventLog

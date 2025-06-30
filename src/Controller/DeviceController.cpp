@@ -131,7 +131,7 @@ void DeviceController::initializeDevice()
   strncpy(deviceRegistration.devicePin, userPin.getValue(), 8);
   strncpy(deviceRegistration.servicePoint, servicePoint.getValue(), 256);
 
-  deviceRegistration.intialize = true;
+  deviceRegistration.initialize = true;
 
   // SET DEFAULT SERVICE POINT
   // if (deviceRegistration.servicePoint == NULL)

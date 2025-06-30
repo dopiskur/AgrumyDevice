@@ -10,7 +10,6 @@
 
 // Model LIB
 #include "Model/DeviceModel.h"
-#include "Model/SensorModel.h"
 
 // Controller LIB
 #include "Controller/DeviceController.h"
