@@ -23,7 +23,7 @@ const char *firmware = "0.1.1";
 const String CONFIG_BASE = "deviceRegistration.json";
 const String CONFIG_DEFAULTS = "config.json";
 
-static JsonDocument jsonData(2048);
+static JsonDocument jsonData;
 static String servicePoint;
 
 static DeviceConfig deviceConfig; // initialize data structure
