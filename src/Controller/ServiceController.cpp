@@ -3,6 +3,7 @@
 #include "HTTPClient.h"
 #include "NTPClient.h"
 #include "ServiceController.h"
+#include "DeviceController.h"
 
 #include <ArduinoJson.h>
 
@@ -12,7 +13,7 @@ static ServiceEndpoint serviceEndpoint; // zasto ga ne zeli inicijalizirat?!
 static String apiAuth;
 
 // Controller
-static DeviceController device;
+// static DeviceController device; // Commented out due to incomplete type error
 
 ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceRequest service)
 {
@@ -81,7 +82,7 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
 } // httpRequest() END
 
 // API Requests
-void ServiceController::apiAuthenticate(DeviceConfig deviceConfig, ServiceRequest serviceRequest)
+void ServiceController::apiAuthenticate(DeviceConfig deviceConfig, ServiceRequest serviceRequest, DeviceController& device)
 {
     Serial.println("[Service] apiAuthentication: ");
     serviceRequest.endpoint = serviceEndpoint.apiAuthenticate;
@@ -106,7 +107,7 @@ void ServiceController::apiAuthenticate(DeviceConfig deviceConfig, ServiceReques
     Serial.println("[Service] apiAuthentication authKey: " + apiAuth); // get authentication key
 }
 
-void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serviceRequest)
+void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serviceRequest, DeviceController& device)
 {
     String configVersion=String(deviceConfig.configVersion); // Casting integer into string for print
 
@@ -127,7 +128,7 @@ void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serv
     if(serviceData.eventlog.errorCode==401){
 
         Serial.println("[Service] apiConfig: failed to authenticate: ");      
-        apiAuthenticate(deviceConfig,serviceRequest);
+        apiAuthenticate(deviceConfig,serviceRequest, device);
         serviceRequest.header.apiAuth = apiAuth;
         serviceData = requestPost(payload, serviceRequest); // trying with new token
     }

@@ -14,6 +14,8 @@
 #include <Adafruit_CCS811.h> // CCS811 CO2, TVOC
 
 #include "SensorController.h"
+#include "DeviceController.h"
+#include "ServiceController.h"
 #include "ControllerController.h"
 
 // Models

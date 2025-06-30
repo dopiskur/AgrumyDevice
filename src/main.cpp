@@ -113,7 +113,7 @@ void loop()
     device.powerRailSecondary(true);
   }
 
-  service.apiConfig(deviceConfig, serviceRequest); // check config
+  service.apiConfig(deviceConfig, serviceRequest, device); // check config
 
   if (deviceConfig.enabled) {
     sensor.buildSensorData(deviceConfig);

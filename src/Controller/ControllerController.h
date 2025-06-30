@@ -4,9 +4,10 @@
 #include <ArduinoJson.h>
 
 #include "../Model/DeviceModel.h"
-#include "../Controller/DeviceController.h"
-#include "../Controller/SensorController.h"
-#include "../Controller/ControllerController.h"
+
+// Forward declarations instead of includes
+class DeviceController;
+class SensorController;
 
 class ControllerController
 {

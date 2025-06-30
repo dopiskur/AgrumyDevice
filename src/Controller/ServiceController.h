@@ -4,8 +4,10 @@
 #include <ArduinoJson.h>
 
 #include "../Model/DeviceModel.h"
-#include "../Controller/DeviceController.h"
-#include "../Controller/SensorController.h"
+
+// Forward declarations
+class DeviceController;
+class SensorController;
 
 class ServiceController
 {
@@ -19,9 +21,9 @@ public:
 
     void errorReport(EventLog eventlog);
 
-    // API Functions
-    void apiAuthenticate(DeviceConfig deviceConfig, ServiceRequest serviceRequest);
-    void apiConfig(DeviceConfig deviceConfig, ServiceRequest serviceRequest);
+    // API Functions - now take DeviceController as parameter
+    void apiAuthenticate(DeviceConfig deviceConfig, ServiceRequest serviceRequest, DeviceController& device);
+    void apiConfig(DeviceConfig deviceConfig, ServiceRequest serviceRequest, DeviceController& device);
     ServiceData apiSensorData(DeviceConfig deviceConfig, ServiceRequest serviceRequest);
 
     JsonDocument buildJson();
