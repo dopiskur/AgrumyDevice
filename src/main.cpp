@@ -92,8 +92,8 @@ void setup()
   sensor.serviceRequest = serviceRequest;
 
 // Start power rail on initializatin by default
-  device.powerRailPrimary(true);
-  device.powerRailSecondary(true);
+  device.powerRailPrimary(true); // for testing purposes only
+  device.powerRailSecondary(true); // for testing purposes only
   delay(1000);
 
   
