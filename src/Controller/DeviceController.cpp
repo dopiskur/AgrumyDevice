@@ -133,12 +133,6 @@ void DeviceController::initializeDevice()
 
   deviceRegistration.initialize = true;
 
-  // SET DEFAULT SERVICE POINT
-  // if (deviceRegistration.servicePoint == NULL)
-  //{
-  //  String serviceDefaultPoint= "api.agrumy.com";
-  //  strcpy(deviceRegistration.servicePoint, serviceDefaultPoint.c_str());
-  //}
 
   JsonDocument config;
   config["userLogin"] = deviceRegistration.userLogin;
@@ -199,9 +193,6 @@ void DeviceController::registerDevice(String configRegistration)
 
   Serial.println("[Device] config: " + serviceData.payload);
 
-  // Build and save config
-  // String data = buildConfig(deviceConfig);
-  // Serial.println("[Device] config: "+ data);
   saveFile(serviceData.payload, "config.json");
   delay(1000);
   reboot();
