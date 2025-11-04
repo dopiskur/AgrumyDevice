@@ -105,17 +105,6 @@ struct SensorType
     
 };
 
-struct ModuleDefaults
-{
-    int moisture_low;
-    int moisture_high;
-    int light_low;
-    int light_high;
-    int water_low;
-    int water_high;
-    int temp_low;
-    int temp_high;
-};
 
 struct ConfigSensor
 {
