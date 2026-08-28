@@ -85,7 +85,7 @@ void setup()
   controller.deviceConfig = deviceConfig;
 
   // Initialize serviceRequest defaults
-  serviceRequest.serviceType = device.serviceType(deviceConfig.deviceTypeServiceID);
+  serviceRequest.serviceType = device.serviceType(deviceConfig.deviceTypeServiceID, serviceRequest.isHttps);
   serviceRequest.servicePoint = deviceConfig.servicePoint;
 
   service.serviceRequest = serviceRequest;

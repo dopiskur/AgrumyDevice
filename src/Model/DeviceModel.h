@@ -255,6 +255,8 @@ struct ServiceHeader{
 struct ServiceRequest
 {
     String serviceType="";
+    bool isHttps=false; // set alongside serviceType by DeviceController::serviceType() - avoids
+                        // re-parsing the "https://" prefix back out of the string in requestPost
     String servicePoint="";
     String endpoint="";
     ServiceHeader header;

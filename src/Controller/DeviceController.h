@@ -39,7 +39,7 @@ public:
     String buildConfig(DeviceConfig deviceConfig);
     DeviceConfig loadConfig(String configJson);                                         // load config from json response
 
-    String serviceType(int deviceServiceTypeID); // fetch http, https, mqtt from deviceServiceTypeID
+    String serviceType(int deviceServiceTypeID, bool& isHttps); // fetch http, https, mqtt from deviceServiceTypeID
 
     // Modules
     String rtc();

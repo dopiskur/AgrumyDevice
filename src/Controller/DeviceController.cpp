@@ -173,7 +173,7 @@ void DeviceController::registerDevice(String configRegistration)
   // Prepare request
   String servicePoint = config["servicePoint"];
   ServiceRequest serviceRequest;
-  serviceRequest.serviceType = serviceType(deviceConfig.deviceTypeServiceID);
+  serviceRequest.serviceType = serviceType(deviceConfig.deviceTypeServiceID, serviceRequest.isHttps);
   serviceRequest.servicePoint = servicePoint;
   serviceRequest.endpoint = serviceEndpoint.apiRegister;
 
@@ -399,7 +399,7 @@ DeviceConfig DeviceController::loadConfig(String configJson)
   return deviceConfig;
 };
 
-String DeviceController::serviceType(int deviceServiceTypeID)
+String DeviceController::serviceType(int deviceServiceTypeID, bool& isHttps)
 {
   String serviceType;
   // String certPublicKey = deviceConfig.servicePublicKey; // not needed
@@ -408,15 +408,19 @@ String DeviceController::serviceType(int deviceServiceTypeID)
   {
   case 0:
     serviceType = "http://";
+    isHttps = false;
     break;
   case 1:
     serviceType = "https://";
+    isHttps = true;
     break;
   case 2:
     serviceType = "mqtt://";
+    isHttps = false;
     break;
   default:
     serviceType = "https://";
+    isHttps = true;
     break;
   }
 

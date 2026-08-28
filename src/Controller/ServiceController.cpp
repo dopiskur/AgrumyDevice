@@ -1,6 +1,7 @@
 #include "Arduino.h"
 #include "WiFi.h"
 #include "HTTPClient.h"
+#include <WiFiClientSecure.h>
 #include "NTPClient.h"
 #include "ServiceController.h"
 #include "DeviceController.h"
@@ -32,7 +33,24 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
         Serial.println("[Service] apiKey: " + service.header.apiKey);
         Serial.println("[Service] authKey: " + apiAuth); // from static
 
-        http.begin(serviceURL);
+        if (service.isHttps)
+        {
+            // KNOWN TEMPORARY COMPROMISE: setInsecure() accepts any server certificate - no
+            // validation, no pinning. This makes explicit (and independent of arduino-esp32's
+            // internal HTTPCLIENT_1_1_COMPATIBLE fallback, which already did the same thing
+            // implicitly for http.begin(serviceURL) on an https:// URL) the same TLS-without-
+            // authentication posture the firmware already had. Replace with setCACert()/a
+            // fingerprint once Agrumy.Api's certificate is known to be stable (see Korak 3).
+            static WiFiClientSecure secureClient;
+            secureClient.setInsecure();
+            http.begin(secureClient, serviceURL);
+        }
+        else
+        {
+            // Plain WiFiClient via the implicit http.begin(url) overload - transitional path
+            // while http:// service points are still in use.
+            http.begin(serviceURL);
+        }
         http.addHeader("Content-Type", "application/json");
         http.addHeader("apiId", service.header.apiId);
         http.addHeader("apiKey", service.header.apiKey);
