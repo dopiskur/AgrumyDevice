@@ -8,6 +8,10 @@
 
 #include <ArduinoJson.h>
 
+// Root CA bundle embedded via platformio.ini's board_build.embed_files - see Korak 3 notes there
+// for how data/cert/x509_crt_bundle.bin is generated.
+extern const uint8_t rootca_crt_bundle_start[] asm("_binary_data_cert_x509_crt_bundle_bin_start");
+
 // Model
 static ServiceRequest serviceRequest;
 static ServiceEndpoint serviceEndpoint; // zasto ga ne zeli inicijalizirat?!
@@ -35,14 +39,26 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
 
         if (service.isHttps)
         {
-            // KNOWN TEMPORARY COMPROMISE: setInsecure() accepts any server certificate - no
-            // validation, no pinning. This makes explicit (and independent of arduino-esp32's
-            // internal HTTPCLIENT_1_1_COMPATIBLE fallback, which already did the same thing
-            // implicitly for http.begin(serviceURL) on an https:// URL) the same TLS-without-
-            // authentication posture the firmware already had. Replace with setCACert()/a
-            // fingerprint once Agrumy.Api's certificate is known to be stable (see Korak 3).
             static WiFiClientSecure secureClient;
-            secureClient.setInsecure();
+            if (deviceConfig.servicePublicKey.length() > 0)
+            {
+                // Self-hosted deployment with a known (often self-signed) certificate: the
+                // operator has pinned it via the admin UI into Device.ServicePublicKey, so pin
+                // that exact cert here too instead of trusting any public CA for this host.
+                secureClient.setCACert(deviceConfig.servicePublicKey.c_str());
+            }
+            else
+            {
+                // Default case: servicePoint is expected to carry a publicly-trusted
+                // certificate (e.g. Let's Encrypt), so validate against the embedded CA bundle
+                // rather than a single hardcoded root - avoids re-flashing every device when
+                // that CA rotates or the deployer switches issuers.
+                // secureClient is static (reused across calls); clear any CA cert a previous
+                // call on this same boot may have set, so a stale pointer can't override the
+                // bundle mode we're selecting now (setCACertBundle() doesn't clear it itself).
+                secureClient.setCACert(nullptr);
+                secureClient.setCACertBundle(rootca_crt_bundle_start);
+            }
             http.begin(secureClient, serviceURL);
         }
         else
