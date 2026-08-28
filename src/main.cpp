@@ -105,6 +105,8 @@ void setup()
 void loop()
 {
   Serial.println("[Loop]-----> Start <-----[Loop]");
+  Serial.print("[Heap] loop start: "); // TEMPORARY DIAGNOSTIC - remove once the heap-leak theory
+  Serial.println(ESP.getFreeHeap());   // is confirmed or ruled out, see task notes
   // Turn ON power rail if battery enabled
   if (deviceConfig.batteryEnabled)
   {

@@ -134,8 +134,24 @@ void ServiceController::apiAuthenticate(DeviceConfig deviceConfig, ServiceReques
         device.reset();
     }
 
-    deserializeJson(payload, serviceData.payload);
-    // String apiAuth = payload["apiAuth"];
+    Serial.print("[Heap] before deserializeJson (apiAuthenticate): "); // TEMPORARY DIAGNOSTIC, see Korak 3
+    Serial.println(ESP.getFreeHeap());
+
+    DeserializationError error = deserializeJson(payload, serviceData.payload);
+    if (error)
+    {
+        // A truncated/corrupted response body (network drop mid-transfer, or a non-JSON error
+        // page) must not silently produce an empty-but-"successful" apiAuth: payload["apiAuth"]
+        // on a failed parse just reads back "" anyway, and the caller would carry on believing
+        // it has a token. Clearing it explicitly here makes the next request's 401 (if any)
+        // reflect the real state and feed Korak 2's failure counter, instead of masking a
+        // parsing failure as a successful re-auth.
+        Serial.print("[Service] apiAuthenticate: deserializeJson failed: ");
+        Serial.println(error.c_str());
+        apiAuth = "";
+        return;
+    }
+
     String output = payload["apiAuth"];
     apiAuth = output;
     Serial.println("[Service] apiAuthentication authKey: " + apiAuth); // get authentication key
@@ -167,11 +183,23 @@ void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serv
         serviceData = requestPost(payload, serviceRequest); // trying with new token
     }
 
+    // Reboots after MAX_CONSECUTIVE_CONFIG_FAILURES in a row rather than on the first one, so a
+    // single transient network hiccup doesn't restart the device - only a run of them, which a
+    // reboot can plausibly fix (clears a fragmented heap) but a single retry already couldn't.
+    static int consecutiveFailures = 0;
+    const int MAX_CONSECUTIVE_CONFIG_FAILURES = 3;
     if(serviceData.eventlog.error){
-        // Send log, then reboot
-        Serial.print("[Service] Error accesing service point: "); // if still failed, reboot
-        Serial.println(serviceData.eventlog.errorCode); // if still failed, reboot
-        // device.reboot();
+        consecutiveFailures++;
+        Serial.print("[Service] Error accesing service point: ");
+        Serial.println(serviceData.eventlog.errorCode);
+        Serial.printf("[Service] Consecutive failed config cycles: %d/%d\n", consecutiveFailures, MAX_CONSECUTIVE_CONFIG_FAILURES);
+        if (consecutiveFailures >= MAX_CONSECUTIVE_CONFIG_FAILURES)
+        {
+            Serial.println("[Service] Too many consecutive failures, rebooting.");
+            device.reboot();
+        }
+    } else {
+        consecutiveFailures = 0;
     }
 
     if(serviceData.payload!=nullptr){
