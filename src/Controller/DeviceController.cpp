@@ -197,8 +197,20 @@ void DeviceController::registerDevice(String configRegistration)
 
   if (serviceData.eventlog.errorCode == 401)
   {
-    Serial.println("[Device] Wrong user or pin, try again. Error: " + serviceData.eventlog.errorCode);
+    Serial.println("[Device] Wrong user or pin - wiping and restarting the config portal");
     reset();
+  }
+
+  // Only a 2xx with a body is a real config. Anything else (5xx, timeout, no WiFi,
+  // empty body) must NOT be written to config.json - that would persist an empty
+  // file and boot-loop. Back off and reboot to retry a clean registration.
+  if ((serviceData.eventlog.errorCode != 200 && serviceData.eventlog.errorCode != 201) ||
+      serviceData.payload.isEmpty())
+  {
+    Serial.println("[Device] Registration failed (code " + String(serviceData.eventlog.errorCode) +
+                   "), retrying after reboot");
+    delay(10000);
+    reboot();
   }
 
   Serial.println("[Device] config: " + serviceData.payload);
