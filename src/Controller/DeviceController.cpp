@@ -173,7 +173,11 @@ void DeviceController::registerDevice(String configRegistration)
   // Prepare request
   String servicePoint = config["servicePoint"];
   ServiceRequest serviceRequest;
-  serviceRequest.serviceType = serviceType(deviceConfig.deviceTypeServiceID, serviceRequest.isHttps);
+  // Registration is the bootstrap call before any server config exists yet -
+  // deviceConfig.deviceTypeServiceID is not meaningful here (it's zero-initialized,
+  // not server-provided). Force HTTPS explicitly since this call carries email+PIN,
+  // the most sensitive payload in the whole flow. See roadmap #25.
+  serviceRequest.serviceType = serviceType(1, serviceRequest.isHttps);
   serviceRequest.servicePoint = servicePoint;
   serviceRequest.endpoint = serviceEndpoint.apiRegister;
 
