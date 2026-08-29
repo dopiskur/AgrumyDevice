@@ -51,10 +51,10 @@ void setup()
 
   String configRegistration = device.loadFile(CONFIG_BASE);
   delay(1000); // bare delay works around a failed-read race
-  if (configRegistration == nullptr)
+  if (configRegistration.isEmpty())
   {
     Serial.println("[Main] Registration file not found, starting initialization...");
-    device.initializeDevice();
+    device.initializeDevice(); // blocks in the Agrumy_<mac> portal, then reboots
   }
 
   device.initializeWifi();
@@ -62,7 +62,7 @@ void setup()
 
   String configDefaults = device.loadFile(CONFIG_DEFAULTS);
   delay(1000); // bare delay works around a failed-read race
-  if (configDefaults == NULL)
+  if (configDefaults.isEmpty())
   {
     Serial.println("[Main] Config file not found, starting initialization...");
     device.registerDevice(configRegistration);

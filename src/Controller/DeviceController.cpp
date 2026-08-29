@@ -79,37 +79,35 @@ String DeviceController::loadFile(String filename)
 {
   String path = "/" + filename;
   File file = LittleFS.open(path, "r");
-  String data;
 
   if (!file || file.isDirectory())
   {
-    Serial.println("Failed to open file for write");
-    data = "Failed to open file for write";
-  }
-  else
-  {
-    Serial.print("Reading file: ");
-    Serial.println(filename);
-    // Bounded read - do not trust available() alone: a corrupt LittleFS size
-    // field spun this loop forever. config/registration are ~2 KB.
-    size_t want = file.size();
-    if (want > 16384)
-    {
-      want = 16384;
-    }
-    data.reserve(want + 1);
-    while (data.length() < want)
-    {
-      int c = file.read();
-      if (c < 0)
-      {
-        break;
-      }
-      data += (char)c;
-    }
-    file.close();
+    Serial.println("[Device] loadFile: cannot open " + path);
+    return String(); // empty => caller treats the file as absent
   }
 
+  Serial.print("Reading file: ");
+  Serial.println(filename);
+
+  // Bounded read - do not trust available() alone: a corrupt LittleFS size
+  // field spun this loop forever. config/registration are ~2 KB.
+  size_t want = file.size();
+  if (want > 16384)
+  {
+    want = 16384;
+  }
+  String data;
+  data.reserve(want + 1);
+  while (data.length() < want)
+  {
+    int c = file.read();
+    if (c < 0)
+    {
+      break;
+    }
+    data += (char)c;
+  }
+  file.close();
   return data;
 };
 
