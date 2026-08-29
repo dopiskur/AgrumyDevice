@@ -25,7 +25,7 @@ public:
 
     String macAddr();
 
-    // SPIFFS-backed
+    // LittleFS-backed
     void saveFile(String data, String filename);
     String loadFile(String filename);
 

@@ -1,7 +1,7 @@
 #include "arduino.h"
 #include <WiFi.h>
 #include <EEPROM.h>
-#include "SPIFFS.h"
+#include "LittleFS.h"
 #include "FS.h"
 #include "WiFiManager.h"
 #include <HTTPClient.h>       // roadmap #3 (OTA): firmware download
@@ -51,15 +51,20 @@ void DeviceController::setupController()
   timeClient.update();
 }
 
+// LittleFS lives in the partition labelled "spiffs" (default scheme, no board_build.partitions):
+// esp32dev / seeed_xiao_esp32c3 (4MB, default.csv) = 1408 KB; esp32s3usbotg (8MB, default_8MB.csv)
+// = 1536 KB. It is a separate flash region from the OTA app partitions (ota_0/ota_1), so roadmap
+// #3 OTA never touches it. Stored today: config.json ~2.2 KB + deviceRegistration.json ~0.15 KB
+// => < 2% used, leaving ~1.35-1.5 MB for the roadmap #9 store-and-forward queue.
 void DeviceController::saveFile(String data, String filename)
 {
   String path = "/" + filename;
-  File file = SPIFFS.open(path, "w");
+  File file = LittleFS.open(path, "w");
 
   if (!file)
   {
     Serial.println("Failed to open file for write, formating device");
-    SPIFFS.format();
+    LittleFS.format();
     return;
   }
 
@@ -73,7 +78,7 @@ void DeviceController::saveFile(String data, String filename)
 String DeviceController::loadFile(String filename)
 {
   String path = "/" + filename;
-  File file = SPIFFS.open(path);
+  File file = LittleFS.open(path);
   String data;
 
   if (!file)
@@ -343,7 +348,7 @@ bool DeviceController::firmwareUpdate(String url, bool isHttps)
 
 void DeviceController::reset()
 {
-  SPIFFS.format();
+  LittleFS.format();
   ESP.restart();
 }
 

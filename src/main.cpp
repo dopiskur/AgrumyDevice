@@ -1,7 +1,7 @@
 #include <NTPClient.h>
 #include <ESP.h>
 #include "EEPROM.h"
-#include "SPIFFS.h"
+#include "LittleFS.h"
 #include <Wire.h>
 #include <ArduinoJson.h>
 
@@ -38,7 +38,7 @@ void setup()
   Serial.println();
   Serial.println("[Initialization started]");
 
-  SPIFFS.begin();
+  LittleFS.begin(true); // format-on-fail: first boot after the SPIFFS->LittleFS switch reformats the partition
   EEPROM.begin(512);
   delay(500);
 
