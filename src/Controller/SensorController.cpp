@@ -2,7 +2,6 @@
 #include <ArduinoJson.h>
 #include <SPI.h>
 
-// Sensor libraries
 #include <Wire.h>
 #include <DHT.h> // DHT temp, humidity
 #include <DHT_U.h>
@@ -18,21 +17,17 @@
 #include "ServiceController.h"
 #include "ControllerController.h"
 
-// Models
 DeviceConfig deviceConfig;
 ServiceEndpoint serviceEndpoint;
 
-// Controllers
 DeviceController device;
 ServiceController service;
 ControllerController controller;
 
-// static vars
 static JsonDocument jsonDoc;
-static JsonArray sensorDataJsonArray = jsonDoc.to<JsonArray>(); // prepare array with structure
+static JsonArray sensorDataJsonArray = jsonDoc.to<JsonArray>();
 static String dateTime;
 
-// Sensors
 static Adafruit_CCS811 ccs811;                               // Co2, Tvoc
 static DHT_Unified dht11(deviceConfig.configPin.DHT, DHT11); // temp, humidity
 static DHT_Unified dht22(deviceConfig.configPin.DHT, DHT22); // temp, humidity
@@ -48,8 +43,6 @@ static unsigned bh1750status;
 void SensorController::setupSensor()
 {
     Serial.println("[Sensor setup]");
-    // early initalization of sensors
-    // DHT 11 temp, humid
 
     dht11.begin();
     dht22.begin();
@@ -65,8 +58,6 @@ void SensorController::setupSensor()
 
     delay(5000);
 }
-
-//// Read sensor data
 
 // Temperature and humidity sensors
 
@@ -272,8 +263,6 @@ void SensorController::sensor_CCS811_co2()
     // CO2 and TVOC sensor, needs time (~20min) to heat up and give info
     EventLog eventlog;
     Serial.println("[Sensor] CCS811 Co2");
-    // Adafruit_CCS811 ccs;
-    // ccs.begin(0x5A); // 0x5B is default
 
     if (ccs811.available())
     {
@@ -297,8 +286,6 @@ void SensorController::sensor_CCS811_tvoc()
     // CO2 and TVOC sensor, needs time (~20min) to heat up and give info
     EventLog eventlog;
     Serial.println("[Sensor] CCS811 Tvoc");
-    // Adafruit_CCS811 ccs;
-    // ccs.begin(0x5A); // 0x5B is default
 
     if (ccs811.available())
     {
@@ -332,7 +319,7 @@ void SensorController::sensor_analog_moist()
     int moisture = analogRead(device.deviceConfig.configPin.MOIST);
 
     Serial.print("Analog: ");
-    Serial.println(moisture); // analog value
+    Serial.println(moisture);
 
     int soilWet = 1200; // Define max value we consider soil 'wet'
     int soilDry = 3000;
@@ -349,9 +336,7 @@ void SensorController::sensor_analog_moist()
         Serial.println("Status: Soil is too dry");
     }
 
-    // implementiraj racunanje u postotak!!@!
-    //  create % value, 100/4096=0,0244140625
-    // moisture = 100-moisture; //create to scale from 0 to 100;
+    // TODO: convert raw reading to a 0-100 percentage (100/4096 per step)
 
     if (moisture != 0)
     {
@@ -364,7 +349,7 @@ void SensorController::sensor_analog_moist()
 
     device.powerRailSecondary(false);
     Serial.println();
-    // if 0 evenlog error, no sensor present!
+    // TODO: eventlog error when reading is 0 (no sensor present)
 }
 void SensorController::sensor_Wind()
 {
@@ -382,7 +367,7 @@ void SensorController::sensor_analog_waterLevel()
     int waterTank = analogRead(device.deviceConfig.configPin.WaterTank);
 
     Serial.print("Analog: ");
-    Serial.println(waterTank); // analog value
+    Serial.println(waterTank);
 
     sensorData.moisture = waterTank;
     
@@ -410,7 +395,7 @@ void SensorController::buildSensorDataPayload()
     jsonSensorData["deviceUnitZoneID"]=deviceConfig.deviceUnitZoneID;
 
 
-    jsonSensorData["temperature"]=(sensorData.temperature)!=""? sensorData.temperature:  JsonVariant(); // before it was (char*)0; instead of JsonVariant(); but it was memory unsafe
+    jsonSensorData["temperature"]=(sensorData.temperature)!=""? sensorData.temperature:  JsonVariant(); // JsonVariant() for null; (char*)0 was memory-unsafe
     jsonSensorData["soilTemperature"]=(sensorData.temperatureSoil)!=""? sensorData.temperatureSoil:  JsonVariant();
     jsonSensorData["humidity"]=(sensorData.humidity)!=""? sensorData.humidity:  JsonVariant();
     jsonSensorData["battery"]=(sensorData.battery)!=""? sensorData.battery:  JsonVariant();
@@ -423,9 +408,9 @@ void SensorController::buildSensorDataPayload()
     jsonSensorData["rainLevel"]=(sensorData.rainLevel)!=""? sensorData.rainLevel:  JsonVariant();
     jsonSensorData["waterLevel"]=(sensorData.waterLevel)!=""? sensorData.waterLevel:  JsonVariant();
     jsonSensorData["wind"]=(sensorData.wind)!=""? sensorData.wind:  JsonVariant();
-    jsonSensorData["dateCreated"]=(device.getDateTime())!=""? device.getDateTime():  JsonVariant(); // adding datetime stamp for buffering purposes
+    jsonSensorData["dateCreated"]=(device.getDateTime())!=""? device.getDateTime():  JsonVariant(); // timestamp for buffering
 
-    sensorDataJsonArray.add(jsonSensorData); // add document to array, buffering data if servicepoint not available
+    sensorDataJsonArray.add(jsonSensorData); // buffer if the service point is unavailable
 
     String sensorDataDebug;
     serializeJsonPretty(jsonSensorData,sensorDataDebug);
@@ -440,7 +425,6 @@ void SensorController::pushSensorData(JsonDocument payload){
 
     serviceRequest.endpoint = serviceEndpoint.apiSensorDataPost;
     serviceRequest.header.apiId = deviceConfig.apiId;
-    //prvo to treba prevorit u array;
     ServiceData serviceData = service.requestPost(payload,serviceRequest);
     if(serviceData.eventlog.errorCode==200){
         Serial.println("[Sensor] SensorData uploadad, reseting sensorData buffer");
@@ -653,7 +637,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
 
     buildSensorDataPayload();
 
-    // start controller
     if(deviceConfig.deviceControllerEnabled){
         controller.initController(sensorData);
     }

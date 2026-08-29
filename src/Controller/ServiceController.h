@@ -21,7 +21,7 @@ public:
 
     void errorReport(EventLog eventlog);
 
-    // API Functions - now take DeviceController as parameter
+    // API functions
     void apiAuthenticate(DeviceConfig deviceConfig, ServiceRequest serviceRequest, DeviceController& device);
     void apiConfig(DeviceConfig deviceConfig, ServiceRequest serviceRequest, DeviceController& device);
     ServiceData apiSensorData(DeviceConfig deviceConfig, ServiceRequest serviceRequest);
@@ -29,6 +29,5 @@ public:
     JsonDocument buildJson();
 
 private:
-    // ServiceData serviceData;
 };
 #endif

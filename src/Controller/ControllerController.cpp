@@ -1,5 +1,5 @@
 #include "arduino.h"
-#include <WiFi.h> //wifi connection WiFi.begin(ssid, password)
+#include <WiFi.h>
 #include <EEPROM.h>
 #include "SPIFFS.h"
 #include "FS.h"
@@ -13,7 +13,6 @@ static DeviceDefaults deviceDefaults;
 static DeviceConfig deviceConfig;
 static ServiceEndpoint serviceEndpoint;
 
-// Milis vars
 unsigned long millisCurrent;
 unsigned long millisStartVentilation;
 unsigned long millisStartVentilationLenght;
@@ -34,7 +33,6 @@ void ControllerController::intervalVentilation()
 {
     millisCurrent = millis();   
 
-    // wait time before the loop starts again
     if (deviceConfig.configController.ventilationIntervalEnabled)
     {
         if(!(millisCurrent - millisStartVentilation >= deviceConfig.configController.ventilationInterval*1000)){
@@ -50,7 +48,7 @@ void ControllerController::intervalVentilation()
         int relay7=0;
         int relay8=0;
 
-        if(deviceConfig.configController.relay1==1) { relay1 = deviceConfig.configPin.RELAY_1; } ;// 1 is value of ventilation
+        if(deviceConfig.configController.relay1==1) { relay1 = deviceConfig.configPin.RELAY_1; } ;
         if(deviceConfig.configController.relay2==1) { relay2 = deviceConfig.configPin.RELAY_2; } ;
         if(deviceConfig.configController.relay3==1) { relay3 = deviceConfig.configPin.RELAY_3; } ;
         if(deviceConfig.configController.relay4==1) { relay4 = deviceConfig.configPin.RELAY_4; } ;
@@ -90,7 +88,6 @@ void ControllerController::intervalLight()
 {
 millisCurrent = millis();   
 
-    // wait time before the loop starts again
     if (deviceConfig.configController.lightIntervalEnabled)
     {
         if(!(millisCurrent - millisStartLight >= deviceConfig.configController.lightInterval*1000)){
@@ -106,7 +103,7 @@ millisCurrent = millis();
         int relay7=0;
         int relay8=0;
 
-        if(deviceConfig.configController.relay1==1) { relay1 = deviceConfig.configPin.RELAY_1; } ;// 1 is value of ventilation
+        if(deviceConfig.configController.relay1==1) { relay1 = deviceConfig.configPin.RELAY_1; } ;
         if(deviceConfig.configController.relay2==1) { relay2 = deviceConfig.configPin.RELAY_2; } ;
         if(deviceConfig.configController.relay3==1) { relay3 = deviceConfig.configPin.RELAY_3; } ;
         if(deviceConfig.configController.relay4==1) { relay4 = deviceConfig.configPin.RELAY_4; } ;
@@ -145,7 +142,6 @@ void ControllerController::intervalHeating()
 {
 millisCurrent = millis();   
 
-    // wait time before the loop starts again
     if (deviceConfig.configController.heatingIntervalEnabled)
     {
         if(!(millisCurrent - millisStartHeating >= deviceConfig.configController.heatingInterval*1000)){
@@ -161,7 +157,7 @@ millisCurrent = millis();
         int relay7=0;
         int relay8=0;
 
-        if(deviceConfig.configController.relay1==1) { relay1 = deviceConfig.configPin.RELAY_1; } ;// 1 is value of ventilation
+        if(deviceConfig.configController.relay1==1) { relay1 = deviceConfig.configPin.RELAY_1; } ;
         if(deviceConfig.configController.relay2==1) { relay2 = deviceConfig.configPin.RELAY_2; } ;
         if(deviceConfig.configController.relay3==1) { relay3 = deviceConfig.configPin.RELAY_3; } ;
         if(deviceConfig.configController.relay4==1) { relay4 = deviceConfig.configPin.RELAY_4; } ;
@@ -200,7 +196,6 @@ void ControllerController::intervalWaterPump()
 {
 millisCurrent = millis();   
 
-    // wait time before the loop starts again
     if (deviceConfig.configController.waterPumpIntervalEnabled)
     {
         if(!(millisCurrent - millisStartWaterPump >= deviceConfig.configController.waterPumpInterval*1000)){
@@ -216,7 +211,7 @@ millisCurrent = millis();
         int relay7=0;
         int relay8=0;
 
-        if(deviceConfig.configController.relay1==1) { relay1 = deviceConfig.configPin.RELAY_1; } ;// 1 is value of ventilation
+        if(deviceConfig.configController.relay1==1) { relay1 = deviceConfig.configPin.RELAY_1; } ;
         if(deviceConfig.configController.relay2==1) { relay2 = deviceConfig.configPin.RELAY_2; } ;
         if(deviceConfig.configController.relay3==1) { relay3 = deviceConfig.configPin.RELAY_3; } ;
         if(deviceConfig.configController.relay4==1) { relay4 = deviceConfig.configPin.RELAY_4; } ;
@@ -256,13 +251,10 @@ millisCurrent = millis();
 void ControllerController::initController(SensorData sensorData)
 {
 
-    // run controller on interval
     intervalVentilation();
     intervalLight();
     intervalHeating();
     intervalWaterPump();
-
-    // run controller on sensor values
 
     switch (deviceConfig.configController.relay1)
     {
@@ -474,7 +466,7 @@ void ControllerController::relayVentilation(int relayPin, SensorData sensorData)
         Serial.println("[Power rail off]");
     }
 
-    delay(500); // delay for startup
+    delay(500);
 };
 
 void ControllerController::relayWaterPump(int relayPin, SensorData sensorData)
@@ -494,7 +486,7 @@ void ControllerController::relayWaterPump(int relayPin, SensorData sensorData)
         digitalWrite(powerPin, LOW);
         Serial.println("[Power rail off]");
     }
-    delay(500); // delay for startup
+    delay(500);
 };
 
 void ControllerController::relayHeating(int relayPin, SensorData sensorData)
@@ -514,7 +506,7 @@ void ControllerController::relayHeating(int relayPin, SensorData sensorData)
         digitalWrite(powerPin, LOW);
         Serial.println("[Power rail off]");
     }
-    delay(500); // delay for startup
+    delay(500);
 };
 
 void ControllerController::relayLight(int relayPin, SensorData sensorData)
@@ -534,5 +526,5 @@ void ControllerController::relayLight(int relayPin, SensorData sensorData)
         digitalWrite(powerPin, LOW);
         Serial.println("[Power rail off]");
     }
-    delay(500); // delay for startup
+    delay(500);
 };

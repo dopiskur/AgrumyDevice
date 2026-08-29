@@ -1,5 +1,5 @@
 #include "arduino.h"
-#include <WiFi.h> //wifi connection WiFi.begin(ssid, password)
+#include <WiFi.h>
 #include <EEPROM.h>
 #include "SPIFFS.h"
 #include "FS.h"
@@ -11,25 +11,21 @@
 #include "DeviceController.h"
 #include "ServiceController.h"
 
-#include <NTPClient.h> // Time library
-#include <WiFiUdp.h>   // Time library requriment
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 
-// Same embedded CA bundle ServiceController::requestPost() validates against - declared
-// there as the canonical spot; re-declared here for the OTA download in firmwareUpdate().
+// Same CA bundle ServiceController::requestPost() validates against; re-declared here for the OTA download.
 extern const uint8_t rootca_crt_bundle_start[] asm("_binary_data_cert_x509_crt_bundle_bin_start");
 
-static ServiceController service; // Static rjesava problem s konfliktom u mainu
+static ServiceController service; // static resolves a conflict with main
 
-// Models
 static DeviceDefaults deviceDefaults;
 static DeviceConfig deviceConfig;
 static ServiceEndpoint serviceEndpoint;
 
-// MAC ID, ovo mozda vise nije potrebno jer imamo chipid = ESP.getEfuseMac(), ali i tako moram preradit MAC u string bez dvotocke;
 DeviceRegistration deviceRegistration;
 JsonDocument config;
 
-// Time
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP);
 
@@ -83,7 +79,6 @@ String DeviceController::loadFile(String filename)
   if (!file)
   {
     Serial.println("Failed to open file for write");
-    // napravi format!!!
     data = "Failed to open file for write";
   }
   else
@@ -105,20 +100,14 @@ void DeviceController::initializeWifi()
 
   WiFi.mode(WIFI_STA);
   WiFiManager wifiManager;
-
-  // wifiManager.autoConnect(deviceConfig.WifiSSID.c_str(), deviceConfig.WifiPassword.c_str());
   wifiManager.autoConnect();
-
-  // wifiManager.resetSettings();
 }
 
 void DeviceController::initializeDevice()
 {
   Serial.println("[Device]: initializeDevice");
-  // Start Wifi
   WiFi.mode(WIFI_STA);
 
-  // Connect to WiFi
   WiFi.mode(WIFI_STA);
   WiFiManager wifiManager;
   wifiManager.setCaptivePortalEnable(false);
@@ -133,8 +122,7 @@ void DeviceController::initializeDevice()
 
   wifiManager.startConfigPortal(("Agrumy_" + macAddr()).c_str());
 
-  // Saving backup values to EEPROM
-  strncpy(deviceRegistration.userLogin, userLogin.getValue(), 128); // ovo je nepotrebno, krc zesci, moze odmah u string, ali manje problema
+  strncpy(deviceRegistration.userLogin, userLogin.getValue(), 128);
   strncpy(deviceRegistration.devicePin, userPin.getValue(), 8);
   strncpy(deviceRegistration.servicePoint, servicePoint.getValue(), 256);
 
@@ -160,7 +148,7 @@ void DeviceController::initializeDevice()
 };
 
 void DeviceController::registerDevice(String configRegistration)
-{ // register device on API
+{
   Serial.println("[Device] Loading registration data " + configRegistration);
 
   DeserializationError error = deserializeJson(config, configRegistration);
@@ -177,25 +165,20 @@ void DeviceController::registerDevice(String configRegistration)
   payload["devicePin"] = config["devicePin"];
   payload["serviceType"] = deviceDefaults.serviceType;
 
-  // Prepare request
   String servicePoint = config["servicePoint"];
   ServiceRequest serviceRequest;
-  // Registration is the bootstrap call before any server config exists yet -
-  // deviceConfig.deviceTypeServiceID is not meaningful here (it's zero-initialized,
-  // not server-provided). Force HTTPS explicitly since this call carries email+PIN,
-  // the most sensitive payload in the whole flow. See roadmap #25.
+  // Bootstrap call carrying email+PIN before any server config exists, so force HTTPS (roadmap #25).
   serviceRequest.serviceType = serviceType(1, serviceRequest.isHttps);
   serviceRequest.servicePoint = servicePoint;
   serviceRequest.endpoint = serviceEndpoint.apiRegister;
 
-  String serviceURL = serviceRequest.serviceType + serviceRequest.servicePoint + serviceRequest.endpoint; // OVO MORAMO NEGDJE EKSTRAKTAT KAO KONSTANTU
+  String serviceURL = serviceRequest.serviceType + serviceRequest.servicePoint + serviceRequest.endpoint; // TODO: extract as a constant
   Serial.println("[Device] Fetching config from " + serviceURL);
   String exitData;
-  serializeJsonPretty(payload, exitData);          // for debug only
-  Serial.println("[Device] Payload: " + exitData); // for debug only
+  serializeJsonPretty(payload, exitData);
+  Serial.println("[Device] Payload: " + exitData);
   ServiceData serviceData = service.requestPost(payload, serviceRequest);
 
-  // Check for error
   if (serviceData.eventlog.errorCode == 401)
   {
     Serial.println("[Device] Wrong user or pin, try again. Error: " + serviceData.eventlog.errorCode);
@@ -209,18 +192,17 @@ void DeviceController::registerDevice(String configRegistration)
   reboot();
 }
 
-String DeviceController::macAddr() // get MAC address as ID
+String DeviceController::macAddr()
 {
   byte mac[6];
   WiFi.macAddress(mac);
   char macAddr[18];
   sprintf(macAddr, "%2X%2X%2X%2X%2X%2X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-  for (int i = 0; i < 18; i++) // zamjene razmaka sa nulom
+  for (int i = 0; i < 18; i++) // pad spaces with '0'
   {
     if (macAddr[i] == ' ')
       macAddr[i] = '0';
   }
-  // Serial.println(macAddr);
   return macAddr;
 }
 
@@ -239,7 +221,7 @@ void DeviceController::powerRailPrimary(bool state)
     digitalWrite(powerPin, LOW);
     Serial.println("[Power rail off]");
   }
-  delay(500); // delay for startup
+  delay(500);
 }
 
 void DeviceController::powerRailSecondary(bool state)
@@ -259,7 +241,7 @@ void DeviceController::powerRailSecondary(bool state)
     digitalWrite(powerPin, LOW);
     Serial.println("[Power analog sensor off]");
   }
-  delay(500); // delay for startup
+  delay(500);
 }
 
 void DeviceController::sleep()
@@ -287,11 +269,7 @@ void DeviceController::reboot()
   ESP.restart();
 }
 
-// roadmap #3 (OTA). Streams a .bin from `url` straight into the inactive OTA app
-// partition via the Arduino-ESP32 Update library. Returns true only when the image
-// is fully written and verified - the caller then reboot()s into it. On any failure
-// it returns false and leaves the running firmware untouched (no brick): the config
-// loop just retries next cycle.
+// roadmap #3 (OTA): stream `url` into the inactive OTA partition; returns true once fully written and verified (caller reboots), false leaves the running firmware untouched.
 bool DeviceController::firmwareUpdate(String url, bool isHttps)
 {
   Serial.println("[Firmware] Starting OTA update from: " + url);
@@ -307,8 +285,7 @@ bool DeviceController::firmwareUpdate(String url, bool isHttps)
 
   if (isHttps)
   {
-    // Same trust setup as ServiceController::requestPost()'s default branch: validate
-    // against the embedded CA bundle (no per-host cert pinning for the firmware CDN).
+    // Validate against the embedded CA bundle, same as ServiceController::requestPost().
     secureClient.setCACert(nullptr);
     secureClient.setCACertBundle(rootca_crt_bundle_start);
     http.begin(secureClient, url);
@@ -372,9 +349,7 @@ void DeviceController::reset()
 
 String DeviceController::saveValusOnError()
 {
-  // ovdje treba biti lista
-  // https://appdividend.com/2022/03/22/cpp-list/#:~:text=C%2B%2B%20List%20is%20a%20built,Template%20Library)%20in%20C%2B%2B.;
-  // not implemented, should add json results into list, write every 10x results on disk
+  // not implemented: should buffer JSON results in a list and flush every 10 to disk
   return "list";
 }
 
@@ -389,19 +364,17 @@ DeviceConfig DeviceController::loadConfig(String configJson)
     Serial.print("[Device] Load Config; deserializeJson() failed: ");
     Serial.println(error.c_str());
     deviceConfig.eventlog.error = true;
-    deviceConfig.eventlog.errorCode = 20; // error code 10 will be used for deserialze fail
+    deviceConfig.eventlog.errorCode = 20; // 10 is reserved for deserialize fail
     deviceConfig.eventlog.errorData = error.c_str();
 
     return deviceConfig;
   }
 
-  // Config to string
   String servicePoint = config["servicePoint"];
   String servicePublicKey = config["servicePublicKey"];
   String apiId = config["apiId"];
   String apiKey = config["apiKey"];
 
-  // Set config
   deviceConfig.configVersion = config["configVersion"];
 
   deviceConfig.tenantID = config["tenantID"];
@@ -492,7 +465,6 @@ DeviceConfig DeviceController::loadConfig(String configJson)
 String DeviceController::serviceType(int deviceServiceTypeID, bool& isHttps)
 {
   String serviceType;
-  // String certPublicKey = deviceConfig.servicePublicKey; // not needed
 
   switch (deviceServiceTypeID)
   {

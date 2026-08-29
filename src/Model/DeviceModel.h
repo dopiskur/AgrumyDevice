@@ -2,10 +2,6 @@
 #define DATASTRUCTURE_H
 #include "Arduino.h"
 
-// mozda dodati uptime?
-// D15 pin ostavi za hard reset na gumb
-
-
 struct DeviceDefaults {
     String servicePoint = "api.agrumy.com";
     int serviceType = 1; // 0 http, 1 https, 2 mqtt
@@ -27,7 +23,7 @@ struct EventLog
     String errorData ="";
 };
 
-struct ConfigPin // default values, can not be changed during setup phaze
+struct ConfigPin // default values, cannot be changed during the setup phase
 {
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
     // ---------------------------------------------------------------------------
@@ -115,7 +111,6 @@ struct ConfigPin // default values, can not be changed during setup phaze
 
 struct ModuleEnabled
 {
-    // modules
     bool moisture; // analog
     bool waterLevel;   // Analog water level
     bool dht;          // temperature, moisture
@@ -151,7 +146,6 @@ struct RelayFunction
 
 struct SensorType
 {
-    // values
     String battery;
     String temperature; // DHT, BMP180, BME280,
     String humidity;    // DHT, BME280,
@@ -217,19 +211,17 @@ struct ConfigController
 };
 
 
-// Structure Config
 struct DeviceConfig
 {
     // User input
-    String WifiSSID; 
-    String WifiPassword; 
+    String WifiSSID;
+    String WifiPassword;
     String userLogin; // Device registration
     String devicePin; // Device registration
 
     // Service config
     int configVersion;
 
-    // Config
     int tenantID;
     int deviceID;
     int deviceUnitID;
@@ -259,17 +251,10 @@ struct DeviceConfig
     ConfigPin configPin;
     
     EventLog eventlog;
-
-    //ModuleEnabled moduleEnabled;
-    //SensorType sensorType;
-    //ModuleDefaults moduleDefaults;   
-    //RelayFunction relayFunction;
-    
 };
 
 
 
-// Structure Sensor
 struct SensorData
 {
     int tenantID;
@@ -312,8 +297,7 @@ struct ServiceHeader{
 struct ServiceRequest
 {
     String serviceType="";
-    bool isHttps=false; // set alongside serviceType by DeviceController::serviceType() - avoids
-                        // re-parsing the "https://" prefix back out of the string in requestPost
+    bool isHttps=false; // set alongside serviceType by DeviceController::serviceType(), so requestPost need not re-parse the prefix
     String servicePoint="";
     String endpoint="";
     ServiceHeader header;

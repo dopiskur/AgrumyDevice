@@ -8,17 +8,12 @@
 
 #include <ArduinoJson.h>
 
-// Root CA bundle embedded via platformio.ini's board_build.embed_files - see Korak 3 notes there
-// for how data/cert/x509_crt_bundle.bin is generated.
+// Root CA bundle embedded via platformio.ini board_build.embed_files (see roadmap #3 notes).
 extern const uint8_t rootca_crt_bundle_start[] asm("_binary_data_cert_x509_crt_bundle_bin_start");
 
-// Model
 static ServiceRequest serviceRequest;
-static ServiceEndpoint serviceEndpoint; // zasto ga ne zeli inicijalizirat?!
+static ServiceEndpoint serviceEndpoint;
 static String apiAuth;
-
-// Controller
-// static DeviceController device; // Commented out due to incomplete type error
 
 ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceRequest service)
 {
@@ -27,7 +22,6 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
 
     serializeJsonPretty(jsonBuffer, jsonRequest);
 
-    // wait for WiFi connection
     if ((WiFi.status() == WL_CONNECTED))
     {
         HTTPClient http;
@@ -35,27 +29,20 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
         Serial.println("[Service] POST: " + serviceURL);
         Serial.println("[Service] apiId: " + service.header.apiId);
         Serial.println("[Service] apiKey: " + service.header.apiKey);
-        Serial.println("[Service] authKey: " + apiAuth); // from static
+        Serial.println("[Service] authKey: " + apiAuth);
 
         if (service.isHttps)
         {
             static WiFiClientSecure secureClient;
             if (deviceConfig.servicePublicKey.length() > 0)
             {
-                // Self-hosted deployment with a known (often self-signed) certificate: the
-                // operator has pinned it via the admin UI into Device.ServicePublicKey, so pin
-                // that exact cert here too instead of trusting any public CA for this host.
+                // Self-hosted deployment: operator pinned a (often self-signed) cert via the admin UI, so pin exactly that.
                 secureClient.setCACert(deviceConfig.servicePublicKey.c_str());
             }
             else
             {
-                // Default case: servicePoint is expected to carry a publicly-trusted
-                // certificate (e.g. Let's Encrypt), so validate against the embedded CA bundle
-                // rather than a single hardcoded root - avoids re-flashing every device when
-                // that CA rotates or the deployer switches issuers.
-                // secureClient is static (reused across calls); clear any CA cert a previous
-                // call on this same boot may have set, so a stale pointer can't override the
-                // bundle mode we're selecting now (setCACertBundle() doesn't clear it itself).
+                // Publicly-trusted cert: validate against the embedded CA bundle so CA rotation doesn't force a re-flash.
+                // secureClient is static, so clear any CA cert a previous call set (setCACertBundle() doesn't).
                 secureClient.setCACert(nullptr);
                 secureClient.setCACertBundle(rootca_crt_bundle_start);
             }
@@ -63,8 +50,7 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
         }
         else
         {
-            // Plain WiFiClient via the implicit http.begin(url) overload - transitional path
-            // while http:// service points are still in use.
+            // Plain HTTP transitional path while http:// service points still exist.
             http.begin(serviceURL);
         }
         http.addHeader("Content-Type", "application/json");
@@ -74,16 +60,13 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
 
         int httpCode = http.POST(jsonRequest);
 
-        // httpCode will be negative on error
+        // httpCode is negative on error
         if (httpCode > 0)
         {
-            // HTTP header has been send and Server response header has been handled
             Serial.print("[HTTP] Code: ");
             Serial.println(httpCode);
             serviceData.eventlog.errorCode = httpCode;
 
-            // file found at server
-            // if (httpCode == HTTP_CODE_OK) {
             if (httpCode == 200 || httpCode == 201)
             {
                 serviceData.eventlog.error = false;
@@ -93,8 +76,6 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
             {
                 serviceData.eventlog.error = true;
             }
-
-            // write Eventlog
         }
         else
         {
@@ -113,9 +94,9 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
         serviceData.eventlog.errorData = "Wifi not available";
     }
     return serviceData;
-} // httpRequest() END
+}
 
-// API Requests
+// API requests
 void ServiceController::apiAuthenticate(DeviceConfig deviceConfig, ServiceRequest serviceRequest, DeviceController& device)
 {
     Serial.println("[Service] apiAuthentication: ");
@@ -130,22 +111,16 @@ void ServiceController::apiAuthenticate(DeviceConfig deviceConfig, ServiceReques
 
     if(serviceData.eventlog.errorCode==401){
         Serial.println("[Service] Device failed authentication, reseting device to defaults...");
-        //send log;
         device.reset();
     }
 
-    Serial.print("[Heap] before deserializeJson (apiAuthenticate): "); // TEMPORARY DIAGNOSTIC, see Korak 3
+    Serial.print("[Heap] before deserializeJson (apiAuthenticate): "); // TEMPORARY DIAGNOSTIC (roadmap #3)
     Serial.println(ESP.getFreeHeap());
 
     DeserializationError error = deserializeJson(payload, serviceData.payload);
     if (error)
     {
-        // A truncated/corrupted response body (network drop mid-transfer, or a non-JSON error
-        // page) must not silently produce an empty-but-"successful" apiAuth: payload["apiAuth"]
-        // on a failed parse just reads back "" anyway, and the caller would carry on believing
-        // it has a token. Clearing it explicitly here makes the next request's 401 (if any)
-        // reflect the real state and feed Korak 2's failure counter, instead of masking a
-        // parsing failure as a successful re-auth.
+        // A truncated/corrupt body must not leave a blank-but-"successful" apiAuth; clear it so the next 401 reflects real state and feeds the failure counter.
         Serial.print("[Service] apiAuthenticate: deserializeJson failed: ");
         Serial.println(error.c_str());
         apiAuth = "";
@@ -154,12 +129,12 @@ void ServiceController::apiAuthenticate(DeviceConfig deviceConfig, ServiceReques
 
     String output = payload["apiAuth"];
     apiAuth = output;
-    Serial.println("[Service] apiAuthentication authKey: " + apiAuth); // get authentication key
+    Serial.println("[Service] apiAuthentication authKey: " + apiAuth);
 }
 
 void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serviceRequest, DeviceController& device)
 {
-    String configVersion=String(deviceConfig.configVersion); // Casting integer into string for print
+    String configVersion=String(deviceConfig.configVersion);
 
     Serial.print("[Service] Current configVersion: ");
     Serial.println(configVersion);
@@ -171,21 +146,19 @@ void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serv
 
     ServiceData serviceData;
     JsonDocument payload;
-    payload["ConfigVersion"] = configVersion; // checking for the version
+    payload["ConfigVersion"] = configVersion;
 
     serviceData = requestPost(payload, serviceRequest);
 
     if(serviceData.eventlog.errorCode==401){
 
-        Serial.println("[Service] apiConfig: failed to authenticate: ");      
+        Serial.println("[Service] apiConfig: failed to authenticate: ");
         apiAuthenticate(deviceConfig,serviceRequest, device);
         serviceRequest.header.apiAuth = apiAuth;
-        serviceData = requestPost(payload, serviceRequest); // trying with new token
+        serviceData = requestPost(payload, serviceRequest);
     }
 
-    // Reboots after MAX_CONSECUTIVE_CONFIG_FAILURES in a row rather than on the first one, so a
-    // single transient network hiccup doesn't restart the device - only a run of them, which a
-    // reboot can plausibly fix (clears a fragmented heap) but a single retry already couldn't.
+    // Reboot only after several failed cycles in a row - a reboot clears a fragmented heap but shouldn't fire on one transient hiccup.
     static int consecutiveFailures = 0;
     const int MAX_CONSECUTIVE_CONFIG_FAILURES = 3;
     if(serviceData.eventlog.error){
@@ -202,10 +175,7 @@ void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serv
         consecutiveFailures = 0;
     }
 
-    // Roadmap #3 (OTA): work out the firmware state from the config we're about to run
-    // with - the freshly received one if there is a new config, otherwise the config we
-    // booted with (covers the case where the admin sets the flag without bumping
-    // configVersion, so the server replies 200 with no body).
+    // roadmap #3 (OTA): derive firmware state from the config about to run - the new one if received, else the boot config (admin may set the flag without bumping configVersion -> 200, no body).
     bool   fwFlag    = deviceConfig.firmwareUpdate;
     String fwVersion = deviceConfig.firmwareVersion;
     String fwUrl     = deviceConfig.firmwareUrl;
@@ -214,7 +184,7 @@ void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serv
         Serial.println(serviceData.payload);
         Serial.println("[Service] New config received, saving new config");
         device.saveFile(serviceData.payload, "config.json");
-        delay(1000); // Delay for write action
+        delay(1000); // let the write settle
 
         JsonDocument newCfg;
         if (deserializeJson(newCfg, serviceData.payload) == DeserializationError::Ok) {
@@ -224,9 +194,7 @@ void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serv
         }
     }
 
-    // Only OTA when the server asks for it AND offers a version different from the one
-    // compiled into this image - a stale flag must not loop us into re-download/reboot
-    // forever. Do this BEFORE the reboot below so we don't waste a whole config cycle.
+    // OTA only when the server asks AND the offered version differs from this image, so a stale flag can't loop forever; do it before the reboot below.
     extern const char *firmware; // main.cpp
     if (fwFlag && fwUrl.length() > 0 && fwVersion != String(firmware)) {
         bool otaHttps = fwUrl.startsWith("https://") || fwUrl.startsWith("HTTPS://");

@@ -1,23 +1,17 @@
-// ESP32 libraries
 #include <NTPClient.h>
-#include <ESP.h> //ESP sleep
+#include <ESP.h>
 #include "EEPROM.h"
-#include "SPIFFS.h"      // File system library
-#include <Wire.h>        // I2C scanner
-#include <ArduinoJson.h> // JsonDocument
+#include "SPIFFS.h"
+#include <Wire.h>
+#include <ArduinoJson.h>
 
-
-
-// Model LIB
 #include "Model/DeviceModel.h"
 
-// Controller LIB
 #include "Controller/DeviceController.h"
 #include "Controller/SensorController.h"
 #include "Controller/ServiceController.h"
 #include "Controller/ControllerController.h"
 
-// put function declarations here:
 const char *firmware = "0.1.1";
 const String CONFIG_BASE = "deviceRegistration.json";
 const String CONFIG_DEFAULTS = "config.json";
@@ -25,15 +19,14 @@ const String CONFIG_DEFAULTS = "config.json";
 static JsonDocument jsonData;
 static String servicePoint;
 
-static DeviceConfig deviceConfig; // initialize data structure
-static SensorData sensorData;     // initialize data structure
+static DeviceConfig deviceConfig;
+static SensorData sensorData;
 
-static ServiceRequest serviceRequest; // initialize data structure
-static ServiceData serviceData;       // initialize data structure
+static ServiceRequest serviceRequest;
+static ServiceData serviceData;
 
-// Controller
-static DeviceController device;   // initialize functions
-static ServiceController service; // initialize functions
+static DeviceController device;
+static ServiceController service;
 static SensorController sensor;
 static ControllerController controller;
 
@@ -49,55 +42,43 @@ void setup()
   EEPROM.begin(512);
   delay(500);
 
-  // TEST FORMAT
-  // SPIFFS.format();
-  //
-
-  // READ CONFIG
   String configRegistration = device.loadFile(CONFIG_BASE);
-  delay(1000); // Solving problem with failed read by adding delay
+  delay(1000); // bare delay works around a failed-read race
   if (configRegistration == nullptr)
   {
     Serial.println("[Main] Registration file not found, starting initialization...");
-    device.initializeDevice(); // build config
+    device.initializeDevice();
   }
 
-
-  // Start WiFi
   device.initializeWifi();
   delay(1000);
 
-  String configDefaults = device.loadFile(CONFIG_DEFAULTS); // reading default config from SPIFFS
-  delay(1000);                                              // Solving problem with failed read by adding delay
+  String configDefaults = device.loadFile(CONFIG_DEFAULTS);
+  delay(1000); // bare delay works around a failed-read race
   if (configDefaults == NULL)
   {
     Serial.println("[Main] Config file not found, starting initialization...");
-    device.registerDevice(configRegistration); // build config
+    device.registerDevice(configRegistration);
   }
 
-  
-
-  // Loading Config
   deviceConfig = device.loadConfig(configDefaults);
-  device.deviceConfig = deviceConfig;  // sending values to device
-  sensor.deviceConfig = deviceConfig;  // sending values to sensor
-  service.deviceConfig = deviceConfig; // sending values to service
+  device.deviceConfig = deviceConfig;
+  sensor.deviceConfig = deviceConfig;
+  service.deviceConfig = deviceConfig;
   controller.deviceConfig = deviceConfig;
 
-  // Initialize serviceRequest defaults
   serviceRequest.serviceType = device.serviceType(deviceConfig.deviceTypeServiceID, serviceRequest.isHttps);
   serviceRequest.servicePoint = deviceConfig.servicePoint;
 
   service.serviceRequest = serviceRequest;
   sensor.serviceRequest = serviceRequest;
 
-// Start power rail on initializatin by default
-  device.powerRailPrimary(true); // for testing purposes only
-  device.powerRailSecondary(true); // for testing purposes only
+  // TEMP: force both power rails on for testing
+  device.powerRailPrimary(true);
+  device.powerRailSecondary(true);
   delay(1000);
 
-  
-  sensor.setupSensor(); // initialize sensors early for more precise mesurement
+  sensor.setupSensor();    // early init for more precise measurement
   device.setupController(); // initialize time
   Serial.println("[Initialization] Finished: ");
 }
@@ -105,22 +86,20 @@ void setup()
 void loop()
 {
   Serial.println("[Loop]-----> Start <-----[Loop]");
-  Serial.print("[Heap] loop start: "); // TEMPORARY DIAGNOSTIC - remove once the heap-leak theory
-  Serial.println(ESP.getFreeHeap());   // is confirmed or ruled out, see task notes
-  // Turn ON power rail if battery enabled
+  Serial.print("[Heap] loop start: "); // TEMPORARY DIAGNOSTIC: heap-leak investigation
+  Serial.println(ESP.getFreeHeap());
   if (deviceConfig.batteryEnabled)
   {
     device.powerRailPrimary(true);
     device.powerRailSecondary(true);
   }
 
-  service.apiConfig(deviceConfig, serviceRequest, device); // check config
+  service.apiConfig(deviceConfig, serviceRequest, device);
 
   if (deviceConfig.enabled) {
     sensor.buildSensorData(deviceConfig);
   }
-  
-  // Turn OFF power rail if battery enabled
+
   if (deviceConfig.batteryEnabled)
   {
     device.powerRailPrimary(false);

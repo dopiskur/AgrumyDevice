@@ -17,36 +17,32 @@ public:
 
     void setupController();
 
-    // Get time
     String getDateTime();
 
     // Mosfet activation
     void powerRailPrimary(bool state);
     void powerRailSecondary(bool state);
 
-    // Device info
     String macAddr();
 
-    // Device SPIFFS
+    // SPIFFS-backed
     void saveFile(String data, String filename);
     String loadFile(String filename);
 
-    void initializeDevice();                        // Setup se WifiAP
-    void registerDevice(String configRegistration); // register device on API
+    void initializeDevice(); // sets up the WiFi AP
+    void registerDevice(String configRegistration);
     DeviceConfig initializeDefaults(DeviceConfig deviceConfig);
     void initializeWifi();
 
     String buildConfig(DeviceConfig deviceConfig);
-    DeviceConfig loadConfig(String configJson);                                         // load config from json response
+    DeviceConfig loadConfig(String configJson);
 
-    String serviceType(int deviceServiceTypeID, bool& isHttps); // fetch http, https, mqtt from deviceServiceTypeID
+    String serviceType(int deviceServiceTypeID, bool& isHttps); // maps deviceServiceTypeID to http/https/mqtt
 
-    // Modules
     String rtc();
     String lcd();
     String camera();
 
-    // device actions
     void sleep();
     bool firmwareUpdate(String url, bool isHttps); // roadmap #3 (OTA): download+flash a .bin, returns true on success (caller reboots)
     void reboot();
