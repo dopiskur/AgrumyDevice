@@ -78,10 +78,10 @@ void DeviceController::saveFile(String data, String filename)
 String DeviceController::loadFile(String filename)
 {
   String path = "/" + filename;
-  File file = LittleFS.open(path);
+  File file = LittleFS.open(path, "r");
   String data;
 
-  if (!file)
+  if (!file || file.isDirectory())
   {
     Serial.println("Failed to open file for write");
     data = "Failed to open file for write";
@@ -90,9 +90,22 @@ String DeviceController::loadFile(String filename)
   {
     Serial.print("Reading file: ");
     Serial.println(filename);
-    while (file.available())
+    // Bounded read - do not trust available() alone: a corrupt LittleFS size
+    // field spun this loop forever. config/registration are ~2 KB.
+    size_t want = file.size();
+    if (want > 16384)
     {
-      data += char(file.read());
+      want = 16384;
+    }
+    data.reserve(want + 1);
+    while (data.length() < want)
+    {
+      int c = file.read();
+      if (c < 0)
+      {
+        break;
+      }
+      data += (char)c;
     }
     file.close();
   }

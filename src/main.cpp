@@ -38,7 +38,14 @@ void setup()
   Serial.println();
   Serial.println("[Initialization started]");
 
-  LittleFS.begin(true); // format-on-fail: first boot after the SPIFFS->LittleFS switch reformats the partition
+  // format-on-fail: first boot after the SPIFFS->LittleFS switch reformats the partition.
+  // A partition still holding SPIFFS bytes must fail the mount here so the format runs -
+  // if it does not, flash the board with a full chip erase.
+  if (!LittleFS.begin(true))
+  {
+    Serial.println("[Main] LittleFS mount/format FAILED");
+  }
+  Serial.printf("[FS] LittleFS total=%u used=%u bytes\n", LittleFS.totalBytes(), LittleFS.usedBytes());
   EEPROM.begin(512);
   delay(500);
 
