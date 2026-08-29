@@ -1,0 +1,23 @@
+name: Contract check
+
+# Validates the hand-maintained firmware field lists in tools/contract-check/
+# against the copied JSON Schemas in contracts/device-api/ (roadmap #5).
+#
+# Kept as its own workflow (separate from the PlatformIO build) so it stays
+# fast and does not conflict-merge with build.yml.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  contract-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: pip install -r tools/contract-check/requirements.txt
+      - run: python tools/contract-check/check_contract.py
