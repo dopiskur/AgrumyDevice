@@ -1,0 +1,25 @@
+name: PlatformIO Build
+
+# Build-only regression gate: every push/PR must compile for all three supported
+# device profiles. A green ESP32-C3 build does not make up for a red esp32dev
+# build - the classic device on the field must keep building unchanged.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [esp32dev, esp32s3usbotg, seeed_xiao_esp32c3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: pip install --upgrade platformio
+      - run: pio run -e ${{ matrix.environment }}
