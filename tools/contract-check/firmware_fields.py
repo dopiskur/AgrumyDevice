@@ -65,7 +65,8 @@ CONTRACT = {
             "configVersion", "tenantID", "deviceID", "deviceUnitID", "deviceUnitZoneID",
             "deviceTypeServiceID", "sleepSeconds", "sleepDeep",
             "deviceSensorEnabled", "deviceControllerEnabled", "batteryEnabled", "enabled",
-            "debug", "reboot", "reset", "firmwareUpdate",
+            "debug", "reboot", "reset",
+            "firmwareUpdate", "firmwareVersion", "firmwareUrl",  # roadmap #3 (OTA)
             "deviceConfigSensor", "deviceConfigController",
         ],
         "nested": {

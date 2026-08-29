@@ -4,12 +4,19 @@
 #include "SPIFFS.h"
 #include "FS.h"
 #include "WiFiManager.h"
+#include <HTTPClient.h>       // roadmap #3 (OTA): firmware download
+#include <WiFiClientSecure.h> // roadmap #3 (OTA): https firmware download
+#include <Update.h>           // roadmap #3 (OTA): Arduino-ESP32 built-in updater
 
 #include "DeviceController.h"
 #include "ServiceController.h"
 
 #include <NTPClient.h> // Time library
 #include <WiFiUdp.h>   // Time library requriment
+
+// Same embedded CA bundle ServiceController::requestPost() validates against - declared
+// there as the canonical spot; re-declared here for the OTA download in firmwareUpdate().
+extern const uint8_t rootca_crt_bundle_start[] asm("_binary_data_cert_x509_crt_bundle_bin_start");
 
 static ServiceController service; // Static rjesava problem s konfliktom u mainu
 
@@ -280,6 +287,83 @@ void DeviceController::reboot()
   ESP.restart();
 }
 
+// roadmap #3 (OTA). Streams a .bin from `url` straight into the inactive OTA app
+// partition via the Arduino-ESP32 Update library. Returns true only when the image
+// is fully written and verified - the caller then reboot()s into it. On any failure
+// it returns false and leaves the running firmware untouched (no brick): the config
+// loop just retries next cycle.
+bool DeviceController::firmwareUpdate(String url, bool isHttps)
+{
+  Serial.println("[Firmware] Starting OTA update from: " + url);
+
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.println("[Firmware] No WiFi, aborting OTA");
+    return false;
+  }
+
+  HTTPClient http;
+  WiFiClientSecure secureClient;
+
+  if (isHttps)
+  {
+    // Same trust setup as ServiceController::requestPost()'s default branch: validate
+    // against the embedded CA bundle (no per-host cert pinning for the firmware CDN).
+    secureClient.setCACert(nullptr);
+    secureClient.setCACertBundle(rootca_crt_bundle_start);
+    http.begin(secureClient, url);
+  }
+  else
+  {
+    http.begin(url);
+  }
+
+  int httpCode = http.GET();
+  if (httpCode != HTTP_CODE_OK)
+  {
+    Serial.printf("[Firmware] Download failed, HTTP code: %d\n", httpCode);
+    http.end();
+    return false;
+  }
+
+  int contentLength = http.getSize();
+  if (contentLength <= 0)
+  {
+    Serial.printf("[Firmware] Invalid content length: %d\n", contentLength);
+    http.end();
+    return false;
+  }
+
+  if (!Update.begin(contentLength))
+  {
+    Serial.printf("[Firmware] Update.begin failed (need %d bytes free in OTA partition): %s\n",
+                  contentLength, Update.errorString());
+    http.end();
+    return false;
+  }
+
+  WiFiClient *stream = http.getStreamPtr();
+  size_t written = Update.writeStream(*stream);
+  if (written != (size_t)contentLength)
+  {
+    Serial.printf("[Firmware] Wrote %u/%d bytes\n", (unsigned)written, contentLength);
+    Update.abort();
+    http.end();
+    return false;
+  }
+
+  if (!Update.end() || !Update.isFinished())
+  {
+    Serial.printf("[Firmware] Update did not finish: %s\n", Update.errorString());
+    http.end();
+    return false;
+  }
+
+  http.end();
+  Serial.println("[Firmware] Update written and verified");
+  return true;
+}
+
 void DeviceController::reset()
 {
   SPIFFS.format();
@@ -341,6 +425,8 @@ DeviceConfig DeviceController::loadConfig(String configJson)
   deviceConfig.reboot = config["reboot"];
   deviceConfig.reset = config["reset"];
   deviceConfig.firmwareUpdate = config["firmwareUpdate"];
+  deviceConfig.firmwareVersion = config["firmwareVersion"] | String(""); // roadmap #3 (OTA)
+  deviceConfig.firmwareUrl = config["firmwareUrl"] | String("");
 
   if (deviceConfig.deviceSensorEnabled)
   {

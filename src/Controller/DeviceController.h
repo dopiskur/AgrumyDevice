@@ -48,7 +48,7 @@ public:
 
     // device actions
     void sleep();
-    void firmwareUpdate();
+    bool firmwareUpdate(String url, bool isHttps); // roadmap #3 (OTA): download+flash a .bin, returns true on success (caller reboots)
     void reboot();
     void reset();
     void button(); // short press runs query, long press erase device

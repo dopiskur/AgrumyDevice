@@ -202,16 +202,49 @@ void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serv
         consecutiveFailures = 0;
     }
 
+    // Roadmap #3 (OTA): work out the firmware state from the config we're about to run
+    // with - the freshly received one if there is a new config, otherwise the config we
+    // booted with (covers the case where the admin sets the flag without bumping
+    // configVersion, so the server replies 200 with no body).
+    bool   fwFlag    = deviceConfig.firmwareUpdate;
+    String fwVersion = deviceConfig.firmwareVersion;
+    String fwUrl     = deviceConfig.firmwareUrl;
+
     if(serviceData.payload!=nullptr){
-        Serial.println(serviceData.payload); 
+        Serial.println(serviceData.payload);
         Serial.println("[Service] New config received, saving new config");
         device.saveFile(serviceData.payload, "config.json");
         delay(1000); // Delay for write action
-        device.reboot();
+
+        JsonDocument newCfg;
+        if (deserializeJson(newCfg, serviceData.payload) == DeserializationError::Ok) {
+            fwFlag    = newCfg["firmwareUpdate"]  | false;
+            fwVersion = newCfg["firmwareVersion"] | String("");
+            fwUrl     = newCfg["firmwareUrl"]     | String("");
+        }
     }
 
-     Serial.println("[Service] Config didn't change, do nothing"); 
-     Serial.println(serviceData.payload);     
+    // Only OTA when the server asks for it AND offers a version different from the one
+    // compiled into this image - a stale flag must not loop us into re-download/reboot
+    // forever. Do this BEFORE the reboot below so we don't waste a whole config cycle.
+    extern const char *firmware; // main.cpp
+    if (fwFlag && fwUrl.length() > 0 && fwVersion != String(firmware)) {
+        bool otaHttps = fwUrl.startsWith("https://") || fwUrl.startsWith("HTTPS://");
+        Serial.println("[Service] Firmware update " + fwVersion + " available (running " + String(firmware) + ")");
+        if (device.firmwareUpdate(fwUrl, otaHttps)) {
+            Serial.println("[Service] OTA succeeded, rebooting into new image");
+            device.reboot();
+        }
+        // failed download: fall through, keep running current firmware, retry next cycle
+        Serial.println("[Service] OTA failed - staying on current firmware, will retry next config cycle");
+    }
+
+    if(serviceData.payload!=nullptr){
+        device.reboot(); // boot into the newly saved config
+    }
+
+     Serial.println("[Service] Config didn't change, do nothing");
+     Serial.println(serviceData.payload);
 
 
 }

@@ -251,6 +251,8 @@ struct DeviceConfig
     bool reboot;
     bool reset;
     bool firmwareUpdate; // 0 no update, 1 update available
+    String firmwareVersion; // roadmap #3 (OTA): newest published version for this device type, "" if none
+    String firmwareUrl;     // roadmap #3 (OTA): .bin download URL, paired with firmwareVersion
 
     ConfigSensor configSensor;
     ConfigController configController;
