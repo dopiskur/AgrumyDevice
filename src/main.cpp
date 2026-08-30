@@ -4,6 +4,7 @@
 #include "LittleFS.h"
 #include <Wire.h>
 #include <ArduinoJson.h>
+#include <esp_task_wdt.h>
 
 #include "Model/DeviceModel.h"
 
@@ -15,6 +16,15 @@
 const char *firmware = "0.1.1";
 const String CONFIG_BASE = "deviceRegistration.json";
 const String CONFIG_DEFAULTS = "config.json";
+
+// Hardware watchdog (roadmap #18): reboot if a loop() cycle wedges before it completes
+// (infinite loop, deadlock, a network call that never returns). Sized to clear the
+// worst-case work phase - up to ~4 sequential HTTPClient calls per cycle (config sync,
+// re-auth, retry, sensor push), each with the arduino-esp32 default 5 s TCP timeout,
+// plus the TLS handshake - with margin. The trailing inter-cycle sleep is a bounded idle
+// wait and is fed separately in loop(), so this value is independent of the server-set
+// sleepSeconds.
+static const uint32_t WDT_TIMEOUT_SECONDS = 90;
 
 static JsonDocument jsonData;
 static String servicePoint;
@@ -87,6 +97,16 @@ void setup()
 
   sensor.setupSensor();    // early init for more precise measurement
   device.setupController(); // initialize time
+
+  // Arm the watchdog only now that setup (incl. the blocking WiFi portal / registration
+  // path) is done - those legitimately take longer than one loop cycle. The arduino-esp32
+  // core already runs a 5 s task WDT watching the CPU0 idle task; tear that down and
+  // re-init at our own timeout with panic+reboot before subscribing the loop task,
+  // because esp_task_wdt_init() is a no-op if the WDT is already initialized.
+  esp_task_wdt_deinit();
+  esp_task_wdt_init(WDT_TIMEOUT_SECONDS, true); // true: panic-handler reboot on timeout
+  esp_task_wdt_add(NULL);                       // watch the Arduino loop task
+
   Serial.println("[Initialization] Finished: ");
 }
 
@@ -115,6 +135,23 @@ void loop()
   
   Serial.println("[Loop]-----> END <-----[Loop]");
   Serial.println("");
-  delay(deviceConfig.sleepSeconds*1000);
 
+  // A full cycle finished without wedging - feed the watchdog. Anything that hangs inside
+  // apiConfig() / buildSensorData() never reaches this point, so the reboot backstop stays
+  // effective against a real stall.
+  esp_task_wdt_reset();
+
+  // Inter-cycle pause. It is a bounded idle wait, not work that can hang, so keep petting
+  // the watchdog through it in steps shorter than the timeout - otherwise a server-set
+  // sleepSeconds longer than WDT_TIMEOUT_SECONDS would look like a stall and reboot the
+  // device every cycle.
+  uint32_t sleepRemaining = (uint32_t)deviceConfig.sleepSeconds * 1000UL;
+  const uint32_t sleepStep = WDT_TIMEOUT_SECONDS * 1000UL / 3;
+  while (sleepRemaining > 0)
+  {
+    uint32_t chunk = sleepRemaining < sleepStep ? sleepRemaining : sleepStep;
+    delay(chunk);
+    esp_task_wdt_reset();
+    sleepRemaining -= chunk;
+  }
 }
