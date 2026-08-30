@@ -260,19 +260,19 @@ void ControllerController::initController(SensorData sensorData)
     case 0:
         break;
     case 1:
-        relayLight(deviceConfig.configController.relay1, sensorData);
+        relayLight(deviceConfig.configPin.RELAY_1, sensorData);
         break;
 
     case 2:
-        relayWaterPump(deviceConfig.configController.relay1, sensorData);
+        relayWaterPump(deviceConfig.configPin.RELAY_1, sensorData);
         break;
 
     case 3:
-        relayHeating(deviceConfig.configController.relay1, sensorData);
+        relayHeating(deviceConfig.configPin.RELAY_1, sensorData);
         break;
 
     case 4:
-        relayVentilation(deviceConfig.configController.relay1, sensorData);
+        relayVentilation(deviceConfig.configPin.RELAY_1, sensorData);
         break;
 
     default:
@@ -284,18 +284,19 @@ void ControllerController::initController(SensorData sensorData)
     case 0:
         break;
     case 1:
-        relayLight(deviceConfig.configController.relay2, sensorData);
+        relayLight(deviceConfig.configPin.RELAY_2, sensorData);
+        break;
 
     case 2:
-        relayWaterPump(deviceConfig.configController.relay2, sensorData);
+        relayWaterPump(deviceConfig.configPin.RELAY_2, sensorData);
         break;
 
     case 3:
-        relayHeating(deviceConfig.configController.relay2, sensorData);
+        relayHeating(deviceConfig.configPin.RELAY_2, sensorData);
         break;
 
     case 4:
-        relayVentilation(deviceConfig.configController.relay2, sensorData);
+        relayVentilation(deviceConfig.configPin.RELAY_2, sensorData);
         break;
 
     default:
@@ -307,19 +308,19 @@ void ControllerController::initController(SensorData sensorData)
     case 0:
         break;
     case 1:
-        relayLight(deviceConfig.configController.relay3, sensorData);
+        relayLight(deviceConfig.configPin.RELAY_3, sensorData);
         break;
 
     case 2:
-        relayWaterPump(deviceConfig.configController.relay3, sensorData);
+        relayWaterPump(deviceConfig.configPin.RELAY_3, sensorData);
         break;
 
     case 3:
-        relayHeating(deviceConfig.configController.relay3, sensorData);
+        relayHeating(deviceConfig.configPin.RELAY_3, sensorData);
         break;
 
     case 4:
-        relayVentilation(deviceConfig.configController.relay3, sensorData);
+        relayVentilation(deviceConfig.configPin.RELAY_3, sensorData);
         break;
 
     default:
@@ -331,19 +332,19 @@ void ControllerController::initController(SensorData sensorData)
     case 0:
         break;
     case 1:
-        relayLight(deviceConfig.configController.relay4, sensorData);
+        relayLight(deviceConfig.configPin.RELAY_4, sensorData);
         break;
 
     case 2:
-        relayWaterPump(deviceConfig.configController.relay4, sensorData);
+        relayWaterPump(deviceConfig.configPin.RELAY_4, sensorData);
         break;
 
     case 3:
-        relayHeating(deviceConfig.configController.relay4, sensorData);
+        relayHeating(deviceConfig.configPin.RELAY_4, sensorData);
         break;
 
     case 4:
-        relayVentilation(deviceConfig.configController.relay4, sensorData);
+        relayVentilation(deviceConfig.configPin.RELAY_4, sensorData);
         break;
 
     default:
@@ -355,19 +356,19 @@ void ControllerController::initController(SensorData sensorData)
     case 0:
         break;
     case 1:
-        relayLight(deviceConfig.configController.relay5, sensorData);
+        relayLight(deviceConfig.configPin.RELAY_5, sensorData);
         break;
 
     case 2:
-        relayWaterPump(deviceConfig.configController.relay5, sensorData);
+        relayWaterPump(deviceConfig.configPin.RELAY_5, sensorData);
         break;
 
     case 3:
-        relayHeating(deviceConfig.configController.relay5, sensorData);
+        relayHeating(deviceConfig.configPin.RELAY_5, sensorData);
         break;
 
     case 4:
-        relayVentilation(deviceConfig.configController.relay5, sensorData);
+        relayVentilation(deviceConfig.configPin.RELAY_5, sensorData);
         break;
 
     default:
@@ -379,19 +380,19 @@ void ControllerController::initController(SensorData sensorData)
     case 0:
         break;
     case 1:
-        relayLight(deviceConfig.configController.relay6, sensorData);
+        relayLight(deviceConfig.configPin.RELAY_6, sensorData);
         break;
 
     case 2:
-        relayWaterPump(deviceConfig.configController.relay6, sensorData);
+        relayWaterPump(deviceConfig.configPin.RELAY_6, sensorData);
         break;
 
     case 3:
-        relayHeating(deviceConfig.configController.relay6, sensorData);
+        relayHeating(deviceConfig.configPin.RELAY_6, sensorData);
         break;
 
     case 4:
-        relayVentilation(deviceConfig.configController.relay6, sensorData);
+        relayVentilation(deviceConfig.configPin.RELAY_6, sensorData);
         break;
 
     default:
@@ -403,19 +404,19 @@ void ControllerController::initController(SensorData sensorData)
     case 0:
         break;
     case 1:
-        relayLight(deviceConfig.configController.relay7, sensorData);
+        relayLight(deviceConfig.configPin.RELAY_7, sensorData);
         break;
 
     case 2:
-        relayWaterPump(deviceConfig.configController.relay7, sensorData);
+        relayWaterPump(deviceConfig.configPin.RELAY_7, sensorData);
         break;
 
     case 3:
-        relayHeating(deviceConfig.configController.relay7, sensorData);
+        relayHeating(deviceConfig.configPin.RELAY_7, sensorData);
         break;
 
     case 4:
-        relayVentilation(deviceConfig.configController.relay7, sensorData);
+        relayVentilation(deviceConfig.configPin.RELAY_7, sensorData);
         break;
 
     default:
@@ -427,19 +428,19 @@ void ControllerController::initController(SensorData sensorData)
     case 0:
         break;
     case 1:
-        relayLight(deviceConfig.configController.relay8, sensorData);
+        relayLight(deviceConfig.configPin.RELAY_8, sensorData);
         break;
 
     case 2:
-        relayWaterPump(deviceConfig.configController.relay8, sensorData);
+        relayWaterPump(deviceConfig.configPin.RELAY_8, sensorData);
         break;
 
     case 3:
-        relayHeating(deviceConfig.configController.relay8, sensorData);
+        relayHeating(deviceConfig.configPin.RELAY_8, sensorData);
         break;
 
     case 4:
-        relayVentilation(deviceConfig.configController.relay8, sensorData);
+        relayVentilation(deviceConfig.configPin.RELAY_8, sensorData);
         break;
 
     default:

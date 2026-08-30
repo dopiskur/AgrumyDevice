@@ -369,8 +369,8 @@ void SensorController::sensor_analog_waterLevel()
     Serial.print("Analog: ");
     Serial.println(waterTank);
 
-    sensorData.moisture = waterTank;
-    
+    sensorData.waterLevel = waterTank;
+
     device.powerRailSecondary(false);
 }
 
