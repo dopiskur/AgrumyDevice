@@ -1,4 +1,4 @@
-#include "arduino.h"
+#include "Arduino.h"
 #include <WiFi.h>
 #include <EEPROM.h>
 #include "LittleFS.h"
