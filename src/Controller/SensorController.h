@@ -38,7 +38,12 @@ private:
     void sensor_liquid_PH(); // unavailable
     void sensor_analog_waterLevel(); // unavailable
     void sensor_rainLevel(); // unavailable
-    
+
+    // Roadmap #9: drains /buffer oldest-first, deleting each file only after its own 2xx.
+    // Returns true when the queue is empty on exit; false = broke off mid-queue (connection
+    // dropped again), remaining files stay on disk for the next cycle.
+    bool flushBufferedSensorData();
+
 
 public:
     void setupSensor();

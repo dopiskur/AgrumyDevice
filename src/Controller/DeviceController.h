@@ -69,7 +69,22 @@ public:
     void reset();
     void button(); // short press runs query, long press erase device
 
-    String saveValusOnError();
+    // Roadmap #9 store-and-forward (replaces the old saveValusOnError stub). Each file under
+    // /buffer/ is one complete, ready-to-POST SensorData JSON array; zero-padded ascending names
+    // make lexicographic order == chronological order, so the flush loop never needs a sort.
+
+    // False = payload was DISCARDED because the partition is already >= 70% full (deliberate data
+    // loss - the caller reports it, see SensorController's BufferDiscarded event). Uses the same
+    // atomic tmp+rename write as config.json (#62), so power loss mid-write never leaves a
+    // half-written file for the flush loop to trip on.
+    bool bufferSensorDataToDisk(String payloadJson);
+
+    // Lowest-numbered (oldest) queued file's name relative to loadFile()/removeBufferedFile()
+    // (e.g. "buffer/00001.json"), or "" when the queue is empty. Rescans the directory each call -
+    // at most ~170 entries even with the partition at its 70% cap, so O(n) per file is fine.
+    String oldestBufferedSensorFile();
+
+    void removeBufferedFile(String filename);
 
 private:
 };

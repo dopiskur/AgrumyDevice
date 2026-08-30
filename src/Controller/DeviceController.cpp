@@ -455,10 +455,77 @@ void DeviceController::reset()
   ESP.restart();
 }
 
-String DeviceController::saveValusOnError()
+// Roadmap #9. The 70% cap is checked BEFORE every write, which also covers the "a write just
+// pushed usage over the line" case the spec calls out: the next 8KB spill re-runs this same
+// check and discards, no separate post-write state needed.
+bool DeviceController::bufferSensorDataToDisk(String payloadJson)
 {
-  // not implemented: should buffer JSON results in a list and flush every 10 to disk
-  return "list";
+  size_t total = LittleFS.totalBytes();
+  size_t used = LittleFS.usedBytes();
+  if (total == 0 || used * 100 >= total * 70)
+  {
+    Serial.printf("[Device] Sensor buffer DISCARDED: LittleFS %u/%u bytes (>= 70%% full) - deliberate data loss by design\n", (unsigned)used, (unsigned)total);
+    return false;
+  }
+
+  // Lazy one-time init per boot: create /buffer and continue numbering after the highest
+  // survivor from before the reboot, so chronological order holds across power cycles.
+  static int nextIndex = -1;
+  if (nextIndex < 0)
+  {
+    LittleFS.mkdir("/buffer"); // no-op if it already exists
+    nextIndex = 1;
+    File dir = LittleFS.open("/buffer");
+    File entry;
+    while (dir && (entry = dir.openNextFile()))
+    {
+      int n = String(entry.name()).toInt(); // "00042.json" -> 42; non-numeric -> 0, harmless
+      entry.close();
+      if (n >= nextIndex)
+      {
+        nextIndex = n + 1;
+      }
+    }
+  }
+
+  char name[24];
+  snprintf(name, sizeof(name), "buffer/%05d.json", nextIndex);
+  nextIndex++;
+  saveFile(payloadJson, name); // #62 atomic tmp+rename helper, reused as-is
+
+  Serial.printf("[Device] Sensor buffer spilled to /%s - LittleFS now %u/%u bytes\n", name, (unsigned)LittleFS.usedBytes(), (unsigned)total);
+  return true;
+}
+
+String DeviceController::oldestBufferedSensorFile()
+{
+  File dir = LittleFS.open("/buffer");
+  if (!dir || !dir.isDirectory())
+  {
+    return String();
+  }
+
+  String best;
+  File entry;
+  while ((entry = dir.openNextFile()))
+  {
+    String name = entry.name();
+    entry.close();
+    if (!name.endsWith(".json")) // skips orphaned .tmp files from an interrupted atomic write
+    {
+      continue;
+    }
+    if (best.isEmpty() || name.compareTo(best) < 0)
+    {
+      best = name;
+    }
+  }
+  return best.isEmpty() ? String() : "buffer/" + best;
+}
+
+void DeviceController::removeBufferedFile(String filename)
+{
+  LittleFS.remove("/" + filename);
 }
 
 DeviceConfig DeviceController::loadConfig(String configJson)

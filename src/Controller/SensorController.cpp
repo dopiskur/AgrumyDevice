@@ -12,6 +12,8 @@
 #include <Adafruit_BMP280.h>
 #include <Adafruit_CCS811.h> // CCS811 CO2, TVOC
 
+#include <esp_task_wdt.h>
+
 #include "SensorController.h"
 #include "DeviceController.h"
 #include "ServiceController.h"
@@ -421,17 +423,94 @@ void SensorController::buildSensorDataPayload()
     pushSensorData(sensorDataJsonArray); 
 }
 
+// Roadmap #9: one full RAM buffer's worth per file. A single reading is ~400 bytes, so this
+// spills roughly every 20 failed cycles; ~170 files fit under the 70% partition cap.
+static const size_t SENSOR_BUFFER_SPILL_BYTES = 8192;
+
+bool SensorController::flushBufferedSensorData()
+{
+    String filename = device.oldestBufferedSensorFile();
+    if (filename.isEmpty())
+    {
+        return true; // nothing queued - the common case, one directory scan and out
+    }
+
+    serviceRequest.endpoint = serviceEndpoint.apiSensorDataPost;
+    serviceRequest.header.apiId = deviceConfig.apiId;
+
+    while (!filename.isEmpty())
+    {
+        String payloadJson = device.loadFile(filename);
+
+        JsonDocument payload;
+        if (payloadJson.isEmpty() || deserializeJson(payload, payloadJson) != DeserializationError::Ok)
+        {
+            // A poison entry (corruption the #62-style atomic write can't rule out once the file
+            // is already committed) would wedge the whole queue forever - drop it, keep draining.
+            Serial.println("[Sensor] Buffered file /" + filename + " unreadable - dropping it");
+            device.removeBufferedFile(filename);
+        }
+        else if (service.requestPost(payload, serviceRequest).eventlog.error)
+        {
+            Serial.println("[Sensor] Flush stopped at /" + filename + " - connection lost again, remaining files stay queued");
+            return false;
+        }
+        else
+        {
+            Serial.println("[Sensor] Flushed /" + filename);
+            device.removeBufferedFile(filename); // per-file delete, only after ITS OWN 2xx
+        }
+
+        // Each file is a full HTTP round-trip (TLS handshake included) - a deep backlog would
+        // outlast the 90 s task WDT without feeding it per file. Same call main.cpp's
+        // sleep-chunking already uses.
+        esp_task_wdt_reset();
+
+        filename = device.oldestBufferedSensorFile();
+    }
+    return true;
+}
+
 void SensorController::pushSensorData(JsonDocument payload){
 
     serviceRequest.endpoint = serviceEndpoint.apiSensorDataPost;
     serviceRequest.header.apiId = deviceConfig.apiId;
-    ServiceData serviceData = service.requestPost(payload,serviceRequest);
-    if(serviceData.eventlog.errorCode==200){
-        Serial.println("[Sensor] SensorData uploadad, reseting sensorData buffer");
+
+    // Roadmap #9: the disk backlog goes first, oldest file first, so the server receives rows in
+    // chronological order; the live RAM payload is only attempted once the backlog fully drained.
+    // A flush that broke off means the connection is down again - skip the doomed live attempt,
+    // the readings just keep accumulating below.
+    bool sent = false;
+    if (flushBufferedSensorData())
+    {
+        sent = !service.requestPost(payload, serviceRequest).eventlog.error; // 2xx - requestPost marks 200/201 as success
+    }
+
+    if (sent)
+    {
+        Serial.println("[Sensor] SensorData uploaded, resetting sensorData buffer");
+        sensorDataJsonArray = jsonDoc.to<JsonArray>();
+        return;
+    }
+
+    // Failed send: readings stay in the RAM array (pre-#9 behaviour) but now with a cap - at
+    // SENSOR_BUFFER_SPILL_BYTES the array spills to one /buffer file and RAM restarts empty,
+    // instead of the old unbounded growth until the heap died.
+    size_t pending = measureJson(sensorDataJsonArray);
+    Serial.printf("[Sensor] SensorData send failed - %u bytes pending in RAM buffer\n", (unsigned)pending);
+    if (pending >= SENSOR_BUFFER_SPILL_BYTES)
+    {
+        String spill;
+        serializeJson(sensorDataJsonArray, spill);
+        if (!device.bufferSensorDataToDisk(spill))
+        {
+            // Partition >= 70% full: deliberate data loss by design. Fire-and-forget #28 event -
+            // unreachable while fully offline (chicken-and-egg, same as NoInternet), but a
+            // server-side outage with intact connectivity WILL land it.
+            service.pushEvent(serviceRequest, "BufferDiscarded", "LittleFS >= 70% full, dropped " + String((unsigned)pending) + " bytes of sensor data");
+        }
         sensorDataJsonArray = jsonDoc.to<JsonArray>();
     }
-    
-
 }
 
 void SensorController::buildSensorData(DeviceConfig deviceConfig)
