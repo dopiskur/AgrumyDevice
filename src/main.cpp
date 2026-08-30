@@ -75,6 +75,10 @@ void setup()
   // repeating the same crash forever. See ServiceController::apiConfig's notePendingConfigReboot,
   // the only place that feeds this counter.
   bool rollbackToBackup = device.consumeRollbackTrigger();
+  // Roadmap #37 - always consumed regardless of rollbackToBackup; which one wins is decided once
+  // WiFi/auth are up below (a rollback boot confirms CrashLoopRollback, never ConfigApplied, even
+  // though both flags are set together on the reboot that triggered the rollback).
+  bool configJustApplied = device.consumeConfigAppliedPending();
   String configDefaults = rollbackToBackup ? device.loadFile("config.json.bak") : device.loadFile(CONFIG_DEFAULTS);
   delay(1000); // bare delay works around a failed-read race
   if (rollbackToBackup)
@@ -107,6 +111,30 @@ void setup()
 
   service.serviceRequest = serviceRequest;
   sensor.serviceRequest = serviceRequest;
+
+  // Roadmap #28/#37: confirm the outcome of the reboot that just happened back to the server, now
+  // that deviceConfig/serviceRequest are populated (too early to do this above, where the rollback
+  // branch runs). A rollback boot always wins over configJustApplied - both flags are set together
+  // on the reboot that triggered the rollback (see notePendingConfigReboot()), but that boot is
+  // applying the OLD backup, not the new config configJustApplied refers to.
+  if (rollbackToBackup || configJustApplied)
+  {
+    // apiAuthenticate() takes serviceRequest by value, so its internal apiId/apiKey/endpoint
+    // mutations never reach this copy - re-set apiId here before reusing serviceRequest below.
+    service.apiAuthenticate(deviceConfig, serviceRequest, device);
+    serviceRequest.header.apiId = deviceConfig.apiId;
+    if (rollbackToBackup)
+    {
+      // The threshold in consumeRollbackTrigger() is a fixed compile-time 3, and it fires the
+      // moment the count first reaches it (called every boot) - so "3" is always accurate here,
+      // even though the counter itself is already reset by the time this message is composed.
+      service.pushEvent(serviceRequest, "CrashLoopRollback", "3 consecutive early reboots detected");
+    }
+    else
+    {
+      service.pushEvent(serviceRequest, "ConfigApplied", "version=" + String(deviceConfig.configVersion));
+    }
+  }
 
   // TEMP: force both power rails on for testing
   device.powerRailPrimary(true);

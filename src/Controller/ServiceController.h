@@ -26,6 +26,11 @@ public:
     void apiConfig(DeviceConfig deviceConfig, ServiceRequest serviceRequest, DeviceController& device);
     ServiceData apiSensorData(DeviceConfig deviceConfig, ServiceRequest serviceRequest);
 
+    // Roadmap #28. service carries whatever apiId/serviceType/servicePoint the caller already had
+    // set up - only .endpoint and .header.apiKey are overwritten here. Best-effort: the result is
+    // never checked and never retried, see the .cpp for why.
+    void pushEvent(ServiceRequest service, String eventType, String message);
+
     JsonDocument buildJson();
 
 private:

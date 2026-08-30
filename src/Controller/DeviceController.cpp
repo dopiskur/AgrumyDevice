@@ -31,6 +31,11 @@ JsonDocument config;
 // case one extra bad-config reboot before rollback kicks in, never a false rollback).
 RTC_DATA_ATTR static int rtcRapidConfigRebootCount = 0;
 
+// Roadmap #37: separate from the crash-loop counter above - this is unconditional (set on every
+// config-triggered reboot, not just rapid ones) and answers a different question ("did this boot
+// follow a just-applied new config") rather than "is this a suspicious streak".
+RTC_DATA_ATTR static bool rtcConfigJustAppliedPending = false;
+
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP);
 
@@ -130,6 +135,7 @@ void DeviceController::notePendingConfigReboot(unsigned long uptimeMs)
   {
     rtcRapidConfigRebootCount = 0; // ran fine for a while first - this config isn't the problem
   }
+  rtcConfigJustAppliedPending = true; // roadmap #37 - unconditional, every config-triggered reboot
 }
 
 bool DeviceController::consumeRollbackTrigger()
@@ -140,6 +146,13 @@ bool DeviceController::consumeRollbackTrigger()
     rtcRapidConfigRebootCount = 0; // fresh streak after acting on it
   }
   return trigger;
+}
+
+bool DeviceController::consumeConfigAppliedPending()
+{
+  bool pending = rtcConfigJustAppliedPending;
+  rtcConfigJustAppliedPending = false;
+  return pending;
 }
 
 String DeviceController::loadFile(String filename)

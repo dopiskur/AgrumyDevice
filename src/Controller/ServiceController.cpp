@@ -92,8 +92,34 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
     {
         serviceData.eventlog.errorCode = 1000;
         serviceData.eventlog.errorData = "Wifi not available";
+        // Guard against recursing into pushEvent() -> requestPost() -> "still no WiFi" -> pushEvent()
+        // forever: only fire if THIS request isn't itself the event push (pushEvent() rewrites
+        // .endpoint to apiEvent before calling back in, so the second pass trips this and stops).
+        // Reporting "NoInternet" while there genuinely is none can never actually reach the server -
+        // this attempt fails the same way and is a harmless no-op, not a bug.
+        if (service.endpoint != serviceEndpoint.apiEvent)
+        {
+            pushEvent(service, "NoInternet", "WiFi not connected");
+        }
     }
     return serviceData;
+}
+
+// Roadmap #28: fire-and-forget event push, reusing whatever apiId/serviceType/servicePoint the
+// caller's ServiceRequest already carries. Never checks the result and never retries - a failed
+// event push (no internet, stale apiAuth, etc.) must stay silent, not chase itself with another
+// event about its own failure.
+void ServiceController::pushEvent(ServiceRequest service, String eventType, String message)
+{
+    service.endpoint = serviceEndpoint.apiEvent;
+    service.header.apiKey = ""; // session-auth (apiAuth), same as apiConfig() - not apiKey-auth like Authenticate
+
+    JsonDocument payload;
+    payload["EventType"] = eventType;
+    payload["Message"] = message;
+
+    Serial.println("[Service] pushEvent: " + eventType + (message.length() > 0 ? " (" + message + ")" : ""));
+    requestPost(payload, service);
 }
 
 // API requests
@@ -111,6 +137,9 @@ void ServiceController::apiAuthenticate(DeviceConfig deviceConfig, ServiceReques
 
     if(serviceData.eventlog.errorCode==401){
         Serial.println("[Service] Device failed authentication, reseting device to defaults...");
+        // Best-effort: this push will very likely also fail (no valid apiAuth yet, that's exactly
+        // what just failed) - expected and acceptable, not something to special-case.
+        pushEvent(serviceRequest, "AuthFailed", "apiId/apiKey rejected by server");
         device.reset();
     }
 
@@ -169,6 +198,7 @@ void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serv
         if (consecutiveFailures >= MAX_CONSECUTIVE_CONFIG_FAILURES)
         {
             Serial.println("[Service] Too many consecutive failures, rebooting.");
+            pushEvent(serviceRequest, "ConfigSyncFailed", "consecutive failures: " + String(consecutiveFailures));
             device.reboot();
         }
     } else {
@@ -207,6 +237,7 @@ void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serv
         }
         // failed download: fall through, keep running current firmware, retry next cycle
         Serial.println("[Service] OTA failed - staying on current firmware, will retry next config cycle");
+        pushEvent(serviceRequest, "OtaFailed", "version=" + fwVersion);
     }
 
     if (receivedNewConfig) {

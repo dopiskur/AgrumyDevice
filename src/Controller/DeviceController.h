@@ -42,6 +42,13 @@ public:
     // within 60s of their own boot - caller should load config.json.bak instead of config.json.
     bool consumeRollbackTrigger();
 
+    // Roadmap #37. Set unconditionally by notePendingConfigReboot() on every config-triggered
+    // reboot (not just rapid ones) - call once from setup() to know whether THIS boot is the
+    // direct result of applying a newly-received config, so the caller can confirm that back to
+    // the server. Must be ignored when consumeRollbackTrigger() also returns true - that boot is
+    // applying the OLD backup, not the new config this flag was set for.
+    bool consumeConfigAppliedPending();
+
     void initializeDevice(); // sets up the WiFi AP
     void registerDevice(String configRegistration);
     DeviceConfig initializeDefaults(DeviceConfig deviceConfig);

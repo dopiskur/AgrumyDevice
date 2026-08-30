@@ -322,10 +322,11 @@ struct ServiceEndpoint
     String apiRegister = "/api/Device/Register";
     String apiConfig = "/api/Device/Config";
     String apiAuthenticate = "/api/Device/Authenticate";
+    String apiEvent = "/api/Device/Event"; // roadmap #28
 
-    String apiSensorDataPost="/api/SensorData";   
+    String apiSensorDataPost="/api/SensorData";
     String apiSensorDataGet="";
-    
+
 };
 
 
