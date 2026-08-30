@@ -180,10 +180,12 @@ void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serv
     String fwVersion = deviceConfig.firmwareVersion;
     String fwUrl     = deviceConfig.firmwareUrl;
 
-    if(serviceData.payload!=nullptr){
+    bool receivedNewConfig = !serviceData.payload.isEmpty();
+
+    if (receivedNewConfig) {
         Serial.println(serviceData.payload);
         Serial.println("[Service] New config received, saving new config");
-        device.saveFile(serviceData.payload, "config.json");
+        device.saveConfigFile(serviceData.payload); // backs up the old config.json before overwriting it (config integrity)
         delay(1000); // let the write settle
 
         JsonDocument newCfg;
@@ -207,12 +209,13 @@ void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serv
         Serial.println("[Service] OTA failed - staying on current firmware, will retry next config cycle");
     }
 
-    if(serviceData.payload!=nullptr){
+    if (receivedNewConfig) {
+        // Config-integrity crash-loop guard: feed the counter ONLY here, right before this
+        // specific reboot - never on the OTA reboot above or the too-many-failures reboot,
+        // so an unrelated reboot cause never falsely triggers a rollback in setup().
+        device.notePendingConfigReboot(millis());
         device.reboot(); // boot into the newly saved config
+    } else {
+        Serial.println("[Service] Config didn't change, do nothing");
     }
-
-     Serial.println("[Service] Config didn't change, do nothing");
-     Serial.println(serviceData.payload);
-
-
 }

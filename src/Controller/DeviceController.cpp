@@ -26,6 +26,11 @@ static ServiceEndpoint serviceEndpoint;
 DeviceRegistration deviceRegistration;
 JsonDocument config;
 
+// Roadmap-new (config integrity): survives ESP.restart() (RTC slow memory) but not a real power
+// cycle - a hard power loss just loses the streak, which is the safe direction to fail (worst
+// case one extra bad-config reboot before rollback kicks in, never a false rollback).
+RTC_DATA_ATTR static int rtcRapidConfigRebootCount = 0;
+
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP);
 
@@ -59,8 +64,9 @@ void DeviceController::setupController()
 void DeviceController::saveFile(String data, String filename)
 {
   String path = "/" + filename;
-  File file = LittleFS.open(path, "w");
+  String tmpPath = path + ".tmp";
 
+  File file = LittleFS.open(tmpPath, "w");
   if (!file)
   {
     Serial.println("Failed to open file for write, formating device");
@@ -70,10 +76,71 @@ void DeviceController::saveFile(String data, String filename)
 
   Serial.print("Saving file: ");
   Serial.println(filename);
-  file.print(data);
-
+  size_t written = file.print(data);
   file.close();
+
+  // Atomic write: only replace the real file once the write to the .tmp copy is confirmed
+  // complete. A power loss before this point leaves the old file untouched (the .tmp is
+  // orphaned and gets overwritten next call). rename() goes through VFSImpl::rename() -> POSIX
+  // rename() -> lfs_rename(), which atomically replaces an existing destination in one
+  // filesystem transaction - deliberately NOT preceded by a separate remove(path), which would
+  // reopen exactly the half-written-file window this function exists to close.
+  if (written != (size_t)data.length())
+  {
+    Serial.println("[Device] saveFile: incomplete write (" + String((unsigned)written) + "/" + String(data.length()) + " bytes) to " + tmpPath + " - leaving " + path + " untouched");
+    LittleFS.remove(tmpPath);
+    return;
+  }
+
+  if (!LittleFS.rename(tmpPath, path))
+  {
+    Serial.println("[Device] saveFile: rename " + tmpPath + " -> " + path + " failed");
+  }
 };
+
+// See DeviceController.h for the config-integrity rationale.
+void DeviceController::saveConfigFile(String newConfigJson)
+{
+  String currentConfig = loadFile("config.json");
+  if (!currentConfig.isEmpty())
+  {
+    JsonDocument parseCheck;
+    if (deserializeJson(parseCheck, currentConfig) == DeserializationError::Ok)
+    {
+      saveFile(currentConfig, "config.json.bak");
+      Serial.println("[Device] Backed up current config.json to config.json.bak");
+    }
+    else
+    {
+      Serial.println("[Device] Current config.json failed to parse - not backing it up as a rollback target");
+    }
+  }
+
+  saveFile(newConfigJson, "config.json");
+}
+
+void DeviceController::notePendingConfigReboot(unsigned long uptimeMs)
+{
+  if (uptimeMs < 60000UL)
+  {
+    rtcRapidConfigRebootCount++;
+    Serial.printf("[Device] Rapid reboot after config update (%lu ms uptime) - streak now %d/3\n", uptimeMs, rtcRapidConfigRebootCount);
+  }
+  else
+  {
+    rtcRapidConfigRebootCount = 0; // ran fine for a while first - this config isn't the problem
+  }
+}
+
+bool DeviceController::consumeRollbackTrigger()
+{
+  bool trigger = rtcRapidConfigRebootCount >= 3;
+  if (trigger)
+  {
+    rtcRapidConfigRebootCount = 0; // fresh streak after acting on it
+  }
+  return trigger;
+}
 
 String DeviceController::loadFile(String filename)
 {

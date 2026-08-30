@@ -70,8 +70,26 @@ void setup()
   device.initializeWifi();
   delay(1000);
 
-  String configDefaults = device.loadFile(CONFIG_DEFAULTS);
+  // Config-integrity crash-loop guard: 3 config-triggered reboots in a row, each within 60s of
+  // its own boot, means the last config update is likely the cause - load the backup instead of
+  // repeating the same crash forever. See ServiceController::apiConfig's notePendingConfigReboot,
+  // the only place that feeds this counter.
+  bool rollbackToBackup = device.consumeRollbackTrigger();
+  String configDefaults = rollbackToBackup ? device.loadFile("config.json.bak") : device.loadFile(CONFIG_DEFAULTS);
   delay(1000); // bare delay works around a failed-read race
+  if (rollbackToBackup)
+  {
+    if (configDefaults.isEmpty())
+    {
+      Serial.println("[Main] Rollback requested but config.json.bak is missing/empty - falling back to config.json");
+      configDefaults = device.loadFile(CONFIG_DEFAULTS);
+    }
+    else
+    {
+      Serial.println("[Main] Repeated rapid reboots after a config update detected - rolling back to config.json.bak");
+      device.saveFile(configDefaults, CONFIG_DEFAULTS); // persist so the rollback sticks even if this boot reboots again for any other reason
+    }
+  }
   if (configDefaults.isEmpty())
   {
     Serial.println("[Main] Config file not found, starting initialization...");

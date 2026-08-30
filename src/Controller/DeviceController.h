@@ -25,9 +25,22 @@ public:
 
     String macAddr();
 
-    // LittleFS-backed
+    // LittleFS-backed. saveFile() writes atomically (temp file + rename), so a power loss
+    // mid-write leaves the target file either untouched or fully replaced, never half-written.
     void saveFile(String data, String filename);
     String loadFile(String filename);
+
+    // Backs up the current config.json to config.json.bak (only if it exists and parses) before
+    // atomically replacing it - config integrity, pairs with consumeRollbackTrigger() below.
+    void saveConfigFile(String newConfigJson);
+
+    // Call ONLY from ServiceController::apiConfig()'s "new config received, about to reboot"
+    // branch, nowhere else - feeds the crash-loop counter that consumeRollbackTrigger() reads.
+    void notePendingConfigReboot(unsigned long uptimeMs);
+
+    // Call once from setup(). True means 3 config-triggered reboots in a row each happened
+    // within 60s of their own boot - caller should load config.json.bak instead of config.json.
+    bool consumeRollbackTrigger();
 
     void initializeDevice(); // sets up the WiFi AP
     void registerDevice(String configRegistration);
