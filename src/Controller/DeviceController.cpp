@@ -399,7 +399,12 @@ DeviceConfig DeviceController::loadConfig(String configJson)
   }
 
   String servicePoint = config["servicePoint"];
-  String servicePublicKey = config["servicePublicKey"];
+  // "| """ matters here: a bare assignment from a JSON null (the normal case - no self-signed
+  // cert pinned) does not reliably yield an empty ArduinoJson String, so
+  // ServiceController::requestPost's `servicePublicKey.length() > 0` check was true for a device
+  // with no pinned cert - it then fed that non-empty garbage to setCACert() as if it were a PEM
+  // certificate, and mbedTLS rejected the HTTPS handshake with "X509 ... format is invalid".
+  String servicePublicKey = config["servicePublicKey"] | "";
   String apiId = config["apiId"];
   String apiKey = config["apiKey"];
 
