@@ -186,6 +186,17 @@ struct ConfigController
     int waterLow;
     int waterHigh;
 
+    // Hysteresis (dead zone) margins for the four threshold-based relay functions - prevents
+    // chattering when a sensor value sits right at its threshold. Server-configurable (roadmap
+    // #10), sent as part of deviceConfigController on every config sync. Default member
+    // initializers below are the fallback used if the server doesn't send these keys (older
+    // API) - loadConfig() falls back to whatever value is already here, so a config sync never
+    // resets a device to 0.
+    double waterLevelHysteresis = 5.0;   // same raw unit as waterLevel/waterLow
+    double temperatureHysteresis = 1.0;  // deg C
+    double humidityHysteresis = 5.0;     // percent
+    double lightHysteresis = 20.0;       // same raw unit as light/lightLow
+
     int ventilationIntervalEnabled;
     int ventilationInterval;
     int ventilationIntervalLenght;

@@ -453,14 +453,18 @@ void ControllerController::relayVentilation(int relayPin, SensorData sensorData)
     const int powerPin = relayPin;
     pinMode(powerPin, OUTPUT);
 
-    double humidHigh = atof(sensorData.humidity.c_str());
+    double currentHumidity = atof(sensorData.humidity.c_str()); // reading, not to be confused with configController.humidHigh (threshold)
+    bool isCurrentlyOn = digitalRead(powerPin) == HIGH;
 
-    if (humidHigh > deviceConfig.configController.humidHigh)
+    // Opposite direction from the other three relay functions: ventilation turns ON above
+    // the threshold (too humid), so the dead zone sits BELOW humidHigh, not above it. Turn on
+    // only when above humidHigh, turn off only once it drops back below humidHigh - hysteresis.
+    if (!isCurrentlyOn && currentHumidity > deviceConfig.configController.humidHigh)
     {
         digitalWrite(powerPin, HIGH);
         Serial.println("[Power rail on]");
     }
-    else
+    else if (isCurrentlyOn && currentHumidity <= deviceConfig.configController.humidHigh - deviceConfig.configController.humidityHysteresis)
     {
         digitalWrite(powerPin, LOW);
         Serial.println("[Power rail off]");
@@ -475,13 +479,18 @@ void ControllerController::relayWaterPump(int relayPin, SensorData sensorData)
     pinMode(powerPin, OUTPUT);
 
     double waterLevel = atof(sensorData.waterLevel.c_str());
+    bool isCurrentlyOn = digitalRead(powerPin) == HIGH;
 
-    if (waterLevel < deviceConfig.configController.waterLow)
+    // Dead zone: turn on only when below waterLow, turn off only once it climbs back above
+    // waterLow + hysteresis. Reading the pin instead of tracking a separate on/off variable
+    // means two relays sharing this function (e.g. relay1 and relay5 both "water pump") each
+    // hold their own state correctly, keyed by their own physical pin.
+    if (!isCurrentlyOn && waterLevel < deviceConfig.configController.waterLow)
     {
         digitalWrite(powerPin, HIGH);
         Serial.println("[Power rail on]");
     }
-    else
+    else if (isCurrentlyOn && waterLevel >= deviceConfig.configController.waterLow + deviceConfig.configController.waterLevelHysteresis)
     {
         digitalWrite(powerPin, LOW);
         Serial.println("[Power rail off]");
@@ -495,13 +504,16 @@ void ControllerController::relayHeating(int relayPin, SensorData sensorData)
     pinMode(powerPin, OUTPUT);
 
     double temperature = atof(sensorData.temperature.c_str());
+    bool isCurrentlyOn = digitalRead(powerPin) == HIGH;
 
-    if (temperature < deviceConfig.configController.tempLow)
+    // Dead zone: turn on only when below tempLow, turn off only once it climbs back above
+    // tempLow + hysteresis.
+    if (!isCurrentlyOn && temperature < deviceConfig.configController.tempLow)
     {
         digitalWrite(powerPin, HIGH);
         Serial.println("[Power rail on]");
     }
-    else
+    else if (isCurrentlyOn && temperature >= deviceConfig.configController.tempLow + deviceConfig.configController.temperatureHysteresis)
     {
         digitalWrite(powerPin, LOW);
         Serial.println("[Power rail off]");
@@ -514,14 +526,17 @@ void ControllerController::relayLight(int relayPin, SensorData sensorData)
     const int powerPin = relayPin;
     pinMode(powerPin, OUTPUT);
 
-    double lightLow = atof(sensorData.light.c_str());
+    double currentLight = atof(sensorData.light.c_str()); // reading, not to be confused with configController.lightLow (threshold)
+    bool isCurrentlyOn = digitalRead(powerPin) == HIGH;
 
-    if (lightLow < deviceConfig.configController.lightLow)
+    // Dead zone: turn on only when below lightLow, turn off only once it climbs back above
+    // lightLow + hysteresis.
+    if (!isCurrentlyOn && currentLight < deviceConfig.configController.lightLow)
     {
         digitalWrite(powerPin, HIGH);
         Serial.println("[Power rail on]");
     }
-    else
+    else if (isCurrentlyOn && currentLight >= deviceConfig.configController.lightLow + deviceConfig.configController.lightHysteresis)
     {
         digitalWrite(powerPin, LOW);
         Serial.println("[Power rail off]");

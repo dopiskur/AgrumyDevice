@@ -463,6 +463,13 @@ DeviceConfig DeviceController::loadConfig(String configJson)
     deviceConfig.configController.waterLow = deviceConfigController["waterLow"];
     deviceConfig.configController.waterHigh = deviceConfigController["waterHigh"];
 
+    // "|" fallback keeps the current value if the server doesn't send these keys (older API),
+    // instead of clobbering it with 0.
+    deviceConfig.configController.waterLevelHysteresis = deviceConfigController["waterLevelHysteresis"] | deviceConfig.configController.waterLevelHysteresis;
+    deviceConfig.configController.temperatureHysteresis = deviceConfigController["temperatureHysteresis"] | deviceConfig.configController.temperatureHysteresis;
+    deviceConfig.configController.humidityHysteresis = deviceConfigController["humidityHysteresis"] | deviceConfig.configController.humidityHysteresis;
+    deviceConfig.configController.lightHysteresis = deviceConfigController["lightHysteresis"] | deviceConfig.configController.lightHysteresis;
+
     deviceConfig.configController.ventilationIntervalEnabled = deviceConfigController["ventilationIntervalEnabled"];
     deviceConfig.configController.ventilationInterval = deviceConfigController["ventilationInterval"];
     deviceConfig.configController.ventilationIntervalLenght = deviceConfigController["ventilationIntervalLenght"];
