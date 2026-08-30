@@ -247,6 +247,9 @@ millisCurrent = millis();
 
 
 
+// Case numbers must match deviceTypeRelay's IDDeviceTypeRelay seed order (db/agrumyDB-final.sql:
+// 1=Ventilation, 2=Light, 3=Heating, 4=Water pump) - the Web admin dropdown stores that ID
+// directly into relay1..relay8, so a mismatch here silently runs the wrong relay function.
 void ControllerController::initController(SensorData sensorData)
 {
 
@@ -260,11 +263,11 @@ void ControllerController::initController(SensorData sensorData)
     case 0:
         break;
     case 1:
-        relayLight(deviceConfig.configPin.RELAY_1, sensorData);
+        relayVentilation(deviceConfig.configPin.RELAY_1, sensorData);
         break;
 
     case 2:
-        relayWaterPump(deviceConfig.configPin.RELAY_1, sensorData);
+        relayLight(deviceConfig.configPin.RELAY_1, sensorData);
         break;
 
     case 3:
@@ -272,7 +275,7 @@ void ControllerController::initController(SensorData sensorData)
         break;
 
     case 4:
-        relayVentilation(deviceConfig.configPin.RELAY_1, sensorData);
+        relayWaterPump(deviceConfig.configPin.RELAY_1, sensorData);
         break;
 
     default:
@@ -284,11 +287,11 @@ void ControllerController::initController(SensorData sensorData)
     case 0:
         break;
     case 1:
-        relayLight(deviceConfig.configPin.RELAY_2, sensorData);
+        relayVentilation(deviceConfig.configPin.RELAY_2, sensorData);
         break;
 
     case 2:
-        relayWaterPump(deviceConfig.configPin.RELAY_2, sensorData);
+        relayLight(deviceConfig.configPin.RELAY_2, sensorData);
         break;
 
     case 3:
@@ -296,7 +299,7 @@ void ControllerController::initController(SensorData sensorData)
         break;
 
     case 4:
-        relayVentilation(deviceConfig.configPin.RELAY_2, sensorData);
+        relayWaterPump(deviceConfig.configPin.RELAY_2, sensorData);
         break;
 
     default:
@@ -308,11 +311,11 @@ void ControllerController::initController(SensorData sensorData)
     case 0:
         break;
     case 1:
-        relayLight(deviceConfig.configPin.RELAY_3, sensorData);
+        relayVentilation(deviceConfig.configPin.RELAY_3, sensorData);
         break;
 
     case 2:
-        relayWaterPump(deviceConfig.configPin.RELAY_3, sensorData);
+        relayLight(deviceConfig.configPin.RELAY_3, sensorData);
         break;
 
     case 3:
@@ -320,7 +323,7 @@ void ControllerController::initController(SensorData sensorData)
         break;
 
     case 4:
-        relayVentilation(deviceConfig.configPin.RELAY_3, sensorData);
+        relayWaterPump(deviceConfig.configPin.RELAY_3, sensorData);
         break;
 
     default:
@@ -332,11 +335,11 @@ void ControllerController::initController(SensorData sensorData)
     case 0:
         break;
     case 1:
-        relayLight(deviceConfig.configPin.RELAY_4, sensorData);
+        relayVentilation(deviceConfig.configPin.RELAY_4, sensorData);
         break;
 
     case 2:
-        relayWaterPump(deviceConfig.configPin.RELAY_4, sensorData);
+        relayLight(deviceConfig.configPin.RELAY_4, sensorData);
         break;
 
     case 3:
@@ -344,7 +347,7 @@ void ControllerController::initController(SensorData sensorData)
         break;
 
     case 4:
-        relayVentilation(deviceConfig.configPin.RELAY_4, sensorData);
+        relayWaterPump(deviceConfig.configPin.RELAY_4, sensorData);
         break;
 
     default:
@@ -356,11 +359,11 @@ void ControllerController::initController(SensorData sensorData)
     case 0:
         break;
     case 1:
-        relayLight(deviceConfig.configPin.RELAY_5, sensorData);
+        relayVentilation(deviceConfig.configPin.RELAY_5, sensorData);
         break;
 
     case 2:
-        relayWaterPump(deviceConfig.configPin.RELAY_5, sensorData);
+        relayLight(deviceConfig.configPin.RELAY_5, sensorData);
         break;
 
     case 3:
@@ -368,7 +371,7 @@ void ControllerController::initController(SensorData sensorData)
         break;
 
     case 4:
-        relayVentilation(deviceConfig.configPin.RELAY_5, sensorData);
+        relayWaterPump(deviceConfig.configPin.RELAY_5, sensorData);
         break;
 
     default:
@@ -380,11 +383,11 @@ void ControllerController::initController(SensorData sensorData)
     case 0:
         break;
     case 1:
-        relayLight(deviceConfig.configPin.RELAY_6, sensorData);
+        relayVentilation(deviceConfig.configPin.RELAY_6, sensorData);
         break;
 
     case 2:
-        relayWaterPump(deviceConfig.configPin.RELAY_6, sensorData);
+        relayLight(deviceConfig.configPin.RELAY_6, sensorData);
         break;
 
     case 3:
@@ -392,7 +395,7 @@ void ControllerController::initController(SensorData sensorData)
         break;
 
     case 4:
-        relayVentilation(deviceConfig.configPin.RELAY_6, sensorData);
+        relayWaterPump(deviceConfig.configPin.RELAY_6, sensorData);
         break;
 
     default:
@@ -404,11 +407,11 @@ void ControllerController::initController(SensorData sensorData)
     case 0:
         break;
     case 1:
-        relayLight(deviceConfig.configPin.RELAY_7, sensorData);
+        relayVentilation(deviceConfig.configPin.RELAY_7, sensorData);
         break;
 
     case 2:
-        relayWaterPump(deviceConfig.configPin.RELAY_7, sensorData);
+        relayLight(deviceConfig.configPin.RELAY_7, sensorData);
         break;
 
     case 3:
@@ -416,7 +419,7 @@ void ControllerController::initController(SensorData sensorData)
         break;
 
     case 4:
-        relayVentilation(deviceConfig.configPin.RELAY_7, sensorData);
+        relayWaterPump(deviceConfig.configPin.RELAY_7, sensorData);
         break;
 
     default:
@@ -428,11 +431,11 @@ void ControllerController::initController(SensorData sensorData)
     case 0:
         break;
     case 1:
-        relayLight(deviceConfig.configPin.RELAY_8, sensorData);
+        relayVentilation(deviceConfig.configPin.RELAY_8, sensorData);
         break;
 
     case 2:
-        relayWaterPump(deviceConfig.configPin.RELAY_8, sensorData);
+        relayLight(deviceConfig.configPin.RELAY_8, sensorData);
         break;
 
     case 3:
@@ -440,7 +443,7 @@ void ControllerController::initController(SensorData sensorData)
         break;
 
     case 4:
-        relayVentilation(deviceConfig.configPin.RELAY_8, sensorData);
+        relayWaterPump(deviceConfig.configPin.RELAY_8, sensorData);
         break;
 
     default:
