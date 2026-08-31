@@ -19,6 +19,27 @@ extern const uint8_t rootca_crt_bundle_start[] asm("_binary_data_cert_x509_crt_b
 
 static ServiceController service; // static resolves a conflict with main
 
+// Roadmap #20: the raw config/registration JSON logged in registerDevice()/loadConfig() below is
+// otherwise very useful for debugging sync issues (thresholds, relay assignments, sensor mapping -
+// see roadmap #43-47), so it isn't removed wholesale, just its one embedded secret - masks the
+// "apiKey":"..." field value in place using ServiceController::maskSecret, leaving the rest as-is.
+static String maskApiKeyInJson(const String &json)
+{
+  const String needle = "\"apiKey\":\"";
+  int start = json.indexOf(needle);
+  if (start < 0)
+  {
+    return json;
+  }
+  start += needle.length();
+  int end = json.indexOf('"', start);
+  if (end < 0)
+  {
+    return json;
+  }
+  return json.substring(0, start) + ServiceController::maskSecret(json.substring(start, end)) + json.substring(end);
+}
+
 static DeviceDefaults deviceDefaults;
 static DeviceConfig deviceConfig;
 static ServiceEndpoint serviceEndpoint;
@@ -293,7 +314,7 @@ void DeviceController::registerDevice(String configRegistration)
     reboot();
   }
 
-  Serial.println("[Device] config: " + serviceData.payload);
+  Serial.println("[Device] config: " + maskApiKeyInJson(serviceData.payload));
 
   saveFile(serviceData.payload, "config.json");
   delay(1000);
@@ -536,7 +557,7 @@ void DeviceController::removeBufferedFile(String filename)
 
 DeviceConfig DeviceController::loadConfig(String configJson)
 {
-  Serial.println("[Device] Load config: " + configJson);
+  Serial.println("[Device] Load config: " + maskApiKeyInJson(configJson));
 
   DeserializationError error = deserializeJson(config, configJson);
 

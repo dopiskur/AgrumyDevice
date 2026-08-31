@@ -37,6 +37,11 @@ public:
 
     JsonDocument buildJson();
 
+    // Roadmap #20: masks a secret (apiKey/authKey) for Serial output like SQL data masking - first
+    // 4 + last 4 characters visible, rest replaced. Public/static so DeviceController's raw config-
+    // JSON debug dump (which embeds apiKey as plaintext) can reuse it instead of duplicating it.
+    static String maskSecret(const String &value);
+
 private:
 };
 #endif

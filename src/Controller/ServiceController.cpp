@@ -20,6 +20,25 @@ static ServiceRequest serviceRequest;
 static ServiceEndpoint serviceEndpoint;
 static String apiAuth;
 
+// Roadmap #20: apiKey/authKey are usable to impersonate the device if copied off Serial (confirmed
+// live during the #77 physical test) - mask the middle like SQL data masking (first 4 + last 4
+// visible) so serial debugging still shows enough to spot an obviously wrong/truncated value,
+// without ever printing a value someone reading the monitor could copy-paste as a working secret.
+// Blank stays blank (nothing to mask, and most calls legitimately send an empty apiKey/authKey -
+// see the session-vs-apiKey-auth comments in apiConfig()/apiAuthenticate() below).
+String ServiceController::maskSecret(const String &value)
+{
+    if (value.length() == 0)
+    {
+        return value;
+    }
+    if (value.length() <= 8)
+    {
+        return "****"; // too short to show 4+4 without exposing the whole thing
+    }
+    return value.substring(0, 4) + "****...****" + value.substring(value.length() - 4);
+}
+
 ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceRequest service)
 {
     ServiceData serviceData;
@@ -32,9 +51,9 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
         HTTPClient http;
         String serviceURL = service.serviceType + service.servicePoint + service.endpoint;
         Serial.println("[Service] POST: " + serviceURL);
-        Serial.println("[Service] apiId: " + service.header.apiId);
-        Serial.println("[Service] apiKey: " + service.header.apiKey);
-        Serial.println("[Service] authKey: " + apiAuth);
+        Serial.println("[Service] apiId: " + service.header.apiId); // identifier, not a secret - see roadmap #73
+        Serial.println("[Service] apiKey: " + maskSecret(service.header.apiKey));
+        Serial.println("[Service] authKey: " + maskSecret(apiAuth));
 
         if (service.isHttps)
         {
@@ -163,7 +182,7 @@ void ServiceController::apiAuthenticate(DeviceConfig deviceConfig, ServiceReques
 
     String output = payload["apiAuth"];
     apiAuth = output;
-    Serial.println("[Service] apiAuthentication authKey: " + apiAuth);
+    Serial.println("[Service] apiAuthentication authKey: " + maskSecret(apiAuth));
 }
 
 bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest serviceRequest, DeviceController& device)
