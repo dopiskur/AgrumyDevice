@@ -166,7 +166,7 @@ void ServiceController::apiAuthenticate(DeviceConfig deviceConfig, ServiceReques
     Serial.println("[Service] apiAuthentication authKey: " + apiAuth);
 }
 
-void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serviceRequest, DeviceController& device)
+bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest serviceRequest, DeviceController& device)
 {
     String configVersion=String(deviceConfig.configVersion);
 
@@ -222,18 +222,26 @@ void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serv
     String fwUrl     = deviceConfig.firmwareUrl;
 
     bool receivedNewConfig = !serviceData.payload.isEmpty();
+    DeviceConfig newConfig;
 
     if (receivedNewConfig) {
         Serial.println(serviceData.payload);
-        Serial.println("[Service] New config received, saving new config");
-        device.saveConfigFile(serviceData.payload); // backs up the old config.json before overwriting it (config integrity)
-        delay(1000); // let the write settle
+        // Roadmap #67: parse-gate BEFORE persisting - a truncated body must neither clobber
+        // config.json nor be applied; keep running on the current config, the server keeps
+        // offering the new one on every poll while our configVersion is behind.
+        JsonDocument parseCheck;
+        if (deserializeJson(parseCheck, serviceData.payload) != DeserializationError::Ok) {
+            Serial.println("[Service] New config payload failed to parse - ignoring it this cycle");
+            receivedNewConfig = false;
+        } else {
+            Serial.println("[Service] New config received, saving new config");
+            device.saveConfigFile(serviceData.payload); // backs up the old config.json before overwriting it (config integrity)
+            delay(1000); // let the write settle
 
-        JsonDocument newCfg;
-        if (deserializeJson(newCfg, serviceData.payload) == DeserializationError::Ok) {
-            fwFlag    = newCfg["firmwareUpdate"]  | false;
-            fwVersion = newCfg["firmwareVersion"] | String("");
-            fwUrl     = newCfg["firmwareUrl"]     | String("");
+            newConfig = device.loadConfig(serviceData.payload);
+            fwFlag    = newConfig.firmwareUpdate;
+            fwVersion = newConfig.firmwareVersion;
+            fwUrl     = newConfig.firmwareUrl;
         }
     }
 
@@ -251,12 +259,39 @@ void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serv
     }
 
     if (receivedNewConfig) {
-        // Config-integrity crash-loop guard: feed the counter ONLY here, right before this
-        // specific reboot - never on the OTA reboot above or the too-many-failures reboot,
-        // so an unrelated reboot cause never falsely triggers a rollback in setup().
-        device.notePendingConfigReboot(millis());
-        device.reboot(); // boot into the newly saved config
-    } else {
-        Serial.println("[Service] Config didn't change, do nothing");
+        // Roadmap #67: reboot only when a field tied to boot-time state changed - transport
+        // (deviceTypeServiceID/servicePoint/servicePublicKey: static WiFiClientSecure TLS state,
+        // serviceRequest derived once in setup()), identity (apiId/apiKey: safer rotated through
+        // a clean restart), sleepDeep (a property of the boot/sleep cycle itself). Everything
+        // else - thresholds, hysteresis, intervals, relay assignments, the enable flags - is
+        // read from deviceConfig every cycle and takes effect immediately without a reboot.
+        bool rebootRequired =
+            newConfig.deviceTypeServiceID != deviceConfig.deviceTypeServiceID ||
+            newConfig.servicePoint        != deviceConfig.servicePoint ||
+            newConfig.servicePublicKey    != deviceConfig.servicePublicKey ||
+            newConfig.apiId               != deviceConfig.apiId ||
+            newConfig.apiKey              != deviceConfig.apiKey ||
+            newConfig.sleepDeep           != deviceConfig.sleepDeep;
+
+        if (rebootRequired) {
+            // Config-integrity crash-loop guard: feed the counter ONLY here, right before this
+            // specific reboot - never on the OTA reboot above or the too-many-failures reboot,
+            // so an unrelated reboot cause never falsely triggers a rollback in setup().
+            device.notePendingConfigReboot(millis());
+            device.reboot(); // boot into the newly saved config
+        }
+
+        // Hot-apply: update the caller's instance through the reference and confirm to the
+        // server now - the boot-time ConfigApplied path (#37) never runs because there is no
+        // reboot. #62's crash-loop rollback deliberately stays scoped to reboot-applied configs:
+        // the fields that can reach this branch are re-read every cycle and cannot wedge the
+        // boot path, so arming the counter here would only risk false rollbacks.
+        deviceConfig = newConfig;
+        Serial.println("[Service] Config hot-applied without reboot (version " + String(deviceConfig.configVersion) + ")");
+        pushEvent(serviceRequest, "ConfigApplied", "version=" + String(deviceConfig.configVersion));
+        return true;
     }
+
+    Serial.println("[Service] Config didn't change, do nothing");
+    return false;
 }

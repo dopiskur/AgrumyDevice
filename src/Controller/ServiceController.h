@@ -23,7 +23,11 @@ public:
 
     // API functions
     void apiAuthenticate(DeviceConfig deviceConfig, ServiceRequest serviceRequest, DeviceController& device);
-    void apiConfig(DeviceConfig deviceConfig, ServiceRequest serviceRequest, DeviceController& device);
+    // Roadmap #67: deviceConfig is a reference so a received config can be hot-applied in place.
+    // Returns true when that happened (no reboot) - the caller must then re-copy deviceConfig
+    // into the per-module value copies, mirroring setup(). A change to any reboot-required field
+    // (transport/identity/sleepDeep, see the .cpp) still reboots and never returns.
+    bool apiConfig(DeviceConfig& deviceConfig, ServiceRequest serviceRequest, DeviceController& device);
     ServiceData apiSensorData(DeviceConfig deviceConfig, ServiceRequest serviceRequest);
 
     // Roadmap #28. service carries whatever apiId/serviceType/servicePoint the caller already had

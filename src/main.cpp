@@ -14,7 +14,7 @@
 #include "Controller/ServiceController.h"
 #include "Controller/ControllerController.h"
 
-const char *firmware = "0.1.2";
+const char *firmware = "0.1.3";
 const String CONFIG_BASE = "deviceRegistration.json";
 const String CONFIG_DEFAULTS = "config.json";
 
@@ -177,7 +177,17 @@ void loop()
     device.powerRailSecondary(true);
   }
 
-  service.apiConfig(deviceConfig, serviceRequest, device);
+  // Roadmap #67: true = a new config was hot-applied in place (no reboot) - re-copy it into the
+  // per-module value copies, mirroring setup(). Deliberate roadmap option (b): one explicit
+  // re-copy at the single call site instead of a reference refactor across every module.
+  // ControllerController needs nothing here - SensorController already hands it the fresh config
+  // right before every initController() call (see the #77 note in setup()).
+  if (service.apiConfig(deviceConfig, serviceRequest, device))
+  {
+    device.deviceConfig = deviceConfig;
+    sensor.deviceConfig = deviceConfig;
+    service.deviceConfig = deviceConfig;
+  }
 
   if (deviceConfig.enabled) {
     sensor.buildSensorData(deviceConfig);
