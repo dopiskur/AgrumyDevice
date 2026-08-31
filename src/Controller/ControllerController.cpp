@@ -8,9 +8,9 @@
 #include "ServiceController.h"
 #include "ControllerController.h"
 
-static DeviceDefaults deviceDefaults;
-static DeviceConfig deviceConfig;
-static ServiceEndpoint serviceEndpoint;
+// No file-local DeviceConfig here: member functions resolve `deviceConfig` to the class
+// member, so a file-static copy is dead weight that only ever shadows intent - the config
+// arrives via the member, assigned in SensorController before each initController() call.
 
 unsigned long millisCurrent;
 unsigned long millisStartVentilation;

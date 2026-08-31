@@ -717,6 +717,12 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
     buildSensorDataPayload();
 
     if(deviceConfig.deviceControllerEnabled){
+        // The instance acting on relays is THIS file's `controller` global - main.cpp's is a
+        // separate `static` object that received deviceConfig but was never asked to run.
+        // Without this hand-off the acting instance keeps a zero ConfigController (relay
+        // assignments, thresholds, intervals), so every switch in initController() hits
+        // "case 0" and the whole control path is a silent no-op on real hardware.
+        controller.deviceConfig = deviceConfig;
         controller.initController(sensorData);
     }
 
