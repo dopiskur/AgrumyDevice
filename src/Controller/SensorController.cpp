@@ -473,6 +473,14 @@ bool SensorController::flushBufferedSensorData()
 
 void SensorController::pushSensorData(JsonDocument payload){
 
+    // Roadmap #80 (same bug class as #77): the file-static `service` above is a SEPARATE
+    // ServiceController instance from main.cpp's - its deviceConfig was never assigned, so
+    // requestPost()'s servicePublicKey.length()>0 check was always false and sensor-data push
+    // silently ignored an operator-pinned self-hosted cert, always falling back to the public CA
+    // bundle. One assignment here covers every service.requestPost()/pushEvent() call this
+    // function reaches (flushBufferedSensorData() included - it has no other caller).
+    service.deviceConfig = deviceConfig;
+
     serviceRequest.endpoint = serviceEndpoint.apiSensorDataPost;
     serviceRequest.header.apiId = deviceConfig.apiId;
 
