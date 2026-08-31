@@ -62,7 +62,7 @@ void DeviceController::setupController()
 }
 
 // LittleFS lives in the partition labelled "spiffs" (default scheme, no board_build.partitions):
-// esp32dev / seeed_xiao_esp32c3 (4MB, default.csv) = 1408 KB; esp32s3usbotg (8MB, default_8MB.csv)
+// esp32dev (4MB, default.csv) = 1408 KB; esp32s3usbotg (8MB, default_8MB.csv)
 // = 1536 KB. It is a separate flash region from the OTA app partitions (ota_0/ota_1), so roadmap
 // #3 OTA never touches it. Stored today: config.json ~2.2 KB + deviceRegistration.json ~0.15 KB
 // => < 2% used, leaving ~1.35-1.5 MB for the roadmap #9 store-and-forward queue.

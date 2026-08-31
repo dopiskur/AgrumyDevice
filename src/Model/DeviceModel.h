@@ -25,60 +25,12 @@ struct EventLog
 
 struct ConfigPin // default values, cannot be changed during the setup phase
 {
-#if defined(CONFIG_IDF_TARGET_ESP32C3)
-    // ---------------------------------------------------------------------------
-    // Seeed XIAO ESP32-C3 profile - SENSOR-ONLY node
-    //
-    // The classic-ESP32 defaults in the #else branch use GPIO25/26/27/33/34/35,
-    // none of which exist on the ESP32-C3 (GPIO0-21 only). This is an ADDITIONAL
-    // hardware profile - the #else branch is byte-for-byte the original and stays
-    // the default for esp32dev / esp32s3usbotg.
-    //
-    // This board is not meant to be a controller: it is a sensor node with no
-    // relay outputs. All RELAY_* stay 0, which ControllerController already treats
-    // as "no relay" (`if (relayN != 0)` guards every relay write), so the control
-    // path is inert here even if the server config happens to enable it.
-    //
-    // XIAO C3 breaks out 11 pads: GPIO2-10, 20, 21.
-    //  - GPIO6/7  = default I2C (BH1750 / CCS811 / BMPx8x). Left free here, exactly
-    //               as the classic profile also leaves I2C to core defaults.
-    //  - GPIO2/8/9 = boot strapping pins. Left UNCONNECTED by this profile so
-    //               nothing can violate the boot straps.
-    //  - GPIO20/21 = UART0, reusable as GPIO because the console runs over USB-CDC
-    //               (board sets ARDUINO_USB_CDC_ON_BOOT=1).
-    //  - Analog inputs must stay on ADC1 (GPIO0-4) to keep reading while WiFi is
-    //               on; MOIST/WaterTank -> GPIO3/GPIO4 (ADC1_CH3 / ADC1_CH4).
-    //
-    // Only 5 signals to place (2 power rails + DHT + 2 ADC), all on clean pins;
-    // GPIO21 is left spare.
+    // The Seeed XIAO ESP32-C3 sensor-only profile (a CONFIG_IDF_TARGET_ESP32C3 branch here,
+    // plus its platformio.ini env and CI matrix entry) was removed 2026-08-31 by explicit
+    // decision - recover it from git history (added in b58876b) if a C3-class sensor node
+    // ever returns to the lineup.
 
-    int POWER_RAIL_PRIMARY   = 10; // D10 - clean GPIO
-    int POWER_RAIL_SECONDARY = 20; // D7  - UART0 RX pad, clean (console is USB-CDC)
-
-    int STATUS_POWER  = 0; // status LEDs are unused in firmware today and there is
-    int STATUS_SENSOR = 0; // no reason to spend a pad on them on a sensor node
-    int STATUS_ERROR  = 0;
-
-    // PINOUT Sensors
-    int DHT       = 5; // D3
-    int TEMPSOIL  = 0; // sensor_DS18B20_temp() is an empty stub
-    int MOIST     = 3; // D1 / A1 - ADC1_CH3
-    int WaterTank = 4; // D2 / A2 - ADC1_CH4
-    int DEPTH_RX  = 0; // no UART depth-sensor code exists
-    int DEPTH_TX  = 0;
-    int PH        = 0; // sensor_liquid_PH() is an empty stub
-
-    // PINOUT Relay - none: this profile is a sensor-only node
-    int RELAY_1 = 0;
-    int RELAY_2 = 0;
-    int RELAY_3 = 0;
-    int RELAY_4 = 0;
-    int RELAY_5 = 0; //UNDEFINED
-    int RELAY_6 = 0; //UNDEFINED
-    int RELAY_7 = 0; //UNDEFINED
-    int RELAY_8 = 0; //UNDEFINED
-#else
-    // ---- Classic ESP32 (esp32dev) / ESP32-S3 (esp32s3usbotg) - UNCHANGED ----
+    // ---- Classic ESP32 (esp32dev) / ESP32-S3 (esp32s3usbotg) ----
 
     // PINOUT general
     int POWER_RAIL_PRIMARY=2;
@@ -106,7 +58,6 @@ struct ConfigPin // default values, cannot be changed during the setup phase
     int RELAY_6=0; //UNDEFINED
     int RELAY_7=0; //UNDEFINED
     int RELAY_8=0; //UNDEFINED
-#endif
 };
 
 struct ModuleEnabled

@@ -11,13 +11,12 @@ in the separate [AgrumyApi](https://github.com/dopiskur/AgrumyApi) repository.
 
 ## Supported hardware
 
-Built with PlatformIO. Three environments:
+Built with PlatformIO. Two environments:
 
 | Environment | Board | Role |
 | --- | --- | --- |
 | `esp32dev` | ESP32-WROOM-32 dev board | Controller (relays + sensors) |
 | `esp32s3usbotg` | ESP32-S3 | Controller |
-| `seeed_xiao_esp32c3` | Seeed XIAO ESP32-C3 | Sensor-only node |
 
 ## Build
 
