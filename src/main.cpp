@@ -14,7 +14,7 @@
 #include "Controller/ServiceController.h"
 #include "Controller/ControllerController.h"
 
-const char *firmware = "0.1.1";
+const char *firmware = "0.1.2";
 const String CONFIG_BASE = "deviceRegistration.json";
 const String CONFIG_DEFAULTS = "config.json";
 
