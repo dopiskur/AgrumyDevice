@@ -5,6 +5,7 @@
 #include <Wire.h>
 #include <ArduinoJson.h>
 #include <esp_task_wdt.h>
+#include <esp_sleep.h>
 
 #include "Model/DeviceModel.h"
 
@@ -38,7 +39,6 @@ static ServiceData serviceData;
 static DeviceController device;
 static ServiceController service;
 static SensorController sensor;
-static ControllerController controller;
 
 
 
@@ -47,6 +47,13 @@ void setup()
   Serial.begin(115200);
   Serial.println();
   Serial.println("[Initialization started]");
+
+  // Roadmap #26: on a deep-sleeping node every cycle re-enters setup() - say so explicitly,
+  // otherwise a serial log full of reboots is indistinguishable from a crash loop.
+  if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER)
+  {
+    Serial.println("[Boot] Woke from deep sleep (timer)");
+  }
 
   // format-on-fail: first boot after the SPIFFS->LittleFS switch reformats the partition.
   // A partition still holding SPIFFS bytes must fail the mount here so the format runs -
@@ -104,7 +111,10 @@ void setup()
   device.deviceConfig = deviceConfig;
   sensor.deviceConfig = deviceConfig;
   service.deviceConfig = deviceConfig;
-  controller.deviceConfig = deviceConfig;
+  // No ControllerController here: the acting instance lives in SensorController.cpp and gets
+  // the config right before every initController() call - a second copy on a main.cpp-local
+  // instance is exactly the bug that made relay control a no-op (it held the config, but the
+  // instance that ran never saw it).
 
   serviceRequest.serviceType = device.serviceType(deviceConfig.deviceTypeServiceID, serviceRequest.isHttps);
   serviceRequest.servicePoint = deviceConfig.servicePoint;
@@ -186,6 +196,21 @@ void loop()
   // apiConfig() / buildSensorData() never reaches this point, so the reboot backstop stays
   // effective against a real stall.
   esp_task_wdt_reset();
+
+  // Roadmap #26: a sensor-only node with sleepDeep set powers down between cycles instead of
+  // idling at full draw - the wake is a fresh boot through setup() (config re-read from
+  // LittleFS, WDT re-armed at the end of setup, #62's RTC counter untouched because only the
+  // config-reboot path feeds it). A device that drives relays must NOT deep sleep: GPIO
+  // outputs drop during deep sleep and ControllerController's millis-based interval state is
+  // lost, so it falls through to the powered chunked delay below.
+  if (deviceConfig.sleepDeep && deviceConfig.sleepSeconds > 0)
+  {
+    if (!deviceConfig.deviceControllerEnabled)
+    {
+      device.sleep(); // never returns
+    }
+    Serial.println("[Sleep] sleepDeep is set but this device drives relays - staying powered (roadmap #26)");
+  }
 
   // Inter-cycle pause. It is a bounded idle wait, not work that can hang, so keep petting
   // the watchdog through it in steps shorter than the timeout - otherwise a server-set

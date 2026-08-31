@@ -352,18 +352,24 @@ void DeviceController::powerRailSecondary(bool state)
   delay(500);
 }
 
+// Roadmap #26: powers the chip down between cycles; the timer wake is a full reset back
+// through setup(). Caller (main loop) decides WHEN sleeping is safe - notably never while
+// this device drives relays, since deep sleep drops GPIO outputs and wipes the millis-based
+// interval state in ControllerController.
 void DeviceController::sleep()
 {
-#define uS_TO_S_FACTOR 1000000 /* Conversion factor for micro seconds to seconds */
+  // uint64 math: seconds * 1e6 overflows int32 for anything past ~35 minutes, and
+  // esp_sleep_enable_timer_wakeup takes uint64 microseconds anyway.
+  const uint64_t uS_TO_S_FACTOR = 1000000ULL;
   int TIME_TO_SLEEP = deviceConfig.sleepSeconds;
-  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+  esp_sleep_enable_timer_wakeup((uint64_t)TIME_TO_SLEEP * uS_TO_S_FACTOR);
 
   if (deviceConfig.sleepDeep)
   {
     Serial.println("Setup ESP32 to sleep for every " + String(TIME_TO_SLEEP) + " Seconds");
     Serial.println("Going to sleep now");
     Serial.flush();
-    esp_deep_sleep_start();
+    esp_deep_sleep_start(); // never returns
   }
   else
   {
