@@ -37,8 +37,9 @@ CONTRACT = {
 
     "config.request.schema.json": {
         "mode": "sends_exact",
-        "src": "ServiceController.cpp :: apiConfig()  ->  payload[\"ConfigVersion\"] (PascalCase, value sent as string)",
-        "keys": ["ConfigVersion"],
+        "src": "ServiceController.cpp :: apiConfig()  ->  payload[...] (PascalCase; ConfigVersion "
+               "sent as string, the roadmap #7 heartbeat diagnostics as numbers/string)",
+        "keys": ["ConfigVersion", "Uptime", "Rssi", "FreeHeap", "FirmwareVersion"],
     },
 
     "sensordata.request.schema.json": {

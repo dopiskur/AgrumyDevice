@@ -1,6 +1,7 @@
 #include "Arduino.h"
 #include "WiFi.h"
 #include "HTTPClient.h"
+#include <esp_timer.h>
 #include <WiFiClientSecure.h>
 #include "NTPClient.h"
 #include "ServiceController.h"
@@ -10,6 +11,10 @@
 
 // Root CA bundle embedded via platformio.ini board_build.embed_files (see roadmap #3 notes).
 extern const uint8_t rootca_crt_bundle_start[] asm("_binary_data_cert_x509_crt_bundle_bin_start");
+
+// main.cpp - the RUNNING image's version, reported in the config-poll heartbeat (roadmap #7)
+// and compared against OTA offers below.
+extern const char *firmware;
 
 static ServiceRequest serviceRequest;
 static ServiceEndpoint serviceEndpoint;
@@ -176,6 +181,12 @@ void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serv
     ServiceData serviceData;
     JsonDocument payload;
     payload["ConfigVersion"] = configVersion;
+    // Roadmap #7: the config poll doubles as the heartbeat - see contracts/device-api/
+    // config.request.schema.json. esp_timer, not millis(): 64-bit, no 49-day wrap.
+    payload["Uptime"] = (uint32_t)(esp_timer_get_time() / 1000000ULL);
+    payload["Rssi"] = WiFi.RSSI();
+    payload["FreeHeap"] = ESP.getFreeHeap();
+    payload["FirmwareVersion"] = firmware;
 
     serviceData = requestPost(payload, serviceRequest);
 
@@ -227,7 +238,6 @@ void ServiceController::apiConfig(DeviceConfig deviceConfig, ServiceRequest serv
     }
 
     // OTA only when the server asks AND the offered version differs from this image, so a stale flag can't loop forever; do it before the reboot below.
-    extern const char *firmware; // main.cpp
     if (fwFlag && fwUrl.length() > 0 && fwVersion != String(firmware)) {
         bool otaHttps = fwUrl.startsWith("https://") || fwUrl.startsWith("HTTPS://");
         Serial.println("[Service] Firmware update " + fwVersion + " available (running " + String(firmware) + ")");
