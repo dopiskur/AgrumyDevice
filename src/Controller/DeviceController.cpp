@@ -321,6 +321,20 @@ void DeviceController::registerDevice(String configRegistration)
 
   Serial.println("[Device] config: " + maskApiKeyInJson(serviceData.payload));
 
+  // Roadmap #103: apiConfig()'s #67 parse-gate has no counterpart here - a truncated-but-non-empty
+  // body (network hiccup mid-stream) passes both checks above (200/201 status, non-empty) and would
+  // be persisted as-is. saveFile()'s atomic write (#62) only protects DISK integrity, not CONTENT
+  // validity - a malformed config.json boot-loops on the very next startup. Parse-gate before
+  // persisting, same principle as #67: on failure, retry via the same reboot-and-backoff path the
+  // HTTP-status/empty-body failure above already uses.
+  JsonDocument parseCheck;
+  if (deserializeJson(parseCheck, serviceData.payload) != DeserializationError::Ok)
+  {
+    Serial.println("[Device] Registration payload failed to parse - retrying after reboot");
+    delay(10000);
+    reboot();
+  }
+
   saveFile(serviceData.payload, "config.json");
   delay(1000);
   reboot();
