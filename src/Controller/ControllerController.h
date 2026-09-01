@@ -4,6 +4,7 @@
 #include <ArduinoJson.h>
 
 #include "../Model/DeviceModel.h"
+#include "../Logic/RelayLogic.h"
 
 // Forward declarations instead of includes
 class DeviceController;

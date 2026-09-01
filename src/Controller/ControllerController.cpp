@@ -57,6 +57,9 @@ int ControllerController::collectPinsForFunction(RelayFunctionType relayFunction
 // one short, irregular cycle before every midnight for any interval that doesn't evenly divide 24h
 // (e.g. 5h, 7h). A missed cycle across a power outage is accepted as harmless - threshold+hysteresis
 // (#10) is the real failsafe, this is scheduling convenience.
+// Roadmap #19/#95: the duty-cycle math itself lives in computeIntervalState() (src/Logic/
+// RelayLogic.cpp, native-testable) - this wrapper only decides WHETHER to touch these pins at all
+// (enabled, interval valid, a relay slot actually assigned) and then does the hardware write.
 void ControllerController::intervalRelayFunction(RelayFunctionType relayFunction, bool intervalEnabled, int interval, int intervalLenght, time_t epochSeconds)
 {
     if (!intervalEnabled || interval <= 0)
@@ -71,8 +74,7 @@ void ControllerController::intervalRelayFunction(RelayFunctionType relayFunction
         return; // no relay slot assigned to this function
     }
 
-    unsigned long positionInCycle = (unsigned long)epochSeconds % (unsigned long)interval;
-    bool shouldBeOn = positionInCycle < (unsigned long)intervalLenght;
+    bool shouldBeOn = computeIntervalState(interval, intervalLenght, epochSeconds);
 
     for (int i = 0; i < pinCount; i++)
     {
@@ -92,6 +94,10 @@ void ControllerController::intervalRelayFunction(RelayFunctionType relayFunction
 // (unlike intervalRelayFunction above, each pin is evaluated independently here, even if several
 // share the same function - digitalRead(relayPin) keeps each one's on/off state correct on its
 // own physical pin).
+// Roadmap #19/#95: the dead-zone math itself lives in computeThresholdState() (src/Logic/
+// RelayLogic.cpp, native-testable) - this wrapper only resolves WHICH reading/threshold/hysteresis
+// apply to relayFunction (a plain lookup, not hardware) and does the pinMode/digitalRead/
+// digitalWrite/logging around it.
 void ControllerController::thresholdRelayFunction(RelayFunctionType relayFunction, int relayPin, SensorData sensorData)
 {
     double reading;
@@ -131,19 +137,12 @@ void ControllerController::thresholdRelayFunction(RelayFunctionType relayFunctio
 
     pinMode(relayPin, OUTPUT);
     bool isCurrentlyOn = digitalRead(relayPin) == HIGH;
+    bool newState = computeThresholdState(isCurrentlyOn, reading, threshold, hysteresis, turnsOnAboveThreshold);
 
-    bool shouldTurnOn = turnsOnAboveThreshold ? (reading > threshold) : (reading < threshold);
-    bool shouldTurnOff = turnsOnAboveThreshold ? (reading <= threshold - hysteresis) : (reading >= threshold + hysteresis);
-
-    if (!isCurrentlyOn && shouldTurnOn)
+    if (newState != isCurrentlyOn)
     {
-        digitalWrite(relayPin, HIGH);
-        Serial.println("[Power rail on]");
-    }
-    else if (isCurrentlyOn && shouldTurnOff)
-    {
-        digitalWrite(relayPin, LOW);
-        Serial.println("[Power rail off]");
+        digitalWrite(relayPin, newState ? HIGH : LOW);
+        Serial.println(newState ? "[Power rail on]" : "[Power rail off]");
     }
     delay(500);
 }
@@ -156,6 +155,9 @@ void ControllerController::thresholdRelayFunction(RelayFunctionType relayFunctio
 // solved here for schedule mode the same way the epoch-modulo interval algorithm solved it for
 // interval mode). v1 does not support a window crossing local midnight - the server rejects
 // start+duration > 86400 before it ever reaches a device (DeviceApiController.ScheduleWindowError).
+// Roadmap #19/#95: the window-membership math itself lives in computeScheduleState() (src/Logic/
+// RelayLogic.cpp, native-testable) - this wrapper only decides WHETHER to touch these pins at all
+// (scheduleEnabled) and does the hardware write.
 void ControllerController::scheduleRelayFunction(RelayFunctionType relayFunction, bool scheduleEnabled, int daysOfWeek,
                                                    int startSeconds, int durationSeconds, int localWeekday, int localSecondsOfDay)
 {
@@ -164,10 +166,7 @@ void ControllerController::scheduleRelayFunction(RelayFunctionType relayFunction
         return;
     }
 
-    bool todayIsScheduled = (daysOfWeek & (1 << localWeekday)) != 0;
-    bool inWindow = todayIsScheduled &&
-                     localSecondsOfDay >= startSeconds &&
-                     localSecondsOfDay < (startSeconds + durationSeconds);
+    bool inWindow = computeScheduleState(daysOfWeek, startSeconds, durationSeconds, localWeekday, localSecondsOfDay);
 
     int pins[8];
     int pinCount = collectPinsForFunction(relayFunction, pins);

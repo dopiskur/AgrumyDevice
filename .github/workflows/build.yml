@@ -23,3 +23,18 @@ jobs:
           python-version: '3.x'
       - run: pip install --upgrade platformio
       - run: pio run -e ${{ matrix.environment }}
+
+  # Roadmap #19/#95: native (host-based) unit tests for the pure relay-decision logic
+  # (src/Logic/RelayLogic.*) - a separate job, not a third matrix entry above, because it runs
+  # `pio test` (build AND execute) rather than `pio run` (build only) and needs no ESP32 toolchain
+  # at all, just the ubuntu-latest runner's own gcc. This is the fast regression brake for
+  # interval/schedule/threshold logic changes that does not wait for a physical device.
+  native-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: pip install --upgrade platformio
+      - run: pio test -e native
