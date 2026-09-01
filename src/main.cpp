@@ -146,7 +146,12 @@ void setup()
     }
   }
 
-  // TEMP: force both power rails on for testing
+  // Unconditional on purpose, not leftover test code (roadmap #86): sensor.setupSensor() below
+  // needs the rails powered to init, and for a non-battery (mains) device this is the ONLY place
+  // that ever drives these pins - loop()'s batteryEnabled on/off cycling (below) never touches
+  // them when batteryEnabled is false, so a conditional here would leave mains-powered sensors
+  // permanently unpowered. For a battery device, loop() takes over duty-cycling from the very
+  // next iteration - this call only covers the brief window until then.
   device.powerRailPrimary(true);
   device.powerRailSecondary(true);
   delay(1000);
