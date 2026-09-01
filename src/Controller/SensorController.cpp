@@ -731,7 +731,7 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
         // assignments, thresholds, intervals), so every switch in initController() hits
         // "case 0" and the whole control path is a silent no-op on real hardware.
         controller.deviceConfig = deviceConfig;
-        controller.initController(sensorData);
+        controller.initController(sensorData, device.getEpochSeconds());
     }
 
 }

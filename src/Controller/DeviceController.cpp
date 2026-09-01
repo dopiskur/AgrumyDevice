@@ -60,10 +60,15 @@ RTC_DATA_ATTR static bool rtcConfigJustAppliedPending = false;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP);
 
+time_t DeviceController::getEpochSeconds()
+{
+  return timeClient.getEpochTime();
+}
+
 String DeviceController::getDateTime()
 {
 
-  time_t epochTime = timeClient.getEpochTime();
+  time_t epochTime = getEpochSeconds();
   struct tm *ptm = gmtime((time_t *)&epochTime);
   int currentYear = ptm->tm_year + 1900;
   int currentMonth = ptm->tm_mon + 1;

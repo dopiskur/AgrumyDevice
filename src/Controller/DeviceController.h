@@ -19,6 +19,13 @@ public:
 
     String getDateTime();
 
+    // Roadmap #85: NTP-derived wall-clock seconds, re-synced fresh every boot (timeClient is a
+    // file-local global re-created on every reset - see setupController()) - the grid-aligned
+    // interval formula in ControllerController needs this instead of millis(), which resets on
+    // every reboot including a bare power loss and was exactly what made the old interval timers
+    // misfire after one.
+    time_t getEpochSeconds();
+
     // Mosfet activation
     void powerRailPrimary(bool state);
     void powerRailSecondary(bool state);

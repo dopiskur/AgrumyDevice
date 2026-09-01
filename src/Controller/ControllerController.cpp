@@ -47,16 +47,19 @@ int ControllerController::collectPinsForFunction(RelayFunctionType relayFunction
     return count;
 }
 
-// Turns every relay slot assigned to relayFunction on once Interval has elapsed since the last
-// OFF, holds them on until IntervalLenght has elapsed since that ON, then repeats - a proper duty
-// cycle instead of firing and immediately reversing within the same call (roadmap #44). State is
-// read back from the first matching pin via digitalRead() rather than a separate bool, same
-// approach the threshold/hysteresis relay function below uses (#10) - no separate "is it on"
-// variable that could drift out of sync with the actual pin. Roadmap #87: this one function
-// replaces what used to be four near-identical copies (intervalVentilation/Light/Heating/WaterPump).
-void ControllerController::intervalRelayFunction(RelayFunctionType relayFunction, bool intervalEnabled, int interval, int intervalLenght)
+// Roadmap #85: grid-aligned, zero-state redesign - replaces the old millisStart/millisStartLenght
+// approach, which tracked "time since last ON/OFF" in RAM and therefore misfired after ANY reboot
+// (not just deep sleep - a bare power loss too), since millis() always resets to 0 but the relay
+// pin's actual on/off state does not. Instead the on/off state is a pure function of wall-clock
+// time: epochSeconds is reduced mod interval to find where "now" falls in the repeating cycle, and
+// the relay is on for the first intervalLenght seconds of every cycle - nothing to persist, nothing
+// to lose on reboot. Epoch-based (not midnight-based) deliberately: midnight-based would produce
+// one short, irregular cycle before every midnight for any interval that doesn't evenly divide 24h
+// (e.g. 5h, 7h). A missed cycle across a power outage is accepted as harmless - threshold+hysteresis
+// (#10) is the real failsafe, this is scheduling convenience.
+void ControllerController::intervalRelayFunction(RelayFunctionType relayFunction, bool intervalEnabled, int interval, int intervalLenght, time_t epochSeconds)
 {
-    if (!intervalEnabled)
+    if (!intervalEnabled || interval <= 0)
     {
         return;
     }
@@ -68,21 +71,13 @@ void ControllerController::intervalRelayFunction(RelayFunctionType relayFunction
         return; // no relay slot assigned to this function
     }
 
-    int index = (int)relayFunction;
-    unsigned long millisCurrent = millis();
+    unsigned long positionInCycle = (unsigned long)epochSeconds % (unsigned long)interval;
+    bool shouldBeOn = positionInCycle < (unsigned long)intervalLenght;
 
-    pinMode(pins[0], OUTPUT);
-    bool isCurrentlyOn = digitalRead(pins[0]) == HIGH;
-
-    if (!isCurrentlyOn && (millisCurrent - millisStart[index] >= (unsigned long)interval * 1000))
+    for (int i = 0; i < pinCount; i++)
     {
-        for (int i = 0; i < pinCount; i++) { digitalWrite(pins[i], HIGH); }
-        millisStartLenght[index] = millisCurrent;
-    }
-    else if (isCurrentlyOn && (millisCurrent - millisStartLenght[index] >= (unsigned long)intervalLenght * 1000))
-    {
-        for (int i = 0; i < pinCount; i++) { digitalWrite(pins[i], LOW); }
-        millisStart[index] = millisCurrent;
+        pinMode(pins[i], OUTPUT);
+        digitalWrite(pins[i], shouldBeOn ? HIGH : LOW);
     }
 }
 
@@ -153,16 +148,16 @@ void ControllerController::thresholdRelayFunction(RelayFunctionType relayFunctio
     delay(500);
 }
 
-void ControllerController::initController(SensorData sensorData)
+void ControllerController::initController(SensorData sensorData, time_t epochSeconds)
 {
     intervalRelayFunction(RelayFunctionType::Ventilation, deviceConfig.configController.ventilationIntervalEnabled,
-                           deviceConfig.configController.ventilationInterval, deviceConfig.configController.ventilationIntervalLenght);
+                           deviceConfig.configController.ventilationInterval, deviceConfig.configController.ventilationIntervalLenght, epochSeconds);
     intervalRelayFunction(RelayFunctionType::Light, deviceConfig.configController.lightIntervalEnabled,
-                           deviceConfig.configController.lightInterval, deviceConfig.configController.lightIntervalLenght);
+                           deviceConfig.configController.lightInterval, deviceConfig.configController.lightIntervalLenght, epochSeconds);
     intervalRelayFunction(RelayFunctionType::Heating, deviceConfig.configController.heatingIntervalEnabled,
-                           deviceConfig.configController.heatingInterval, deviceConfig.configController.heatingIntervalLenght);
+                           deviceConfig.configController.heatingInterval, deviceConfig.configController.heatingIntervalLenght, epochSeconds);
     intervalRelayFunction(RelayFunctionType::WaterPump, deviceConfig.configController.waterPumpIntervalEnabled,
-                           deviceConfig.configController.waterPumpInterval, deviceConfig.configController.waterPumpIntervalLenght);
+                           deviceConfig.configController.waterPumpInterval, deviceConfig.configController.waterPumpIntervalLenght, epochSeconds);
 
     // Case numbers must match deviceTypeRelay's IDDeviceTypeRelay seed order (db/agrumyDB-final.sql:
     // 1=Ventilation, 2=Light, 3=Heating, 4=Water pump) - the Web admin dropdown stores that ID
