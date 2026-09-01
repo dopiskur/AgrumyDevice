@@ -161,6 +161,30 @@ struct ConfigController
     int waterPumpInterval;
     int waterPumpIntervalLenght;
 
+    // Roadmap #39: a third relay-control mode alongside threshold and interval above - "be on
+    // during this wall-clock window on these days", independent of any sensor reading. Evaluated
+    // by ControllerController::scheduleRelayFunction against LOCAL time, derived on-device from
+    // DeviceConfig.utcOffsetSeconds (no timezone database needed here - see that field's comment).
+    // daysOfWeek is a 7-bit mask matching C's tm_wday (bit 0 = Sunday .. bit 6 = Saturday). start/
+    // duration are seconds since local midnight - v1 does not support a window crossing midnight
+    // (enforced server-side, DeviceApiController.ScheduleWindowError).
+    int ventilationScheduleEnabled;
+    int ventilationScheduleDaysOfWeek;
+    int ventilationScheduleStart;
+    int ventilationScheduleDuration;
+    int lightScheduleEnabled;
+    int lightScheduleDaysOfWeek;
+    int lightScheduleStart;
+    int lightScheduleDuration;
+    int heatingScheduleEnabled;
+    int heatingScheduleDaysOfWeek;
+    int heatingScheduleStart;
+    int heatingScheduleDuration;
+    int waterPumpScheduleEnabled;
+    int waterPumpScheduleDaysOfWeek;
+    int waterPumpScheduleStart;
+    int waterPumpScheduleDuration;
+
     int relayEnabled;
     int relay1;
     int relay2;
@@ -196,7 +220,14 @@ struct DeviceConfig
     String servicePublicKey;
 
     int sleepSeconds;
-    bool sleepDeep;    
+    bool sleepDeep;
+
+    // Roadmap #39: current UTC offset in seconds (positive east of UTC) for the server's configured
+    // schedule timezone, refreshed on every config sync - lets scheduleRelayFunction() compute local
+    // day-of-week/time-of-day from the NTP epoch with plain integer math, no on-device IANA/DST
+    // database. 0 (UTC) both by default and whenever no schedule timezone is configured server-side.
+    int utcOffsetSeconds = 0;
+
     bool deviceSensorEnabled;
     bool deviceControllerEnabled;
     bool batteryEnabled;

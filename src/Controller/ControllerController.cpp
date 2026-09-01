@@ -148,6 +148,36 @@ void ControllerController::thresholdRelayFunction(RelayFunctionType relayFunctio
     delay(500);
 }
 
+// Roadmap #39: wall-clock schedule control - on for every relay slot assigned to relayFunction
+// whenever today's bit is set in daysOfWeek AND localSecondsOfDay falls in [start, start+duration).
+// Unlike threshold/interval above, this is a pure function of (config, local time) with no pin
+// readback or persisted state at all - the window's on/off state never depends on what it was doing
+// a moment ago, so there is nothing to desync after a reboot (also roadmap #85's original goal,
+// solved here for schedule mode the same way the epoch-modulo interval algorithm solved it for
+// interval mode). v1 does not support a window crossing local midnight - the server rejects
+// start+duration > 86400 before it ever reaches a device (DeviceApiController.ScheduleWindowError).
+void ControllerController::scheduleRelayFunction(RelayFunctionType relayFunction, bool scheduleEnabled, int daysOfWeek,
+                                                   int startSeconds, int durationSeconds, int localWeekday, int localSecondsOfDay)
+{
+    if (!scheduleEnabled)
+    {
+        return;
+    }
+
+    bool todayIsScheduled = (daysOfWeek & (1 << localWeekday)) != 0;
+    bool inWindow = todayIsScheduled &&
+                     localSecondsOfDay >= startSeconds &&
+                     localSecondsOfDay < (startSeconds + durationSeconds);
+
+    int pins[8];
+    int pinCount = collectPinsForFunction(relayFunction, pins);
+    for (int i = 0; i < pinCount; i++)
+    {
+        pinMode(pins[i], OUTPUT);
+        digitalWrite(pins[i], inWindow ? HIGH : LOW);
+    }
+}
+
 void ControllerController::initController(SensorData sensorData, time_t epochSeconds)
 {
     intervalRelayFunction(RelayFunctionType::Ventilation, deviceConfig.configController.ventilationIntervalEnabled,
@@ -158,6 +188,30 @@ void ControllerController::initController(SensorData sensorData, time_t epochSec
                            deviceConfig.configController.heatingInterval, deviceConfig.configController.heatingIntervalLenght, epochSeconds);
     intervalRelayFunction(RelayFunctionType::WaterPump, deviceConfig.configController.waterPumpIntervalEnabled,
                            deviceConfig.configController.waterPumpInterval, deviceConfig.configController.waterPumpIntervalLenght, epochSeconds);
+
+    // Roadmap #39: gmtime() on a pre-shifted epoch (epochSeconds + utcOffsetSeconds) yields LOCAL
+    // wall-clock calendar fields for free - it is pure calendar math with no timezone database
+    // involved, so feeding it an already-offset epoch is the standard microcontroller trick for
+    // "local time without an IANA database on-device" (see DeviceConfig.utcOffsetSeconds' comment).
+    // Computed once here, not once per function call below - four gmtime() calls a tick for the
+    // same instant would be pure waste.
+    time_t localEpoch = epochSeconds + deviceConfig.utcOffsetSeconds;
+    struct tm *localTm = gmtime(&localEpoch);
+    int localWeekday = localTm->tm_wday;      // 0=Sunday..6=Saturday
+    int localSecondsOfDay = localTm->tm_hour * 3600 + localTm->tm_min * 60 + localTm->tm_sec;
+
+    scheduleRelayFunction(RelayFunctionType::Ventilation, deviceConfig.configController.ventilationScheduleEnabled,
+                          deviceConfig.configController.ventilationScheduleDaysOfWeek, deviceConfig.configController.ventilationScheduleStart,
+                          deviceConfig.configController.ventilationScheduleDuration, localWeekday, localSecondsOfDay);
+    scheduleRelayFunction(RelayFunctionType::Light, deviceConfig.configController.lightScheduleEnabled,
+                          deviceConfig.configController.lightScheduleDaysOfWeek, deviceConfig.configController.lightScheduleStart,
+                          deviceConfig.configController.lightScheduleDuration, localWeekday, localSecondsOfDay);
+    scheduleRelayFunction(RelayFunctionType::Heating, deviceConfig.configController.heatingScheduleEnabled,
+                          deviceConfig.configController.heatingScheduleDaysOfWeek, deviceConfig.configController.heatingScheduleStart,
+                          deviceConfig.configController.heatingScheduleDuration, localWeekday, localSecondsOfDay);
+    scheduleRelayFunction(RelayFunctionType::WaterPump, deviceConfig.configController.waterPumpScheduleEnabled,
+                          deviceConfig.configController.waterPumpScheduleDaysOfWeek, deviceConfig.configController.waterPumpScheduleStart,
+                          deviceConfig.configController.waterPumpScheduleDuration, localWeekday, localSecondsOfDay);
 
     // Case numbers must match deviceTypeRelay's IDDeviceTypeRelay seed order (db/agrumyDB-final.sql:
     // 1=Ventilation, 2=Light, 3=Heating, 4=Water pump) - the Web admin dropdown stores that ID

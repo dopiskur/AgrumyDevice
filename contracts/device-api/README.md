@@ -3,7 +3,7 @@
 These 7 JSON Schema files are a **copy** of the source-of-truth in the API repo:
 
 > **Source:** `dopiskur/AgrumyApi`, path `contracts/device-api/`
-> **Copied from commit:** `ac8979aba643e5df0f7f144ea7e9de79c0f7d831` (`master`)
+> **Copied from commit:** `324563cdb0a2439d4f87fc989a90ce7c6b8d0862` (`master`)
 
 We copy rather than submodule because the schemas change rarely (only when the
 firmware<->API payloads change) and a submodule would add init/update friction to

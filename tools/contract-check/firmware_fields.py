@@ -64,7 +64,7 @@ CONTRACT = {
         "keys": [
             "servicePoint", "servicePublicKey", "apiId", "apiKey",
             "configVersion", "tenantID", "deviceID", "deviceUnitID", "deviceUnitZoneID",
-            "deviceTypeServiceID", "sleepSeconds", "sleepDeep",
+            "deviceTypeServiceID", "sleepSeconds", "sleepDeep", "utcOffsetSeconds",  # roadmap #39
             "deviceSensorEnabled", "deviceControllerEnabled", "batteryEnabled", "enabled",
             "debug", "reboot", "reset",
             "firmwareUpdate", "firmwareVersion", "firmwareUrl",  # roadmap #3 (OTA)
@@ -88,6 +88,11 @@ CONTRACT = {
                     "lightIntervalEnabled", "lightInterval", "lightIntervalLenght",
                     "heatingIntervalEnabled", "heatingInterval", "heatingIntervalLenght",
                     "waterPumpIntervalEnabled", "waterPumpInterval", "waterPumpIntervalLenght",
+                    # roadmap #39
+                    "ventilationScheduleEnabled", "ventilationScheduleDaysOfWeek", "ventilationScheduleStart", "ventilationScheduleDuration",
+                    "lightScheduleEnabled", "lightScheduleDaysOfWeek", "lightScheduleStart", "lightScheduleDuration",
+                    "heatingScheduleEnabled", "heatingScheduleDaysOfWeek", "heatingScheduleStart", "heatingScheduleDuration",
+                    "waterPumpScheduleEnabled", "waterPumpScheduleDaysOfWeek", "waterPumpScheduleStart", "waterPumpScheduleDuration",
                     "relayEnabled",
                     "relay1", "relay2", "relay3", "relay4", "relay5", "relay6", "relay7", "relay8",
                 ],

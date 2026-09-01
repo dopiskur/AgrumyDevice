@@ -602,6 +602,9 @@ DeviceConfig DeviceController::loadConfig(String configJson)
 
   deviceConfig.sleepSeconds = config["sleepSeconds"];
   deviceConfig.sleepDeep = config["sleepDeep"];
+  // "| 0" keeps the current offset if an older server doesn't send this key, same reasoning as the
+  // hysteresis "|" fallbacks below - never silently jump to UTC just because the key was missing.
+  deviceConfig.utcOffsetSeconds = config["utcOffsetSeconds"] | deviceConfig.utcOffsetSeconds;
   deviceConfig.deviceSensorEnabled = config["deviceSensorEnabled"];
   deviceConfig.deviceControllerEnabled = config["deviceControllerEnabled"];
   deviceConfig.batteryEnabled = config["batteryEnabled"];
@@ -666,6 +669,24 @@ DeviceConfig DeviceController::loadConfig(String configJson)
     deviceConfig.configController.waterPumpIntervalEnabled = deviceConfigController["waterPumpIntervalEnabled"];
     deviceConfig.configController.waterPumpInterval = deviceConfigController["waterPumpInterval"];
     deviceConfig.configController.waterPumpIntervalLenght = deviceConfigController["waterPumpIntervalLenght"];
+
+    // Roadmap #39.
+    deviceConfig.configController.ventilationScheduleEnabled = deviceConfigController["ventilationScheduleEnabled"];
+    deviceConfig.configController.ventilationScheduleDaysOfWeek = deviceConfigController["ventilationScheduleDaysOfWeek"];
+    deviceConfig.configController.ventilationScheduleStart = deviceConfigController["ventilationScheduleStart"];
+    deviceConfig.configController.ventilationScheduleDuration = deviceConfigController["ventilationScheduleDuration"];
+    deviceConfig.configController.lightScheduleEnabled = deviceConfigController["lightScheduleEnabled"];
+    deviceConfig.configController.lightScheduleDaysOfWeek = deviceConfigController["lightScheduleDaysOfWeek"];
+    deviceConfig.configController.lightScheduleStart = deviceConfigController["lightScheduleStart"];
+    deviceConfig.configController.lightScheduleDuration = deviceConfigController["lightScheduleDuration"];
+    deviceConfig.configController.heatingScheduleEnabled = deviceConfigController["heatingScheduleEnabled"];
+    deviceConfig.configController.heatingScheduleDaysOfWeek = deviceConfigController["heatingScheduleDaysOfWeek"];
+    deviceConfig.configController.heatingScheduleStart = deviceConfigController["heatingScheduleStart"];
+    deviceConfig.configController.heatingScheduleDuration = deviceConfigController["heatingScheduleDuration"];
+    deviceConfig.configController.waterPumpScheduleEnabled = deviceConfigController["waterPumpScheduleEnabled"];
+    deviceConfig.configController.waterPumpScheduleDaysOfWeek = deviceConfigController["waterPumpScheduleDaysOfWeek"];
+    deviceConfig.configController.waterPumpScheduleStart = deviceConfigController["waterPumpScheduleStart"];
+    deviceConfig.configController.waterPumpScheduleDuration = deviceConfigController["waterPumpScheduleDuration"];
 
     deviceConfig.configController.relayEnabled = deviceConfigController["relayEnabled"];
     deviceConfig.configController.relay1 = deviceConfigController["relay1"];
