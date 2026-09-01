@@ -253,14 +253,25 @@ bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest ser
             Serial.println("[Service] New config payload failed to parse - ignoring it this cycle");
             receivedNewConfig = false;
         } else {
-            Serial.println("[Service] New config received, saving new config");
-            device.saveConfigFile(serviceData.payload); // backs up the old config.json before overwriting it (config integrity)
-            delay(1000); // let the write settle
-
+            // Roadmap #107: loadConfig() now gates on required identity keys (apiId/apiKey/
+            // servicePoint) - run it BEFORE saveConfigFile so a valid-but-incomplete payload
+            // (contract drift, e.g. "{}") never reaches disk, same "validate before persisting"
+            // principle as the #67 parse-gate above. loadConfig() does no disk I/O itself, so this
+            // reorder changes nothing about what it parses.
             newConfig = device.loadConfig(serviceData.payload);
-            fwFlag    = newConfig.firmwareUpdate;
-            fwVersion = newConfig.firmwareVersion;
-            fwUrl     = newConfig.firmwareUrl;
+            if (newConfig.eventlog.error) {
+                Serial.println("[Service] New config rejected (code " + String(newConfig.eventlog.errorCode) + "): " + newConfig.eventlog.errorData);
+                pushEvent(serviceRequest, "ConfigSyncFailed", "code=" + String(newConfig.eventlog.errorCode) + " " + newConfig.eventlog.errorData);
+                receivedNewConfig = false;
+            } else {
+                Serial.println("[Service] New config received, saving new config");
+                device.saveConfigFile(serviceData.payload); // backs up the old config.json before overwriting it (config integrity)
+                delay(1000); // let the write settle
+
+                fwFlag    = newConfig.firmwareUpdate;
+                fwVersion = newConfig.firmwareVersion;
+                fwUrl     = newConfig.firmwareUrl;
+            }
         }
     }
 

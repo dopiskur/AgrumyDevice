@@ -587,6 +587,24 @@ DeviceConfig DeviceController::loadConfig(String configJson)
   String apiId = config["apiId"];
   String apiKey = config["apiKey"];
 
+  // Roadmap #107: "{}" (or any payload a contract-drifted server field rename produces) is valid,
+  // non-empty JSON, so it passes both of apiConfig()'s existing gates (isEmpty/deserializeJson) -
+  // a missing key here just silently reads back "". Without this check the device's own identity
+  // gets overwritten with "", the next Authenticate 401s, and #97's factory reset fires on what
+  // was actually a server-side contract bug. Reject BEFORE any deviceConfig field below is
+  // touched, same "keep current, signal the failure" contract as the deserializeJson gate above.
+  if (apiId.isEmpty() || apiKey.isEmpty() || servicePoint.isEmpty())
+  {
+    Serial.println("[Device] Load Config: missing required apiId/apiKey/servicePoint - rejecting (contract drift or malformed payload), keeping current config");
+    deviceConfig.eventlog.error = true;
+    deviceConfig.eventlog.errorCode = 21; // 20 is deserializeJson failure, 10 is reserved for registerDevice's own gate
+    deviceConfig.eventlog.errorData = "missing apiId/apiKey/servicePoint";
+    return deviceConfig;
+  }
+  // deviceConfig is a live member re-parsed in place on every call (not rebuilt from scratch), so
+  // a failure flagged above must not linger into the next call that actually succeeds.
+  deviceConfig.eventlog.error = false;
+
   deviceConfig.configVersion = config["configVersion"];
 
   deviceConfig.tenantID = config["tenantID"];
