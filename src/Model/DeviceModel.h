@@ -283,7 +283,6 @@ struct ServiceData
 struct ServiceHeader{
     String apiId="";
     String apiKey="";
-    String apiAuth="";
 };
 
 

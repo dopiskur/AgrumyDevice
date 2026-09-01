@@ -18,6 +18,10 @@ extern const char *firmware;
 
 static ServiceRequest serviceRequest;
 static ServiceEndpoint serviceEndpoint;
+// requestPost()'s Authorization header is built from THIS file-static, not ServiceRequest.header -
+// ServiceHeader had its own apiAuth field until roadmap #98 removed it: it was written in three
+// places but never once read, since every actual Authorization header send already used this
+// static (see requestPost() below).
 static String apiAuth;
 
 // Roadmap #20: apiKey/authKey are usable to impersonate the device if copied off Serial (confirmed
@@ -153,19 +157,32 @@ void ServiceController::apiAuthenticate(DeviceConfig deviceConfig, ServiceReques
     serviceRequest.endpoint = serviceEndpoint.apiAuthenticate;
     serviceRequest.header.apiId = deviceConfig.apiId;
     serviceRequest.header.apiKey = deviceConfig.apiKey;
-    serviceRequest.header.apiAuth = "";
 
     ServiceData serviceData;
     JsonDocument payload;
     serviceData = requestPost(payload, serviceRequest);
 
+    // Roadmap #97: tolerate a transient auth failure (network blip, server restart mid-request)
+    // the same way apiConfig() already tolerates a transient config-sync failure - factory reset
+    // only after several consecutive failures, not on the very first one. Same counter-before-
+    // terminal-action shape as apiConfig()'s consecutiveFailures/MAX_CONSECUTIVE_CONFIG_FAILURES,
+    // applied here to specifically-401 (a genuinely rejected apiId/apiKey, not just any error).
+    static int consecutiveAuthFailures = 0;
+    const int MAX_CONSECUTIVE_AUTH_FAILURES = 3;
     if(serviceData.eventlog.errorCode==401){
-        Serial.println("[Service] Device failed authentication, reseting device to defaults...");
-        // Best-effort: this push will very likely also fail (no valid apiAuth yet, that's exactly
-        // what just failed) - expected and acceptable, not something to special-case.
-        pushEvent(serviceRequest, "AuthFailed", "apiId/apiKey rejected by server");
-        device.reset();
+        consecutiveAuthFailures++;
+        Serial.printf("[Service] Device failed authentication (%d/%d consecutive)\n", consecutiveAuthFailures, MAX_CONSECUTIVE_AUTH_FAILURES);
+        if (consecutiveAuthFailures >= MAX_CONSECUTIVE_AUTH_FAILURES)
+        {
+            Serial.println("[Service] Too many consecutive auth failures, reseting device to defaults...");
+            // Best-effort: this push will very likely also fail (no valid apiAuth yet, that's exactly
+            // what just failed) - expected and acceptable, not something to special-case.
+            pushEvent(serviceRequest, "AuthFailed", "apiId/apiKey rejected by server, consecutive failures: " + String(consecutiveAuthFailures));
+            device.reset();
+        }
+        return; // no valid payload to parse below on a 401 - avoid setting apiAuth from an error body
     }
+    consecutiveAuthFailures = 0;
 
     Serial.print("[Heap] before deserializeJson (apiAuthenticate): "); // TEMPORARY DIAGNOSTIC (roadmap #3)
     Serial.println(ESP.getFreeHeap());
@@ -195,7 +212,6 @@ bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest ser
     serviceRequest.endpoint = serviceEndpoint.apiConfig;
     serviceRequest.header.apiId = deviceConfig.apiId;
     serviceRequest.header.apiKey = "";
-    serviceRequest.header.apiAuth = apiAuth;
 
     ServiceData serviceData;
     JsonDocument payload;
@@ -213,7 +229,6 @@ bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest ser
 
         Serial.println("[Service] apiConfig: failed to authenticate: ");
         apiAuthenticate(deviceConfig,serviceRequest, device);
-        serviceRequest.header.apiAuth = apiAuth;
         serviceData = requestPost(payload, serviceRequest);
     }
 
