@@ -23,6 +23,16 @@ const char *firmware = FIRMWARE_VERSION;
 const String CONFIG_BASE = "deviceRegistration.json";
 const String CONFIG_DEFAULTS = "config.json";
 
+// arduino-esp32's default loopTask stack (8192 bytes) isn't enough for two back-to-back HTTPS/
+// mbedTLS handshakes against the embedded CA bundle in one loop() cycle (apiConfig's 401 retry
+// chains straight into apiAuthenticate) - overflowed it ("Stack canary watchpoint triggered
+// (loopTask)" crash-loop, seen 2026-09-02 against api.agrumy.com). A `-D CONFIG_ARDUINO_LOOP_
+// STACK_SIZE=...` build flag can't fix this: the framework's own sdkconfig.h unconditionally
+// redefines that macro after the flag is set, clobbering it back to 8192 before main.cpp reads
+// it - SET_LOOP_TASK_STACK_SIZE overrides the weak getArduinoLoopTaskStackSize() at link time
+// instead, which sdkconfig.h can't touch.
+SET_LOOP_TASK_STACK_SIZE(16384);
+
 // Hardware watchdog (roadmap #18): reboot if a loop() cycle wedges before it completes
 // (infinite loop, deadlock, a network call that never returns). Sized to clear the
 // worst-case work phase - up to ~4 sequential HTTPClient calls per cycle (config sync,
