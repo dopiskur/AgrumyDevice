@@ -28,8 +28,6 @@ enum class RelayFunctionType
 class ActuatorController
 {
 public:
-    DeviceConfig deviceConfig;
-
     void setupController();
 
     // epochSeconds: NTP wall-clock time (DeviceController::getEpochSeconds()), needed by the
@@ -75,4 +73,9 @@ private:
     time_t waterPumpOffSinceEpoch[8] = {0};
     String pendingSafetyEventMessage = "";
 };
+
+// Roadmap #129: the one ActuatorController instance, defined in main.cpp - see DeviceModel.h's
+// deviceConfig/serviceEndpoint externs for the same reasoning.
+extern ActuatorController controller;
+
 #endif

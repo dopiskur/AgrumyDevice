@@ -8,9 +8,9 @@
 #include "ServiceController.h"
 #include "ActuatorController.h"
 
-// No file-local DeviceConfig here: member functions resolve `deviceConfig` to the class
-// member, so a file-static copy is dead weight that only ever shadows intent - the config
-// arrives via the member, assigned in SensorController before each initController() call.
+// Roadmap #129: no deviceConfig member on this class anymore - member functions below resolve
+// unqualified `deviceConfig` to the single canonical instance (DeviceModel.h extern), the same one
+// every other controller reads.
 
 void ActuatorController::setupController(){
 

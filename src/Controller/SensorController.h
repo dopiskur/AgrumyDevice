@@ -49,16 +49,19 @@ private:
 public:
     void setupSensor();
 
-    DeviceConfig deviceConfig;
+    // Roadmap #129: no deviceConfig member here anymore - unqualified `deviceConfig` inside this
+    // class's own methods now resolves to the single canonical instance (DeviceModel.h extern).
+    // serviceRequest stays a member: unlike deviceConfig, each module legitimately owns its own
+    // (this one always targets the sensor-data/event endpoints, main.cpp's own targets auth/config).
     ServiceRequest serviceRequest;
 
     void buildSensorData(DeviceConfig deviceConfig);
     void buildSensorDataPayload();
     void pushSensorData(JsonDocument payload);
-
-
-
-   
 };
+
+// Roadmap #129: the one SensorController instance, defined in main.cpp - see DeviceModel.h's
+// deviceConfig/serviceEndpoint externs for the same reasoning.
+extern SensorController sensor;
 
 #endif

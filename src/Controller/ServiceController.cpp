@@ -22,8 +22,9 @@ extern const char *firmware;
 #define AGRUMY_BOARD "unknown"
 #endif
 
-static ServiceRequest serviceRequest;
-static ServiceEndpoint serviceEndpoint;
+// Roadmap #129: `serviceEndpoint` is the single canonical instance (DeviceModel.h extern) - this
+// file no longer keeps its own separate copy. (The old file-static `serviceRequest` here was dead:
+// every method that touches serviceRequest takes it as its own parameter.)
 // requestPost()'s Authorization header is built from THIS file-static, not ServiceRequest.header -
 // ServiceHeader had its own apiAuth field until roadmap #98 removed it: it was written in three
 // places but never once read, since every actual Authorization header send already used this

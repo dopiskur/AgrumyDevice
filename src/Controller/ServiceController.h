@@ -12,9 +12,6 @@ class SensorController;
 class ServiceController
 {
 public:
-    DeviceConfig deviceConfig;
-    ServiceRequest serviceRequest;
-
     void checkConfig(String payload); // For Debug only
     ServiceData requestPost(JsonDocument jsonBuffer, ServiceRequest serviceEndpoint);
     ServiceData requestGet(ServiceRequest service);
@@ -51,4 +48,11 @@ public:
 
 private:
 };
+
+// Roadmap #129: the one ServiceController instance, defined in main.cpp - see DeviceModel.h's
+// deviceConfig/serviceEndpoint externs for the same reasoning. Consolidating this specifically
+// closes the #80 bug class: a separate ServiceController instance with a stale deviceConfig meant
+// requestPost()'s cert-pinning check silently used the wrong (empty) servicePublicKey.
+extern ServiceController service;
+
 #endif

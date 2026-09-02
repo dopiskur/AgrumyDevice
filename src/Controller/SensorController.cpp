@@ -21,20 +21,21 @@
 #include "ActuatorController.h"
 #include "../Logic/BatteryLogic.h" // roadmap #12: divider math + LiPo voltage->percent curve
 
-DeviceConfig deviceConfig;
-ServiceEndpoint serviceEndpoint;
-
-DeviceController device;
-ServiceController service;
-ActuatorController controller;
+// Roadmap #129: deviceConfig/serviceEndpoint/device/service/controller are the single canonical
+// instances (main.cpp) - this file no longer keeps its own separate copies.
 
 static JsonDocument jsonDoc;
 static JsonArray sensorDataJsonArray = jsonDoc.to<JsonArray>();
 static String dateTime;
 
 static Adafruit_CCS811 ccs811;                               // Co2, Tvoc
-static DHT_Unified dht11(deviceConfig.configPin.DHT, DHT11); // temp, humidity
-static DHT_Unified dht22(deviceConfig.configPin.DHT, DHT22); // temp, humidity
+// DHT_Unified needs its pin at static-init time, before main.cpp's canonical `deviceConfig` is
+// guaranteed constructed (unspecified cross-TU static-init order) - configPin is fixed hardware
+// wiring, never server-configured (see ConfigPin's own comment), so a locally-scoped default
+// ConfigPin gives the same DHT pin with no cross-TU dependency.
+static ConfigPin defaultPins;
+static DHT_Unified dht11(defaultPins.DHT, DHT11); // temp, humidity
+static DHT_Unified dht22(defaultPins.DHT, DHT22); // temp, humidity
 static Adafruit_BMP085 bmp180;                               // temp, pressure
 static Adafruit_BMP280 bmp280;                               // temp, pressure
 BH1750 Bh1750;                                               // light
@@ -325,7 +326,7 @@ void SensorController::sensor_analog_voltage() // 2001 - roadmap #12 VoltageDivi
     // Arduino core already runs the reading through esp-idf's adc_cali API (eFuse-based
     // per-chip calibration), which is the automatic-calibration path roadmap #12 deliberately
     // relies on instead of a manual calibration pass.
-    uint32_t measuredMilliVolts = analogReadMilliVolts(device.deviceConfig.configPin.BATTERY_ADC);
+    uint32_t measuredMilliVolts = analogReadMilliVolts(deviceConfig.configPin.BATTERY_ADC);
     double batteryVoltage = computeDividerBatteryVoltage(
         measuredMilliVolts / 1000.0,
         deviceConfig.configSensor.batteryDividerR1,
@@ -364,7 +365,7 @@ void SensorController::sensor_analog_moist()
     Serial.println("[Sensor moisture]");
     device.powerRailSecondary(true);
     
-    int moisture = analogRead(device.deviceConfig.configPin.MOIST);
+    int moisture = analogRead(deviceConfig.configPin.MOIST);
 
     Serial.print("Analog: ");
     Serial.println(moisture);
@@ -412,7 +413,7 @@ void SensorController::sensor_analog_waterLevel()
     Serial.println("[Sensor water level]");
     device.powerRailSecondary(true);
 
-    int waterTank = analogRead(device.deviceConfig.configPin.WaterTank);
+    int waterTank = analogRead(deviceConfig.configPin.WaterTank);
 
     Serial.print("Analog: ");
     Serial.println(waterTank);
@@ -519,22 +520,19 @@ bool SensorController::flushBufferedSensorData()
 
 void SensorController::pushSensorData(JsonDocument payload){
 
-    // Roadmap #80 (same bug class as #77): the file-static `service` above is a SEPARATE
-    // ServiceController instance from main.cpp's - its deviceConfig was never assigned, so
-    // requestPost()'s servicePublicKey.length()>0 check was always false and sensor-data push
-    // silently ignored an operator-pinned self-hosted cert, always falling back to the public CA
-    // bundle. One assignment here covers every service.requestPost()/pushEvent() call this
-    // function reaches (flushBufferedSensorData() included - it has no other caller).
-    service.deviceConfig = deviceConfig;
-
+    // Roadmap #80/#129: `service` used to be a SEPARATE ServiceController instance from main.cpp's
+    // with its own never-assigned deviceConfig, so requestPost()'s servicePublicKey.length()>0
+    // check was always false here and sensor-data push silently ignored an operator-pinned
+    // self-hosted cert. Now that `service`/`deviceConfig` are the single canonical instances
+    // (DeviceModel.h/ServiceController.h externs), that hand-off assignment is gone - there is
+    // nothing left to keep in sync.
     serviceRequest.endpoint = serviceEndpoint.apiSensorDataPost;
     serviceRequest.header.apiId = deviceConfig.apiId;
 
     // Roadmap #36/#28: surfaced here (not from buildSensorData/initController directly) because
-    // service.deviceConfig is only correctly assigned right above - pushEvent() takes its
-    // ServiceRequest argument BY VALUE (see ServiceController::pushEvent), so mutating its local
-    // copy's .endpoint to apiEvent never disturbs serviceRequest.endpoint for the sensor-data POST
-    // right after this, same as the BufferDiscarded push below.
+    // pushEvent() takes its ServiceRequest argument BY VALUE (see ServiceController::pushEvent), so
+    // mutating its local copy's .endpoint to apiEvent never disturbs serviceRequest.endpoint for
+    // the sensor-data POST right after this, same as the BufferDiscarded push below.
     String safetyEventMessage;
     if (controller.consumeSafetyLimitEvent(safetyEventMessage))
     {
@@ -793,12 +791,10 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
     buildSensorDataPayload();
 
     if(deviceConfig.deviceControllerEnabled){
-        // The instance acting on relays is THIS file's `controller` global - main.cpp's is a
-        // separate `static` object that received deviceConfig but was never asked to run.
-        // Without this hand-off the acting instance keeps a zero ConfigController (relay
-        // assignments, thresholds, intervals), so every switch in initController() hits
-        // "case 0" and the whole control path is a silent no-op on real hardware.
-        controller.deviceConfig = deviceConfig;
+        // Roadmap #129: `controller` is now the single canonical ActuatorController instance and
+        // has no deviceConfig member of its own - it reads the same canonical deviceConfig this
+        // function does, so there is no hand-off left to forget (the old separate-instance version
+        // of this bug is what made relay control a silent no-op on real hardware).
         controller.initController(sensorData, device.getEpochSeconds());
     }
 

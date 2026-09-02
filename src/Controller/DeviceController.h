@@ -18,8 +18,6 @@ class DeviceController
 {
 
 public:
-    DeviceConfig deviceConfig;
-
     void setupController();
 
     String getDateTime();
@@ -108,5 +106,9 @@ public:
 
 private:
 };
+
+// Roadmap #129: the one DeviceController instance, defined in main.cpp - see DeviceModel.h's
+// deviceConfig/serviceEndpoint externs for the same reasoning.
+extern DeviceController device;
 
 #endif

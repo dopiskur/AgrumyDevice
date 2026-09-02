@@ -13,11 +13,11 @@
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 
-static ServiceController service; // static resolves a conflict with main
+// Roadmap #129: `service`/`deviceConfig`/`serviceEndpoint` are the single canonical instances
+// (declared in main.cpp, extern-visible via ServiceController.h/DeviceModel.h) - this file no
+// longer keeps its own separate copies.
 
 static DeviceDefaults deviceDefaults;
-static DeviceConfig deviceConfig;
-static ServiceEndpoint serviceEndpoint;
 
 DeviceRegistration deviceRegistration;
 JsonDocument config;
@@ -259,7 +259,8 @@ String DeviceController::macAddr()
 }
 
 // Roadmap #127: power-rail/sleep/reboot/reset moved to PowerController - reads the same
-// file-static `deviceConfig` these always read, just now via parameters instead of member access.
+// canonical `deviceConfig` these always read (roadmap #129), just now via parameters instead of
+// member access.
 void DeviceController::powerRailPrimary(bool state)
 {
   PowerController::railPrimary(deviceConfig.configPin.POWER_RAIL_PRIMARY, state);
@@ -308,9 +309,9 @@ void DeviceController::removeBufferedFile(String filename)
   StorageController::removeBufferedFile(filename);
 }
 
-// Roadmap #128: field parsing moved to ConfigParser::parse() - this stays a thin wrapper so the
-// file-static `deviceConfig` above (read by powerRailPrimary/sleep/firmwareUpdate etc.) is still
-// the one mutated in place, same as before the split.
+// Roadmap #128: field parsing moved to ConfigParser::parse() - this stays a thin wrapper. Roadmap
+// #129: mutates the single canonical `deviceConfig` (DeviceModel.h extern), the same one
+// powerRailPrimary/sleep/firmwareUpdate below read.
 DeviceConfig DeviceController::loadConfig(String configJson)
 {
   deviceConfig = ConfigParser::parse(configJson, deviceConfig);

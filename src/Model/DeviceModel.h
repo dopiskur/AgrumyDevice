@@ -366,6 +366,15 @@ struct ServiceEndpoint
 
 };
 
+// Roadmap #98/#129: main.cpp, DeviceController.cpp and SensorController.cpp each used to declare
+// their OWN separate deviceConfig/service/serviceEndpoint - manually (and at least once
+// forgetfully, see roadmap #80) kept in sync via explicit copy assignments after every config
+// reload. Single canonical instances instead: defined once in main.cpp, extern-declared here so
+// every translation unit reads/writes the SAME object - a config update is visible everywhere the
+// moment it's applied, nothing to re-copy.
+extern DeviceConfig deviceConfig;
+extern ServiceEndpoint serviceEndpoint;
+
 
 
 #endif

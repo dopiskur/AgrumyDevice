@@ -45,15 +45,20 @@ static const uint32_t WDT_TIMEOUT_SECONDS = 90;
 static JsonDocument jsonData;
 static String servicePoint;
 
-static DeviceConfig deviceConfig;
-static SensorData sensorData;
+// Roadmap #98/#129: single canonical instances - deviceConfig/serviceEndpoint declared extern in
+// DeviceModel.h, device/service/sensor/controller declared extern in their own headers. Defined
+// here (not `static`, so every other translation unit's extern reaches this same object) instead
+// of each file keeping its own separate copy manually kept in sync.
+DeviceConfig deviceConfig;
+ServiceEndpoint serviceEndpoint;
 
 static ServiceRequest serviceRequest;
 static ServiceData serviceData;
 
-static DeviceController device;
-static ServiceController service;
-static SensorController sensor;
+DeviceController device;
+ServiceController service;
+SensorController sensor;
+ActuatorController controller;
 
 
 
@@ -122,19 +127,14 @@ void setup()
     device.registerDevice(configRegistration);
   }
 
+  // Roadmap #129: loadConfig() mutates the single canonical deviceConfig in place and returns it -
+  // no per-module re-copy needed anymore (device/sensor/service/controller all read this same
+  // object directly).
   deviceConfig = device.loadConfig(configDefaults);
-  device.deviceConfig = deviceConfig;
-  sensor.deviceConfig = deviceConfig;
-  service.deviceConfig = deviceConfig;
-  // No ActuatorController here: the acting instance lives in SensorController.cpp and gets
-  // the config right before every initController() call - a second copy on a main.cpp-local
-  // instance is exactly the bug that made relay control a no-op (it held the config, but the
-  // instance that ran never saw it).
 
   serviceRequest.serviceType = device.serviceType(deviceConfig.deviceTypeServiceID, serviceRequest.isHttps);
   serviceRequest.servicePoint = deviceConfig.servicePoint;
 
-  service.serviceRequest = serviceRequest;
   sensor.serviceRequest = serviceRequest;
 
   // Roadmap #28/#37: confirm the outcome of the reboot that just happened back to the server, now
@@ -195,17 +195,11 @@ void loop()
     device.powerRailSecondary(true);
   }
 
-  // Roadmap #67: true = a new config was hot-applied in place (no reboot) - re-copy it into the
-  // per-module value copies, mirroring setup(). Deliberate roadmap option (b): one explicit
-  // re-copy at the single call site instead of a reference refactor across every module.
-  // ActuatorController needs nothing here - SensorController already hands it the fresh config
-  // right before every initController() call (see the #77 note in setup()).
-  if (service.apiConfig(deviceConfig, serviceRequest, device))
-  {
-    device.deviceConfig = deviceConfig;
-    sensor.deviceConfig = deviceConfig;
-    service.deviceConfig = deviceConfig;
-  }
+  // Roadmap #67/#129: deviceConfig is passed by reference and is the single canonical instance, so
+  // a hot-applied config (no reboot) is visible to every module the instant apiConfig() returns -
+  // no per-module re-copy needed anymore (that used to be option (b) here specifically to avoid a
+  // wider reference refactor; #129 did that refactor).
+  service.apiConfig(deviceConfig, serviceRequest, device);
 
   if (deviceConfig.enabled) {
     sensor.buildSensorData(deviceConfig);
