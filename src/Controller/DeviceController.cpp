@@ -723,6 +723,11 @@ DeviceConfig DeviceController::loadConfig(String configJson)
     JsonObject deviceConfigSensor = config["deviceConfigSensor"];
 
     deviceConfig.configSensor.sensorBattery = deviceConfigSensor["sensorBattery"];
+    // Roadmap #12: same "fall back to whatever value is already here" rule as the hysteresis
+    // fields below - an older server that doesn't send these keys yet must not zero out a
+    // previously-configured divider calibration.
+    deviceConfig.configSensor.batteryDividerR1 = deviceConfigSensor["batteryDividerR1"] | deviceConfig.configSensor.batteryDividerR1;
+    deviceConfig.configSensor.batteryDividerR2 = deviceConfigSensor["batteryDividerR2"] | deviceConfig.configSensor.batteryDividerR2;
     deviceConfig.configSensor.sensorTemp = deviceConfigSensor["sensorTemp"];
     deviceConfig.configSensor.sensorTempSoil = deviceConfigSensor["sensorTempSoil"];
     deviceConfig.configSensor.sensorHumid = deviceConfigSensor["sensorHumid"];

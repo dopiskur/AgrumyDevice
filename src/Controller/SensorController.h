@@ -33,7 +33,8 @@ private:
     void sensor_BH1750_lux();         // 1008
 
     void sensor_Wind();
-    void sensor_analog_voltage(); // 2001
+    void sensor_analog_voltage(); // 2001 - roadmap #12: VoltageDivider battery reading (despite the generic pre-#12 name, this IS the battery divider case)
+    void sensor_battery_max17048(); // 1009, roadmap #12
     void sensor_analog_moist();   // 2002
     void sensor_liquid_PH(); // unavailable
     void sensor_analog_waterLevel(); // unavailable

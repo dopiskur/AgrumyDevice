@@ -11,6 +11,7 @@
 #include <Adafruit_BMP085.h> // BMP180 temp, pressure
 #include <Adafruit_BMP280.h>
 #include <Adafruit_CCS811.h> // CCS811 CO2, TVOC
+#include <SparkFun_MAX1704x_Fuel_Gauge_Arduino_Library.h> // MAX17048 battery fuel gauge, roadmap #12
 
 #include <esp_task_wdt.h>
 
@@ -18,6 +19,7 @@
 #include "DeviceController.h"
 #include "ServiceController.h"
 #include "ActuatorController.h"
+#include "../Logic/BatteryLogic.h" // roadmap #12: divider math + LiPo voltage->percent curve
 
 DeviceConfig deviceConfig;
 ServiceEndpoint serviceEndpoint;
@@ -36,10 +38,12 @@ static DHT_Unified dht22(deviceConfig.configPin.DHT, DHT22); // temp, humidity
 static Adafruit_BMP085 bmp180;                               // temp, pressure
 static Adafruit_BMP280 bmp280;                               // temp, pressure
 BH1750 Bh1750;                                               // light
+static SFE_MAX1704X maxlipo;                                  // battery fuel gauge, roadmap #12
 
 static unsigned bmp280status;
 static unsigned bmp180status;
 static unsigned bh1750status;
+static bool max17048status;
 
 
 void SensorController::setupSensor()
@@ -57,6 +61,11 @@ void SensorController::setupSensor()
 
     // Light
     bh1750status = Bh1750.begin(BH1750::CONTINUOUS_HIGH_RES_MODE);
+
+    // Battery fuel gauge (roadmap #12) - fixed I2C address 0x36, shares the bus already begun
+    // above for BMP180/BMP280/CCS811. Harmless to call begin() when BatterySensorType is None or
+    // VoltageDivider - it just never gets read in buildSensorData()'s switch either way.
+    max17048status = maxlipo.begin();
 
     delay(5000);
 }
@@ -307,11 +316,48 @@ void SensorController::sensor_CCS811_tvoc()
 
 }
 
-void SensorController::sensor_analog_voltage()
+void SensorController::sensor_analog_voltage() // 2001 - roadmap #12 VoltageDivider
 {
+    Serial.println("[Sensor battery - voltage divider]");
     device.powerRailSecondary(true);
+
+    // analogReadMilliVolts(), not raw analogRead() + a hand-rolled mV conversion - the ESP32
+    // Arduino core already runs the reading through esp-idf's adc_cali API (eFuse-based
+    // per-chip calibration), which is the automatic-calibration path roadmap #12 deliberately
+    // relies on instead of a manual calibration pass.
+    uint32_t measuredMilliVolts = analogReadMilliVolts(device.deviceConfig.configPin.BATTERY_ADC);
+    double batteryVoltage = computeDividerBatteryVoltage(
+        measuredMilliVolts / 1000.0,
+        deviceConfig.configSensor.batteryDividerR1,
+        deviceConfig.configSensor.batteryDividerR2);
+    int percent = computeBatteryPercentFromVoltage(batteryVoltage);
+
     device.powerRailSecondary(false);
+
+    Serial.print("Battery voltage: ");
+    Serial.print(batteryVoltage);
+    Serial.print("V (");
+    Serial.print(percent);
+    Serial.println("%)");
+
+    sensorData.battery = String(percent);
 }
+
+void SensorController::sensor_battery_max17048() // 1009 - roadmap #12, RECOMMENDED option
+{
+    Serial.println("[Sensor battery - MAX17048]");
+    if (!max17048status)
+    {
+        Serial.println("MAX17048 not detected on I2C bus - skipping battery reading");
+        return;
+    }
+
+    // getSOC() (state of charge) is the fuel gauge's own coulomb-counting percentage - no
+    // voltage curve needed here, that is exactly the precision advantage over VoltageDivider.
+    float percent = maxlipo.getSOC();
+    sensorData.battery = String((int)constrain(percent, 0.0f, 100.0f));
+}
+
 void SensorController::sensor_analog_moist()
 {
     
@@ -537,7 +583,18 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
     sensorData.waterLevel="";
     sensorData.wind="";
 
-    // Battery
+    // Battery - roadmap #12
+    switch (deviceConfig.configSensor.sensorBattery)
+    {
+    case 1009:
+        sensor_battery_max17048();
+        break;
+    case 2001:
+        sensor_analog_voltage();
+        break;
+    default:
+        break;
+    }
 
     // Temperature
     switch (deviceConfig.configSensor.sensorTemp)

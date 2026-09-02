@@ -69,6 +69,11 @@ struct ConfigPin // default values, cannot be changed during the setup phase
     int DEPTH_RX=13;
     int DEPTH_TX=12;
     int PH=33;
+    // Roadmap #12: VoltageDivider battery sensing (ADC1_CH0, input-only, no other ConfigPin use)
+    // - MAX17048 needs no dedicated pin, it shares the existing I2C bus (Wire.begin(), same as
+    // BMP180/BMP280/BME280/CCS811) at its fixed address 0x36, which does not collide with any of
+    // those (0x76/0x77/0x5A) or BH1750's default (0x23).
+    int BATTERY_ADC=36;
 
     // PINOUT Relay
     int RELAY_1=14;
@@ -130,6 +135,15 @@ struct SensorType
 struct ConfigSensor
 {
     int sensorBattery;
+    // Roadmap #12: VoltageDivider calibration - the ACTUAL resistors wired (ohms), not an
+    // abstract preset ratio, so BatteryLogic::computeDividerBatteryVoltage can recover the real
+    // battery voltage regardless of which pair the admin used. Only meaningful when
+    // sensorBattery selects the VoltageDivider option (2001); ignored by MAX17048 (1009), whose
+    // fuel-gauge IC reports percentage directly. Defaults are the "Standard 1:1" preset - the
+    // server always sends its own stored value on every config sync, this is only the
+    // pre-first-sync fallback (same rule as the hysteresis defaults below).
+    double batteryDividerR1 = 100000.0;
+    double batteryDividerR2 = 100000.0;
     int sensorTemp;
     int sensorTempSoil;
     int sensorHumid;
