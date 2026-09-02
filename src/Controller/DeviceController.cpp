@@ -739,23 +739,30 @@ DeviceConfig DeviceController::loadConfig(String configJson)
     deviceConfig.configController.waterPumpInterval = deviceConfigController["waterPumpInterval"];
     deviceConfig.configController.waterPumpIntervalLength = deviceConfigController["waterPumpIntervalLength"];
 
-    // Roadmap #39.
-    deviceConfig.configController.ventilationScheduleEnabled = deviceConfigController["ventilationScheduleEnabled"];
-    deviceConfig.configController.ventilationScheduleDaysOfWeek = deviceConfigController["ventilationScheduleDaysOfWeek"];
-    deviceConfig.configController.ventilationScheduleStart = deviceConfigController["ventilationScheduleStart"];
-    deviceConfig.configController.ventilationScheduleDuration = deviceConfigController["ventilationScheduleDuration"];
-    deviceConfig.configController.lightScheduleEnabled = deviceConfigController["lightScheduleEnabled"];
-    deviceConfig.configController.lightScheduleDaysOfWeek = deviceConfigController["lightScheduleDaysOfWeek"];
-    deviceConfig.configController.lightScheduleStart = deviceConfigController["lightScheduleStart"];
-    deviceConfig.configController.lightScheduleDuration = deviceConfigController["lightScheduleDuration"];
-    deviceConfig.configController.heatingScheduleEnabled = deviceConfigController["heatingScheduleEnabled"];
-    deviceConfig.configController.heatingScheduleDaysOfWeek = deviceConfigController["heatingScheduleDaysOfWeek"];
-    deviceConfig.configController.heatingScheduleStart = deviceConfigController["heatingScheduleStart"];
-    deviceConfig.configController.heatingScheduleDuration = deviceConfigController["heatingScheduleDuration"];
-    deviceConfig.configController.waterPumpScheduleEnabled = deviceConfigController["waterPumpScheduleEnabled"];
-    deviceConfig.configController.waterPumpScheduleDaysOfWeek = deviceConfigController["waterPumpScheduleDaysOfWeek"];
-    deviceConfig.configController.waterPumpScheduleStart = deviceConfigController["waterPumpScheduleStart"];
-    deviceConfig.configController.waterPumpScheduleDuration = deviceConfigController["waterPumpScheduleDuration"];
+    // Roadmap #39/#115: a JSON array of windows per relay function, capped at
+    // MAX_SCHEDULE_SLOTS_PER_FUNCTION - ArduinoJson's static-buffer parsing model has no dynamic
+    // growth on-device, so anything beyond the cap is silently dropped rather than overflowing the
+    // fixed array (the server already enforces the same cap when saving, DeviceApiController - this
+    // only matters for a pre-cap-enforcement server build or a hand-crafted payload).
+    auto parseSchedule = [](JsonArray arr, ScheduleWindow slots[], int &count)
+    {
+        count = 0;
+        for (JsonObject slot : arr)
+        {
+            if (count >= MAX_SCHEDULE_SLOTS_PER_FUNCTION)
+            {
+                break;
+            }
+            slots[count].daysOfWeek = slot["daysOfWeek"];
+            slots[count].start = slot["start"];
+            slots[count].duration = slot["duration"];
+            count++;
+        }
+    };
+    parseSchedule(deviceConfigController["ventilationSchedule"], deviceConfig.configController.ventilationSchedule, deviceConfig.configController.ventilationScheduleCount);
+    parseSchedule(deviceConfigController["lightSchedule"], deviceConfig.configController.lightSchedule, deviceConfig.configController.lightScheduleCount);
+    parseSchedule(deviceConfigController["heatingSchedule"], deviceConfig.configController.heatingSchedule, deviceConfig.configController.heatingScheduleCount);
+    parseSchedule(deviceConfigController["waterPumpSchedule"], deviceConfig.configController.waterPumpSchedule, deviceConfig.configController.waterPumpScheduleCount);
 
     deviceConfig.configController.relayEnabled = deviceConfigController["relayEnabled"];
     deviceConfig.configController.relay1 = deviceConfigController["relay1"];

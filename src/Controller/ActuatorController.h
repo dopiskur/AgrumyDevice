@@ -46,11 +46,12 @@ private:
     void intervalRelayFunction(RelayFunctionType relayFunction, bool intervalEnabled, int interval, int intervalLength, time_t epochSeconds);
     void thresholdRelayFunction(RelayFunctionType relayFunction, int relayPin, SensorData sensorData);
 
-    // Roadmap #39: localWeekday (0=Sunday..6=Saturday, C's tm_wday) and localSecondsOfDay (0..86399)
-    // are computed ONCE per initController() tick from epochSeconds+utcOffsetSeconds and passed to
-    // all four calls below, rather than each call re-deriving them - cheap, but no reason to repeat
-    // the same gmtime() call four times a tick.
-    void scheduleRelayFunction(RelayFunctionType relayFunction, bool scheduleEnabled, int daysOfWeek,
-                                int startSeconds, int durationSeconds, int localWeekday, int localSecondsOfDay);
+    // Roadmap #39/#115: localWeekday (0=Sunday..6=Saturday, C's tm_wday) and localSecondsOfDay
+    // (0..86399) are computed ONCE per initController() tick from epochSeconds+utcOffsetSeconds
+    // and passed to all four calls below, rather than each call re-deriving them - cheap, but no
+    // reason to repeat the same gmtime() call four times a tick. slots/slotCount is one relay
+    // function's list of windows (RelayLogic::computeAnyScheduleState ORs them together).
+    void scheduleRelayFunction(RelayFunctionType relayFunction, const ScheduleWindow slots[], int slotCount,
+                                int localWeekday, int localSecondsOfDay);
 };
 #endif

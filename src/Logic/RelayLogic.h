@@ -39,6 +39,27 @@ bool computeIntervalState(int interval, int intervalLength, time_t epochSeconds)
 // does not special-case it either.
 bool computeScheduleState(int daysOfWeekMask, int startSeconds, int durationSeconds, int localWeekday, int localSecondsOfDay);
 
+// Roadmap #115: one relay function can now have several windows a day (e.g. 6:00-6:30 AND
+// 14:00-14:30), replacing the single-window fields above. No dynamic allocation - this runs on
+// an embedded target with a fixed-capacity slot array (see MAX_SCHEDULE_SLOTS_PER_FUNCTION), not
+// a std::vector.
+struct ScheduleWindow
+{
+    int daysOfWeek = 0;
+    int start = 0;
+    int duration = 0;
+};
+
+// Generous margin over the 3-window example in the roadmap spec (6:00-6:30, 14:00-14:30,
+// 20:00-20:15) - trivial RAM cost either way (4 relay functions x 4 slots x 12 bytes = 192 bytes).
+const int MAX_SCHEDULE_SLOTS_PER_FUNCTION = 4;
+
+// True if ANY of the first `count` windows in slots[] is currently active (computeScheduleState
+// above, OR'd together). count == 0 always returns false - "no windows configured", which the
+// caller (ActuatorController::scheduleRelayFunction) treats the same as the old disabled flag:
+// leave the pins alone rather than actively writing them off (see that function's comment).
+bool computeAnyScheduleState(const ScheduleWindow slots[], int count, int localWeekday, int localSecondsOfDay);
+
 // ---- Threshold + hysteresis (roadmap #10) ------------------------------------------------
 
 // Dead-zone latch: turns on once `reading` crosses the "on" side of `threshold`, stays on until

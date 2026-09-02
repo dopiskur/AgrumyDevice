@@ -19,6 +19,18 @@ bool computeScheduleState(int daysOfWeekMask, int startSeconds, int durationSeco
            localSecondsOfDay < (startSeconds + durationSeconds);
 }
 
+bool computeAnyScheduleState(const ScheduleWindow slots[], int count, int localWeekday, int localSecondsOfDay)
+{
+    for (int i = 0; i < count; i++)
+    {
+        if (computeScheduleState(slots[i].daysOfWeek, slots[i].start, slots[i].duration, localWeekday, localSecondsOfDay))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool computeThresholdState(bool currentlyOn, double reading, double threshold, double hysteresis, bool turnsOnAboveThreshold)
 {
     bool shouldTurnOn = turnsOnAboveThreshold ? (reading > threshold) : (reading < threshold);

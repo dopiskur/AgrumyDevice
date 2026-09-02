@@ -1,6 +1,7 @@
 #ifndef DATASTRUCTURE_H
 #define DATASTRUCTURE_H
 #include "Arduino.h"
+#include "../Logic/RelayLogic.h" // ScheduleWindow/MAX_SCHEDULE_SLOTS_PER_FUNCTION (roadmap #115) - plain C++, no Arduino dependency of its own
 
 struct DeviceDefaults {
     String servicePoint = "api.agrumy.com";
@@ -161,29 +162,24 @@ struct ConfigController
     int waterPumpInterval;
     int waterPumpIntervalLength;
 
-    // Roadmap #39: a third relay-control mode alongside threshold and interval above - "be on
-    // during this wall-clock window on these days", independent of any sensor reading. Evaluated
-    // by ActuatorController::scheduleRelayFunction against LOCAL time, derived on-device from
-    // DeviceConfig.utcOffsetSeconds (no timezone database needed here - see that field's comment).
-    // daysOfWeek is a 7-bit mask matching C's tm_wday (bit 0 = Sunday .. bit 6 = Saturday). start/
-    // duration are seconds since local midnight - v1 does not support a window crossing midnight
-    // (enforced server-side, DeviceApiController.ScheduleWindowError).
-    int ventilationScheduleEnabled;
-    int ventilationScheduleDaysOfWeek;
-    int ventilationScheduleStart;
-    int ventilationScheduleDuration;
-    int lightScheduleEnabled;
-    int lightScheduleDaysOfWeek;
-    int lightScheduleStart;
-    int lightScheduleDuration;
-    int heatingScheduleEnabled;
-    int heatingScheduleDaysOfWeek;
-    int heatingScheduleStart;
-    int heatingScheduleDuration;
-    int waterPumpScheduleEnabled;
-    int waterPumpScheduleDaysOfWeek;
-    int waterPumpScheduleStart;
-    int waterPumpScheduleDuration;
+    // Roadmap #39/#115: a third relay-control mode alongside threshold and interval above - "be
+    // on during any of these wall-clock windows on these days", independent of any sensor
+    // reading. Evaluated by ActuatorController::scheduleRelayFunction (RelayLogic::
+    // computeAnyScheduleState, OR'd across the *ScheduleCount active slots) against LOCAL time,
+    // derived on-device from DeviceConfig.utcOffsetSeconds (no timezone database needed here -
+    // see that field's comment). Each ScheduleWindow's daysOfWeek is a 7-bit mask matching C's
+    // tm_wday (bit 0 = Sunday .. bit 6 = Saturday); start/duration are seconds since local
+    // midnight - v1 does not support a window crossing midnight (enforced server-side,
+    // DeviceApiController.ScheduleWindowError). *ScheduleCount == 0 means "no windows configured"
+    // - the old disabled flag's semantics, not "windows that are all currently off".
+    ScheduleWindow ventilationSchedule[MAX_SCHEDULE_SLOTS_PER_FUNCTION];
+    int ventilationScheduleCount = 0;
+    ScheduleWindow lightSchedule[MAX_SCHEDULE_SLOTS_PER_FUNCTION];
+    int lightScheduleCount = 0;
+    ScheduleWindow heatingSchedule[MAX_SCHEDULE_SLOTS_PER_FUNCTION];
+    int heatingScheduleCount = 0;
+    ScheduleWindow waterPumpSchedule[MAX_SCHEDULE_SLOTS_PER_FUNCTION];
+    int waterPumpScheduleCount = 0;
 
     int relayEnabled;
     int relay1;

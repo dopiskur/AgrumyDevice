@@ -99,6 +99,54 @@ void test_WindowExtendingPastMidnight_DoesNotWrapToNextDay(void)
     TEST_ASSERT_FALSE(computeScheduleState(kAllDays, 86000, 1000, 4, 100));
 }
 
+// ---- multiple windows OR'd together (roadmap #115) -------------------------------------
+
+void test_AnySchedule_ZeroSlots_IsOff(void)
+{
+    ScheduleWindow slots[1] = {};
+    TEST_ASSERT_FALSE(computeAnyScheduleState(slots, 0, 3, 43200));
+}
+
+void test_AnySchedule_SingleSlot_SameAsComputeScheduleState(void)
+{
+    ScheduleWindow slots[1] = { { kWednesday, 21600, 43200 } };
+    TEST_ASSERT_TRUE(computeAnyScheduleState(slots, 1, 3, 43200));
+    TEST_ASSERT_FALSE(computeAnyScheduleState(slots, 1, 3, 90000)); // outside the one window
+}
+
+void test_AnySchedule_TwoNonOverlappingSlots_OnInEitherWindow(void)
+{
+    // 06:00-06:30 and 14:00-14:15, every day.
+    ScheduleWindow slots[2] = { { kAllDays, 21600, 1800 }, { kAllDays, 50400, 900 } };
+    TEST_ASSERT_TRUE_MESSAGE(computeAnyScheduleState(slots, 2, 2, 21700), "expected on within first window");
+    TEST_ASSERT_TRUE_MESSAGE(computeAnyScheduleState(slots, 2, 2, 50500), "expected on within second window");
+    TEST_ASSERT_FALSE_MESSAGE(computeAnyScheduleState(slots, 2, 2, 30000), "expected off between the two windows");
+}
+
+void test_AnySchedule_OneEnabledOneWrongDay_OnlyMatchingSlotCounts(void)
+{
+    // Same time window, but only the Wednesday slot's day matches a Wednesday check.
+    ScheduleWindow slots[2] = { { kMonday, 21600, 1800 }, { kWednesday, 21600, 1800 } };
+    TEST_ASSERT_TRUE(computeAnyScheduleState(slots, 2, 3, 21700)); // Wednesday
+    TEST_ASSERT_FALSE(computeAnyScheduleState(slots, 2, 5, 21700)); // Friday - neither slot's day matches
+}
+
+void test_AnySchedule_OverlappingSlots_StillJustOn(void)
+{
+    // Overlap is explicitly allowed (roadmap #115: "functionally harmless, no validation needed") -
+    // OR of two true results is still just true, not some special double-on state.
+    ScheduleWindow slots[2] = { { kAllDays, 21600, 3600 }, { kAllDays, 23400, 3600 } }; // overlap [23400,25200)
+    TEST_ASSERT_TRUE(computeAnyScheduleState(slots, 2, 0, 24000));
+}
+
+void test_AnySchedule_OnlyFirstCountSlotsConsidered(void)
+{
+    // A slot beyond `count` (e.g. a stale array entry never cleared) must be ignored.
+    ScheduleWindow slots[2] = { { kAllDays, 0, 60 }, { kAllDays, 50000, 60 } };
+    TEST_ASSERT_TRUE(computeAnyScheduleState(slots, 2, 0, 50010));
+    TEST_ASSERT_FALSE_MESSAGE(computeAnyScheduleState(slots, 1, 0, 50010), "count=1 must not look at slots[1]");
+}
+
 int main(int argc, char **argv)
 {
     UNITY_BEGIN();
@@ -114,5 +162,11 @@ int main(int argc, char **argv)
     RUN_TEST(test_LocalSecondsOfDayZero_WithinMidnightWindow_IsOn);
     RUN_TEST(test_LocalSecondsOfDayLastSecond_WithinLateWindow_IsOn);
     RUN_TEST(test_WindowExtendingPastMidnight_DoesNotWrapToNextDay);
+    RUN_TEST(test_AnySchedule_ZeroSlots_IsOff);
+    RUN_TEST(test_AnySchedule_SingleSlot_SameAsComputeScheduleState);
+    RUN_TEST(test_AnySchedule_TwoNonOverlappingSlots_OnInEitherWindow);
+    RUN_TEST(test_AnySchedule_OneEnabledOneWrongDay_OnlyMatchingSlotCounts);
+    RUN_TEST(test_AnySchedule_OverlappingSlots_StillJustOn);
+    RUN_TEST(test_AnySchedule_OnlyFirstCountSlotsConsidered);
     return UNITY_END();
 }

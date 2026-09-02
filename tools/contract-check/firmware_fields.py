@@ -88,11 +88,8 @@ CONTRACT = {
                     "lightIntervalEnabled", "lightInterval", "lightIntervalLength",
                     "heatingIntervalEnabled", "heatingInterval", "heatingIntervalLength",
                     "waterPumpIntervalEnabled", "waterPumpInterval", "waterPumpIntervalLength",
-                    # roadmap #39
-                    "ventilationScheduleEnabled", "ventilationScheduleDaysOfWeek", "ventilationScheduleStart", "ventilationScheduleDuration",
-                    "lightScheduleEnabled", "lightScheduleDaysOfWeek", "lightScheduleStart", "lightScheduleDuration",
-                    "heatingScheduleEnabled", "heatingScheduleDaysOfWeek", "heatingScheduleStart", "heatingScheduleDuration",
-                    "waterPumpScheduleEnabled", "waterPumpScheduleDaysOfWeek", "waterPumpScheduleStart", "waterPumpScheduleDuration",
+                    # roadmap #39/#115 - each an array of {daysOfWeek, start, duration} windows now
+                    "ventilationSchedule", "lightSchedule", "heatingSchedule", "waterPumpSchedule",
                     "relayEnabled",
                     "relay1", "relay2", "relay3", "relay4", "relay5", "relay6", "relay7", "relay8",
                 ],
