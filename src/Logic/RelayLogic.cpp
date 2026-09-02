@@ -46,3 +46,13 @@ bool computeThresholdState(bool currentlyOn, double reading, double threshold, d
     }
     return currentlyOn; // dead zone - neither condition met, state latches
 }
+
+bool runTimeCeilingHit(time_t epochSeconds, time_t onSinceEpoch, int maxRunSeconds)
+{
+    return maxRunSeconds > 0 && onSinceEpoch != 0 && (epochSeconds - onSinceEpoch) >= (time_t)maxRunSeconds;
+}
+
+bool cooldownActive(time_t epochSeconds, time_t offSinceEpoch, int cooldownSeconds)
+{
+    return cooldownSeconds > 0 && offSinceEpoch != 0 && (epochSeconds - offSinceEpoch) < (time_t)cooldownSeconds;
+}

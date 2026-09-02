@@ -177,6 +177,71 @@ void ActuatorController::scheduleRelayFunction(RelayFunctionType relayFunction, 
     }
 }
 
+// Roadmap #36: state machine combining runTimeCeilingHit()/cooldownActive() into the two
+// timestamps this one physical slot needs. Order matters - cooldown is evaluated against the OLD
+// offSinceEpoch BEFORE anything below is allowed to touch onSinceEpoch/offSinceEpoch, so an ON
+// request that arrives mid-cooldown can never look like a fresh off-transition and reset its own
+// clock (which would turn a bounded cooldown into a permanent lockout as long as some mode keeps
+// requesting ON every tick).
+void ActuatorController::applyWaterPumpSafetyLimits(int slot, int pin, time_t epochSeconds)
+{
+    bool desiredState = digitalRead(pin) == HIGH; // whatever threshold/interval/schedule already wrote this tick
+    int maxRunSeconds = deviceConfig.configController.waterPumpMaxRunSeconds;
+    int cooldownSeconds = deviceConfig.configController.waterPumpCooldownSeconds;
+
+    bool blockedByCooldown = desiredState && cooldownActive(epochSeconds, waterPumpOffSinceEpoch[slot], cooldownSeconds);
+
+    if (desiredState && !blockedByCooldown && waterPumpOnSinceEpoch[slot] == 0)
+    {
+        waterPumpOnSinceEpoch[slot] = epochSeconds;
+    }
+
+    bool ceilingHit = desiredState && !blockedByCooldown
+                       && runTimeCeilingHit(epochSeconds, waterPumpOnSinceEpoch[slot], maxRunSeconds);
+
+    bool finalState = desiredState && !blockedByCooldown && !ceilingHit;
+
+    if (!finalState && waterPumpOnSinceEpoch[slot] != 0)
+    {
+        // A real on-stretch just ended - whether the underlying mode itself decided off, or a
+        // limit above forced it - start the cooldown clock from this moment either way; the
+        // physics reason for cooldown (water needs time to drain) applies to every pump-off, not
+        // just ones a safety limit caused.
+        waterPumpOffSinceEpoch[slot] = epochSeconds;
+        waterPumpOnSinceEpoch[slot] = 0;
+    }
+
+    if (finalState != desiredState)
+    {
+        digitalWrite(pin, finalState ? HIGH : LOW);
+        if (ceilingHit)
+        {
+            reportSafetyLimitTripped("WaterPump max run time exceeded (" + String(maxRunSeconds) + "s)");
+        }
+        else if (blockedByCooldown)
+        {
+            reportSafetyLimitTripped("WaterPump cooldown active, restart blocked");
+        }
+    }
+}
+
+void ActuatorController::reportSafetyLimitTripped(const String &message)
+{
+    Serial.println("[Safety limit] " + message);
+    pendingSafetyEventMessage = message; // last one wins if several slots trip the same tick
+}
+
+bool ActuatorController::consumeSafetyLimitEvent(String &outMessage)
+{
+    if (pendingSafetyEventMessage.length() == 0)
+    {
+        return false;
+    }
+    outMessage = pendingSafetyEventMessage;
+    pendingSafetyEventMessage = "";
+    return true;
+}
+
 void ActuatorController::initController(SensorData sensorData, time_t epochSeconds)
 {
     intervalRelayFunction(RelayFunctionType::Ventilation, deviceConfig.configController.ventilationIntervalEnabled,
@@ -227,5 +292,12 @@ void ActuatorController::initController(SensorData sensorData, time_t epochSecon
     for (int i = 0; i < 8; i++)
     {
         thresholdRelayFunction((RelayFunctionType)relayType[i], relayPin[i], sensorData);
+
+        // Roadmap #36: safety limits are the LAST word for WaterPump specifically - applied right
+        // after whichever mode above just wrote this pin's state this tick, never before.
+        if ((RelayFunctionType)relayType[i] == RelayFunctionType::WaterPump)
+        {
+            applyWaterPumpSafetyLimits(i, relayPin[i], epochSeconds);
+        }
     }
 }

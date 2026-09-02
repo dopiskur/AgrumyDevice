@@ -36,6 +36,14 @@ public:
     // roadmap #85 grid-aligned interval formula below.
     void initController(SensorData sensorData, time_t epochSeconds);
 
+    // Roadmap #36/#28: true (and clears the pending message into outMessage) exactly once per trip
+    // - a safety limit forcing the pump off THIS tick, not "still off from a previous trip". The
+    // caller (SensorController::pushSensorData, which already owns a correctly-configured
+    // ServiceController/ServiceRequest for the #28 event push) polls this once per sensor cycle;
+    // repeat trips while the underlying mode keeps requesting ON are left to the server's existing
+    // EventDedupeMinutes collapsing, the same way NoInternet already relies on it.
+    bool consumeSafetyLimitEvent(String &outMessage);
+
 private:
     // Walks ConfigController.relay1..relay8 and collects the physical pin of every slot assigned
     // to relayFunction into pins[] (caller-provided, must hold 8). Returns how many were found.
@@ -53,5 +61,18 @@ private:
     // function's list of windows (RelayLogic::computeAnyScheduleState ORs them together).
     void scheduleRelayFunction(RelayFunctionType relayFunction, const ScheduleWindow slots[], int slotCount,
                                 int localWeekday, int localSecondsOfDay);
+
+    // Roadmap #36: the LAST word for a WaterPump-assigned physical relay slot, applied right after
+    // thresholdRelayFunction (whatever it just wrote for this pin, in the trailing per-slot loop of
+    // initController) - independent of which mode produced that decision. slot (0..7) is the
+    // physical relay index, not the discovery order collectPinsForFunction would give - so each
+    // slot's on/off history stays correctly independent even if several relays share the WaterPump
+    // function. See RelayLogic::runTimeCeilingHit/cooldownActive for the pure math this wraps.
+    void applyWaterPumpSafetyLimits(int slot, int pin, time_t epochSeconds);
+    void reportSafetyLimitTripped(const String &message);
+
+    time_t waterPumpOnSinceEpoch[8] = {0};
+    time_t waterPumpOffSinceEpoch[8] = {0};
+    String pendingSafetyEventMessage = "";
 };
 #endif

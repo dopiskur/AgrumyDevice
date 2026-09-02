@@ -70,4 +70,28 @@ bool computeAnyScheduleState(const ScheduleWindow slots[], int count, int localW
 // function turns on BELOW its threshold.
 bool computeThresholdState(bool currentlyOn, double reading, double threshold, double hysteresis, bool turnsOnAboveThreshold);
 
+// ---- Safety limits (roadmap #36) ---------------------------------------------------------
+//
+// Two independent hard ceilings applied to WaterPump AFTER threshold/interval/schedule (whichever
+// wrote the pin last) already decided its state - the actual safety net, working regardless of
+// which mode (or a future #58 PID) produced that decision, not an alternative to it. Both are
+// plain functions of RAM-only epoch timestamps the caller (ActuatorController) owns and stamps on
+// every real on/off transition - see that class's applyWaterPumpSafetyLimits() for the state
+// machine. Losing these timestamps on reboot is an accepted, deliberate trade-off: a reboot
+// physically de-energizes every relay (GPIO defaults low), so there is no continuous-ON stretch or
+// recent-OFF cooldown left to remember - nothing is lost that was ever real (same reasoning as
+// roadmap #85's epoch-modulo interval math needing no persisted state either).
+
+// True once a continuous ON stretch (tracked by the caller as onSinceEpoch, 0 = "not currently
+// tracked") has run for at least maxRunSeconds - a stuck sensor or a logic error in whichever mode
+// requested ON cannot keep the pump running past this regardless. maxRunSeconds <= 0 disables the
+// ceiling (never hit) rather than treating 0 as "hit immediately".
+bool runTimeCeilingHit(time_t epochSeconds, time_t onSinceEpoch, int maxRunSeconds);
+
+// True while less than cooldownSeconds have passed since the pump's last real OFF transition
+// (tracked by the caller as offSinceEpoch, 0 = "never been off since boot" - lets water finish
+// draining into the ground before a sensor reading right after a run is trusted again.
+// cooldownSeconds <= 0 disables the cooldown (never active).
+bool cooldownActive(time_t epochSeconds, time_t offSinceEpoch, int cooldownSeconds);
+
 #endif

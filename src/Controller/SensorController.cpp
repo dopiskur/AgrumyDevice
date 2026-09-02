@@ -530,6 +530,17 @@ void SensorController::pushSensorData(JsonDocument payload){
     serviceRequest.endpoint = serviceEndpoint.apiSensorDataPost;
     serviceRequest.header.apiId = deviceConfig.apiId;
 
+    // Roadmap #36/#28: surfaced here (not from buildSensorData/initController directly) because
+    // service.deviceConfig is only correctly assigned right above - pushEvent() takes its
+    // ServiceRequest argument BY VALUE (see ServiceController::pushEvent), so mutating its local
+    // copy's .endpoint to apiEvent never disturbs serviceRequest.endpoint for the sensor-data POST
+    // right after this, same as the BufferDiscarded push below.
+    String safetyEventMessage;
+    if (controller.consumeSafetyLimitEvent(safetyEventMessage))
+    {
+        service.pushEvent(serviceRequest, "SafetyLimitTripped", safetyEventMessage);
+    }
+
     // Roadmap #9: the disk backlog goes first, oldest file first, so the server receives rows in
     // chronological order; the live RAM payload is only attempted once the backlog fully drained.
     // A flush that broke off means the connection is down again - skip the doomed live attempt,

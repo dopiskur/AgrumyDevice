@@ -215,6 +215,16 @@ struct ConfigController
     ScheduleWindow waterPumpSchedule[MAX_SCHEDULE_SLOTS_PER_FUNCTION];
     int waterPumpScheduleCount = 0;
 
+    // Roadmap #36: WaterPump-only device-side hard safety limits, independent of whichever mode
+    // (threshold/interval/schedule/future #58 PID) decided the pump should be on - see
+    // RelayLogic::runTimeCeilingHit/cooldownActive for the math and ActuatorController::
+    // applyWaterPumpSafetyLimits for how they're combined. 0 disables either one. Server-
+    // configurable per device (same ServerConfig-default-plus-per-device-override pattern as the
+    // hysteresis fields above), not hardcoded, so a fallback of 0 here (never enforced) is safe
+    // until the first real config sync fills it in - a device is never worse off than pre-#36.
+    int waterPumpMaxRunSeconds = 0;
+    int waterPumpCooldownSeconds = 0;
+
     int relayEnabled;
     int relay1;
     int relay2;
