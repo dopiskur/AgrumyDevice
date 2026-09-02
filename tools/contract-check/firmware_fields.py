@@ -84,10 +84,10 @@ CONTRACT = {
                 "keys": [
                     "tempLow", "tempHigh", "humidLow", "humidHigh", "moistLow", "moistHigh",
                     "lightLow", "lightHigh", "waterLow", "waterHigh",
-                    "ventilationIntervalEnabled", "ventilationInterval", "ventilationIntervalLenght",
-                    "lightIntervalEnabled", "lightInterval", "lightIntervalLenght",
-                    "heatingIntervalEnabled", "heatingInterval", "heatingIntervalLenght",
-                    "waterPumpIntervalEnabled", "waterPumpInterval", "waterPumpIntervalLenght",
+                    "ventilationIntervalEnabled", "ventilationInterval", "ventilationIntervalLength",
+                    "lightIntervalEnabled", "lightInterval", "lightIntervalLength",
+                    "heatingIntervalEnabled", "heatingInterval", "heatingIntervalLength",
+                    "waterPumpIntervalEnabled", "waterPumpInterval", "waterPumpIntervalLength",
                     # roadmap #39
                     "ventilationScheduleEnabled", "ventilationScheduleDaysOfWeek", "ventilationScheduleStart", "ventilationScheduleDuration",
                     "lightScheduleEnabled", "lightScheduleDaysOfWeek", "lightScheduleStart", "lightScheduleDuration",

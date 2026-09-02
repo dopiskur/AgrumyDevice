@@ -20,13 +20,13 @@
 
 // ---- Interval (roadmap #85) -------------------------------------------------------------
 
-// Grid-aligned duty cycle: true for the first intervalLenght seconds of every `interval`-second
+// Grid-aligned duty cycle: true for the first intervalLength seconds of every `interval`-second
 // repeating cycle, keyed off epochSeconds directly (not time-since-last-transition) so the state
 // is a pure function of wall-clock time - nothing to persist, nothing to lose on reboot.
 // interval <= 0 returns false rather than dividing by it - defensive; ActuatorController's
 // caller already guards this case before ever reaching here in production, but a native test can
 // still exercise this path directly.
-bool computeIntervalState(int interval, int intervalLenght, time_t epochSeconds);
+bool computeIntervalState(int interval, int intervalLength, time_t epochSeconds);
 
 // ---- Schedule (roadmap #39) -------------------------------------------------------------
 

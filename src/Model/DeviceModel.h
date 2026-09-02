@@ -150,16 +150,16 @@ struct ConfigController
 
     int ventilationIntervalEnabled;
     int ventilationInterval;
-    int ventilationIntervalLenght;
+    int ventilationIntervalLength;
     int lightIntervalEnabled;
     int lightInterval;
-    int lightIntervalLenght;
+    int lightIntervalLength;
     int heatingIntervalEnabled;
     int heatingInterval;
-    int heatingIntervalLenght;
+    int heatingIntervalLength;
     int waterPumpIntervalEnabled;
     int waterPumpInterval;
-    int waterPumpIntervalLenght;
+    int waterPumpIntervalLength;
 
     // Roadmap #39: a third relay-control mode alongside threshold and interval above - "be on
     // during this wall-clock window on these days", independent of any sensor reading. Evaluated

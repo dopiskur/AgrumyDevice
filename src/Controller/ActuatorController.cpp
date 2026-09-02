@@ -47,12 +47,12 @@ int ActuatorController::collectPinsForFunction(RelayFunctionType relayFunction, 
     return count;
 }
 
-// Roadmap #85: grid-aligned, zero-state redesign - replaces the old millisStart/millisStartLenght
+// Roadmap #85: grid-aligned, zero-state redesign - replaces the old millisStart/millisStartLength
 // approach, which tracked "time since last ON/OFF" in RAM and therefore misfired after ANY reboot
 // (not just deep sleep - a bare power loss too), since millis() always resets to 0 but the relay
 // pin's actual on/off state does not. Instead the on/off state is a pure function of wall-clock
 // time: epochSeconds is reduced mod interval to find where "now" falls in the repeating cycle, and
-// the relay is on for the first intervalLenght seconds of every cycle - nothing to persist, nothing
+// the relay is on for the first intervalLength seconds of every cycle - nothing to persist, nothing
 // to lose on reboot. Epoch-based (not midnight-based) deliberately: midnight-based would produce
 // one short, irregular cycle before every midnight for any interval that doesn't evenly divide 24h
 // (e.g. 5h, 7h). A missed cycle across a power outage is accepted as harmless - threshold+hysteresis
@@ -60,7 +60,7 @@ int ActuatorController::collectPinsForFunction(RelayFunctionType relayFunction, 
 // Roadmap #19/#95: the duty-cycle math itself lives in computeIntervalState() (src/Logic/
 // RelayLogic.cpp, native-testable) - this wrapper only decides WHETHER to touch these pins at all
 // (enabled, interval valid, a relay slot actually assigned) and then does the hardware write.
-void ActuatorController::intervalRelayFunction(RelayFunctionType relayFunction, bool intervalEnabled, int interval, int intervalLenght, time_t epochSeconds)
+void ActuatorController::intervalRelayFunction(RelayFunctionType relayFunction, bool intervalEnabled, int interval, int intervalLength, time_t epochSeconds)
 {
     if (!intervalEnabled || interval <= 0)
     {
@@ -74,7 +74,7 @@ void ActuatorController::intervalRelayFunction(RelayFunctionType relayFunction, 
         return; // no relay slot assigned to this function
     }
 
-    bool shouldBeOn = computeIntervalState(interval, intervalLenght, epochSeconds);
+    bool shouldBeOn = computeIntervalState(interval, intervalLength, epochSeconds);
 
     for (int i = 0; i < pinCount; i++)
     {
@@ -180,13 +180,13 @@ void ActuatorController::scheduleRelayFunction(RelayFunctionType relayFunction, 
 void ActuatorController::initController(SensorData sensorData, time_t epochSeconds)
 {
     intervalRelayFunction(RelayFunctionType::Ventilation, deviceConfig.configController.ventilationIntervalEnabled,
-                           deviceConfig.configController.ventilationInterval, deviceConfig.configController.ventilationIntervalLenght, epochSeconds);
+                           deviceConfig.configController.ventilationInterval, deviceConfig.configController.ventilationIntervalLength, epochSeconds);
     intervalRelayFunction(RelayFunctionType::Light, deviceConfig.configController.lightIntervalEnabled,
-                           deviceConfig.configController.lightInterval, deviceConfig.configController.lightIntervalLenght, epochSeconds);
+                           deviceConfig.configController.lightInterval, deviceConfig.configController.lightIntervalLength, epochSeconds);
     intervalRelayFunction(RelayFunctionType::Heating, deviceConfig.configController.heatingIntervalEnabled,
-                           deviceConfig.configController.heatingInterval, deviceConfig.configController.heatingIntervalLenght, epochSeconds);
+                           deviceConfig.configController.heatingInterval, deviceConfig.configController.heatingIntervalLength, epochSeconds);
     intervalRelayFunction(RelayFunctionType::WaterPump, deviceConfig.configController.waterPumpIntervalEnabled,
-                           deviceConfig.configController.waterPumpInterval, deviceConfig.configController.waterPumpIntervalLenght, epochSeconds);
+                           deviceConfig.configController.waterPumpInterval, deviceConfig.configController.waterPumpIntervalLength, epochSeconds);
 
     // Roadmap #39: gmtime() on a pre-shifted epoch (epochSeconds + utcOffsetSeconds) yields LOCAL
     // wall-clock calendar fields for free - it is pure calendar math with no timezone database

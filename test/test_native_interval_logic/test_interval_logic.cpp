@@ -10,7 +10,7 @@ void tearDown(void) {}
 
 void test_MidWindow_IsOn(void)
 {
-    // interval=3600 (1h cycle), intervalLenght=600 (10 min on): epoch=100 is well inside the ON window.
+    // interval=3600 (1h cycle), intervalLength=600 (10 min on): epoch=100 is well inside the ON window.
     TEST_ASSERT_TRUE(computeIntervalState(3600, 600, 100));
 }
 
@@ -23,7 +23,7 @@ void test_WellPastWindow_IsOff(void)
 
 void test_EpochZero_IsOn(void)
 {
-    // positionInCycle = 0 % interval = 0, which is < intervalLenght (as long as intervalLenght > 0).
+    // positionInCycle = 0 % interval = 0, which is < intervalLength (as long as intervalLength > 0).
     TEST_ASSERT_TRUE(computeIntervalState(3600, 600, 0));
 }
 
@@ -39,16 +39,16 @@ void test_MultipleCyclesIn_SameBehaviorAsFirstCycle(void)
     TEST_ASSERT_TRUE(computeIntervalState(3600, 600, (time_t)3600 * 100 + 100));
 }
 
-// ---- intervalLenght boundary (the ON->OFF transition point) -------------------------
+// ---- intervalLength boundary (the ON->OFF transition point) -------------------------
 
-void test_OneSecondBeforeIntervalLenght_IsOn(void)
+void test_OneSecondBeforeIntervalLength_IsOn(void)
 {
     TEST_ASSERT_TRUE(computeIntervalState(3600, 600, 599));
 }
 
-void test_ExactlyAtIntervalLenght_IsOff(void)
+void test_ExactlyAtIntervalLength_IsOff(void)
 {
-    // positionInCycle < intervalLenght is a strict less-than - exactly at the boundary is OFF.
+    // positionInCycle < intervalLength is a strict less-than - exactly at the boundary is OFF.
     TEST_ASSERT_FALSE(computeIntervalState(3600, 600, 600));
 }
 
@@ -64,16 +64,16 @@ void test_IntervalNegative_ReturnsFalse(void)
     TEST_ASSERT_FALSE(computeIntervalState(-5, 600, 100));
 }
 
-void test_IntervalLenghtZero_AlwaysOff(void)
+void test_IntervalLengthZero_AlwaysOff(void)
 {
     // 0 < 0 is never true - a zero-length "on" window never actually turns anything on.
     TEST_ASSERT_FALSE(computeIntervalState(3600, 0, 0));
     TEST_ASSERT_FALSE(computeIntervalState(3600, 0, 3599));
 }
 
-void test_IntervalLenghtEqualsInterval_AlwaysOn(void)
+void test_IntervalLengthEqualsInterval_AlwaysOn(void)
 {
-    // positionInCycle is always in [0, interval), which is always < intervalLenght == interval.
+    // positionInCycle is always in [0, interval), which is always < intervalLength == interval.
     TEST_ASSERT_TRUE(computeIntervalState(3600, 3600, 0));
     TEST_ASSERT_TRUE(computeIntervalState(3600, 3600, 3599));
 }
@@ -100,12 +100,12 @@ int main(int argc, char **argv)
     RUN_TEST(test_EpochZero_IsOn);
     RUN_TEST(test_ExactCycleBoundary_WrapsToStartOfNextCycle_IsOn);
     RUN_TEST(test_MultipleCyclesIn_SameBehaviorAsFirstCycle);
-    RUN_TEST(test_OneSecondBeforeIntervalLenght_IsOn);
-    RUN_TEST(test_ExactlyAtIntervalLenght_IsOff);
+    RUN_TEST(test_OneSecondBeforeIntervalLength_IsOn);
+    RUN_TEST(test_ExactlyAtIntervalLength_IsOff);
     RUN_TEST(test_IntervalZero_ReturnsFalse_NoDivideByZero);
     RUN_TEST(test_IntervalNegative_ReturnsFalse);
-    RUN_TEST(test_IntervalLenghtZero_AlwaysOff);
-    RUN_TEST(test_IntervalLenghtEqualsInterval_AlwaysOn);
+    RUN_TEST(test_IntervalLengthZero_AlwaysOff);
+    RUN_TEST(test_IntervalLengthEqualsInterval_AlwaysOn);
     RUN_TEST(test_LargeEpoch_NearUnsignedLongWraparound_StillDeterministic);
     return UNITY_END();
 }

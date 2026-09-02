@@ -728,16 +728,16 @@ DeviceConfig DeviceController::loadConfig(String configJson)
 
     deviceConfig.configController.ventilationIntervalEnabled = deviceConfigController["ventilationIntervalEnabled"];
     deviceConfig.configController.ventilationInterval = deviceConfigController["ventilationInterval"];
-    deviceConfig.configController.ventilationIntervalLenght = deviceConfigController["ventilationIntervalLenght"];
+    deviceConfig.configController.ventilationIntervalLength = deviceConfigController["ventilationIntervalLength"];
     deviceConfig.configController.lightIntervalEnabled = deviceConfigController["lightIntervalEnabled"];
     deviceConfig.configController.lightInterval = deviceConfigController["lightInterval"];
-    deviceConfig.configController.lightIntervalLenght = deviceConfigController["lightIntervalLenght"];
+    deviceConfig.configController.lightIntervalLength = deviceConfigController["lightIntervalLength"];
     deviceConfig.configController.heatingIntervalEnabled = deviceConfigController["heatingIntervalEnabled"];
     deviceConfig.configController.heatingInterval = deviceConfigController["heatingInterval"];
-    deviceConfig.configController.heatingIntervalLenght = deviceConfigController["heatingIntervalLenght"];
+    deviceConfig.configController.heatingIntervalLength = deviceConfigController["heatingIntervalLength"];
     deviceConfig.configController.waterPumpIntervalEnabled = deviceConfigController["waterPumpIntervalEnabled"];
     deviceConfig.configController.waterPumpInterval = deviceConfigController["waterPumpInterval"];
-    deviceConfig.configController.waterPumpIntervalLenght = deviceConfigController["waterPumpIntervalLenght"];
+    deviceConfig.configController.waterPumpIntervalLength = deviceConfigController["waterPumpIntervalLength"];
 
     // Roadmap #39.
     deviceConfig.configController.ventilationScheduleEnabled = deviceConfigController["ventilationScheduleEnabled"];

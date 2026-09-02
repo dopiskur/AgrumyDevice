@@ -1,6 +1,6 @@
 #include "RelayLogic.h"
 
-bool computeIntervalState(int interval, int intervalLenght, time_t epochSeconds)
+bool computeIntervalState(int interval, int intervalLength, time_t epochSeconds)
 {
     if (interval <= 0)
     {
@@ -8,7 +8,7 @@ bool computeIntervalState(int interval, int intervalLenght, time_t epochSeconds)
     }
 
     unsigned long positionInCycle = (unsigned long)epochSeconds % (unsigned long)interval;
-    return positionInCycle < (unsigned long)intervalLenght;
+    return positionInCycle < (unsigned long)intervalLength;
 }
 
 bool computeScheduleState(int daysOfWeekMask, int startSeconds, int durationSeconds, int localWeekday, int localSecondsOfDay)

@@ -43,7 +43,7 @@ private:
     // knows relay1..relay8/RELAY_1..RELAY_8 are eight parallel slots, not an array in the model.
     int collectPinsForFunction(RelayFunctionType relayFunction, int pins[8]) const;
 
-    void intervalRelayFunction(RelayFunctionType relayFunction, bool intervalEnabled, int interval, int intervalLenght, time_t epochSeconds);
+    void intervalRelayFunction(RelayFunctionType relayFunction, bool intervalEnabled, int interval, int intervalLength, time_t epochSeconds);
     void thresholdRelayFunction(RelayFunctionType relayFunction, int relayPin, SensorData sensorData);
 
     // Roadmap #39: localWeekday (0=Sunday..6=Saturday, C's tm_wday) and localSecondsOfDay (0..86399)
