@@ -24,6 +24,26 @@ struct EventLog
     String errorData ="";
 };
 
+// Roadmap #34: mirrors api.Models.CommandActionType - Reboot/ForceOTA/ForceConfigSync, raw
+// integers on the wire (same server->firmware convention as relay function/service type), not
+// strings. SelfTest intentionally excluded from v1 - no device-side concept exists.
+enum CommandActionType
+{
+    COMMAND_REBOOT = 1,
+    COMMAND_FORCE_OTA = 2,
+    COMMAND_FORCE_CONFIG_SYNC = 3,
+};
+
+// Roadmap #34: the minimal shape ridden along in the Config/Register response (api.Models.
+// PendingCommand) - present=false when the server has nothing queued for this device.
+struct PendingCommand
+{
+    bool present = false;
+    int idDeviceCommand = 0;
+    int actionType = 0;
+    String expiresAt = "";
+};
+
 struct ConfigPin // default values, cannot be changed during the setup phase
 {
     // The Seeed XIAO ESP32-C3 sensor-only profile (a CONFIG_IDF_TARGET_ESP32C3 branch here,
@@ -204,6 +224,12 @@ struct DeviceConfig
     // Service config
     int configVersion;
 
+    // Roadmap #34: separate from configVersion on purpose (a queued command must not force a full
+    // config re-apply, and vice versa) - see ServiceController::processPendingCommand for how
+    // pendingCommand is acked/executed/reported.
+    int commandVersion = 0;
+    PendingCommand pendingCommand;
+
     int tenantID;
     int deviceID;
     int deviceUnitID;
@@ -305,6 +331,7 @@ struct ServiceEndpoint
     String apiConfig = "/api/Device/Config";
     String apiAuthenticate = "/api/Device/Authenticate";
     String apiEvent = "/api/Device/Event"; // roadmap #28
+    String apiCommandAck = "/api/Device/Command/Ack"; // roadmap #34
 
     String apiSensorDataPost="/api/SensorData";
     String apiSensorDataGet="";

@@ -685,6 +685,22 @@ DeviceConfig DeviceController::loadConfig(String configJson)
   deviceConfig.firmwareVersion = config["firmwareVersion"] | String(""); // roadmap #3 (OTA)
   deviceConfig.firmwareUrl = config["firmwareUrl"] | String("");
 
+  // Roadmap #34: "|" keeps the current value if an older server doesn't send this key, same
+  // fallback convention as utcOffsetSeconds/hysteresis above.
+  deviceConfig.commandVersion = config["commandVersion"] | deviceConfig.commandVersion;
+  JsonVariant pendingCommandJson = config["pendingCommand"];
+  if (pendingCommandJson.isNull())
+  {
+    deviceConfig.pendingCommand.present = false;
+  }
+  else
+  {
+    deviceConfig.pendingCommand.present = true;
+    deviceConfig.pendingCommand.idDeviceCommand = pendingCommandJson["idDeviceCommand"];
+    deviceConfig.pendingCommand.actionType = pendingCommandJson["actionType"];
+    deviceConfig.pendingCommand.expiresAt = pendingCommandJson["expiresAt"] | String("");
+  }
+
   if (deviceConfig.deviceSensorEnabled)
   {
     JsonObject deviceConfigSensor = config["deviceConfigSensor"];

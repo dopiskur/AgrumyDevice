@@ -32,8 +32,15 @@ public:
 
     // Roadmap #28. service carries whatever apiId/serviceType/servicePoint the caller already had
     // set up - only .endpoint and .header.apiKey are overwritten here. Best-effort: the result is
-    // never checked and never retried, see the .cpp for why.
-    void pushEvent(ServiceRequest service, String eventType, String message);
+    // never checked and never retried, see the .cpp for why. commandId (roadmap #34) is included
+    // only when >= 0 - present alongside EventType="CommandExecuted", absent for every other event.
+    void pushEvent(ServiceRequest service, String eventType, String message, int commandId = -1);
+
+    // Roadmap #34: acks the pending command (best-effort - see the .cpp for why a dropped ack is
+    // still safe), performs its action, then reports the outcome via pushEvent above - except
+    // Reboot, which has nothing to report from once it fires. No-op if config.pendingCommand is
+    // not present. Called from apiConfig() once a fresh config payload has parsed successfully.
+    void processPendingCommand(DeviceConfig& config, ServiceRequest serviceRequest, DeviceController& device);
 
     JsonDocument buildJson();
 

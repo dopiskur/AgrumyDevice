@@ -137,7 +137,7 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
 // caller's ServiceRequest already carries. Never checks the result and never retries - a failed
 // event push (no internet, stale apiAuth, etc.) must stay silent, not chase itself with another
 // event about its own failure.
-void ServiceController::pushEvent(ServiceRequest service, String eventType, String message)
+void ServiceController::pushEvent(ServiceRequest service, String eventType, String message, int commandId)
 {
     service.endpoint = serviceEndpoint.apiEvent;
     service.header.apiKey = ""; // session-auth (apiAuth), same as apiConfig() - not apiKey-auth like Authenticate
@@ -145,9 +145,83 @@ void ServiceController::pushEvent(ServiceRequest service, String eventType, Stri
     JsonDocument payload;
     payload["EventType"] = eventType;
     payload["Message"] = message;
+    if (commandId >= 0)
+    {
+        payload["CommandId"] = commandId; // roadmap #34: links this event back to the specific command row
+    }
 
     Serial.println("[Service] pushEvent: " + eventType + (message.length() > 0 ? " (" + message + ")" : ""));
     requestPost(payload, service);
+}
+
+// Roadmap #34: ack happens BEFORE execute, per the design's hard requirement (a Reboot has no
+// "after" on this same connection to report from). The ack itself is fire-and-forget like
+// pushEvent - if it's lost, MarkExecutedAsync server-side still accepts Pending as a valid prior
+// state, so the CommandExecuted push below still lands the command in the right final state.
+void ServiceController::processPendingCommand(DeviceConfig& config, ServiceRequest serviceRequest, DeviceController& device)
+{
+    if (!config.pendingCommand.present)
+    {
+        return;
+    }
+
+    int commandId = config.pendingCommand.idDeviceCommand;
+    int actionType = config.pendingCommand.actionType;
+
+    ServiceRequest ackRequest = serviceRequest;
+    ackRequest.endpoint = serviceEndpoint.apiCommandAck;
+    ackRequest.header.apiKey = ""; // session-auth, same as apiConfig()/pushEvent()
+
+    JsonDocument ackPayload;
+    ackPayload["CommandId"] = commandId;
+    Serial.println("[Service] Acking pending command " + String(commandId) + " (actionType=" + String(actionType) + ")");
+    requestPost(ackPayload, ackRequest);
+
+    switch (actionType)
+    {
+    case COMMAND_REBOOT:
+        Serial.println("[Service] Executing command " + String(commandId) + ": Reboot");
+        device.reboot(); // never returns - nothing to report from, per roadmap #34
+        break;
+
+    case COMMAND_FORCE_OTA:
+    {
+        // "Force" = skip apiConfig()'s normal fwVersion != running-image gate, not a different
+        // download path - same device.firmwareUpdate() the regular OTA check already uses.
+        String fwUrl = config.firmwareUrl;
+        bool otaHttps = fwUrl.startsWith("https://") || fwUrl.startsWith("HTTPS://");
+
+        if (fwUrl.length() == 0)
+        {
+            Serial.println("[Service] Command " + String(commandId) + " (ForceOTA): no firmware build available to force");
+            pushEvent(serviceRequest, "CommandExecuted", "no firmware build available to force", commandId);
+            break;
+        }
+
+        if (device.firmwareUpdate(fwUrl, otaHttps))
+        {
+            Serial.println("[Service] Command " + String(commandId) + " (ForceOTA) succeeded, rebooting into new image");
+            pushEvent(serviceRequest, "CommandExecuted", "version=" + config.firmwareVersion, commandId);
+            device.reboot(); // never returns
+        }
+
+        Serial.println("[Service] Command " + String(commandId) + " (ForceOTA) failed - staying on current firmware");
+        pushEvent(serviceRequest, "CommandExecuted", "download/flash failed, version=" + config.firmwareVersion, commandId);
+        break;
+    }
+
+    case COMMAND_FORCE_CONFIG_SYNC:
+        // Roadmap #34: the full config the server just sent in THIS SAME poll response (the reason
+        // pendingCommand rides Config's response at all) already IS the resync - there is nothing
+        // left for this action to do differently. Kept in v1 per instruction, not dropped.
+        Serial.println("[Service] Command " + String(commandId) + " (ForceConfigSync): config already current from this same poll, nothing further to do");
+        pushEvent(serviceRequest, "CommandExecuted", "config already current from this poll", commandId);
+        break;
+
+    default:
+        Serial.println("[Service] Command " + String(commandId) + ": unknown actionType " + String(actionType) + ", ignoring");
+        break;
+    }
 }
 
 // API requests
@@ -283,6 +357,12 @@ bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest ser
                 fwFlag    = newConfig.firmwareUpdate;
                 fwVersion = newConfig.firmwareVersion;
                 fwUrl     = newConfig.firmwareUrl;
+
+                // Roadmap #34: ahead of the regular OTA gate below on purpose - a pending Reboot
+                // must fire before anything else in this cycle, and a pending ForceOTA should get
+                // its own shot even if the regular fwFlag/version-mismatch gate would otherwise
+                // skip OTA entirely this cycle.
+                processPendingCommand(newConfig, serviceRequest, device);
             }
         }
     }

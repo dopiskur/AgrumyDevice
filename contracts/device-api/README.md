@@ -3,7 +3,7 @@
 These 7 JSON Schema files are a **copy** of the source-of-truth in the API repo:
 
 > **Source:** `dopiskur/AgrumyApi`, path `contracts/device-api/`
-> **Copied from commit:** `314b842` (`master`) - roadmap #115, multiple schedule windows per relay function
+> **Copied from commit:** `61e3932` (`master`) - roadmap #34, device commands + queue (commandVersion/pendingCommand added to config/register responses)
 
 We copy rather than submodule because the schemas change rarely (only when the
 firmware<->API payloads change) and a submodule would add init/update friction to

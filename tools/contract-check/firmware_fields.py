@@ -68,9 +68,14 @@ CONTRACT = {
             "deviceSensorEnabled", "deviceControllerEnabled", "batteryEnabled", "enabled",
             "debug", "reboot", "reset",
             "firmwareUpdate", "firmwareVersion", "firmwareUrl",  # roadmap #3 (OTA)
+            "commandVersion", "pendingCommand",  # roadmap #34
             "deviceConfigSensor", "deviceConfigController",
         ],
         "nested": {
+            "pendingCommand": {
+                "def": "pendingCommand",
+                "keys": ["idDeviceCommand", "actionType", "expiresAt"],
+            },
             "deviceConfigSensor": {
                 "def": "deviceConfigSensor",
                 "keys": [
