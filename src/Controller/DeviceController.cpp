@@ -10,6 +10,7 @@
 
 #include "DeviceController.h"
 #include "ServiceController.h"
+#include "ConfigParser.h"
 
 #include <NTPClient.h>
 #include <WiFiUdp.h>
@@ -18,27 +19,6 @@
 extern const uint8_t rootca_crt_bundle_start[] asm("_binary_data_cert_x509_crt_bundle_bin_start");
 
 static ServiceController service; // static resolves a conflict with main
-
-// Roadmap #20: the raw config/registration JSON logged in registerDevice()/loadConfig() below is
-// otherwise very useful for debugging sync issues (thresholds, relay assignments, sensor mapping -
-// see roadmap #43-47), so it isn't removed wholesale, just its one embedded secret - masks the
-// "apiKey":"..." field value in place using ServiceController::maskSecret, leaving the rest as-is.
-static String maskApiKeyInJson(const String &json)
-{
-  const String needle = "\"apiKey\":\"";
-  int start = json.indexOf(needle);
-  if (start < 0)
-  {
-    return json;
-  }
-  start += needle.length();
-  int end = json.indexOf('"', start);
-  if (end < 0)
-  {
-    return json;
-  }
-  return json.substring(0, start) + ServiceController::maskSecret(json.substring(start, end)) + json.substring(end);
-}
 
 static DeviceDefaults deviceDefaults;
 static DeviceConfig deviceConfig;
@@ -356,7 +336,7 @@ void DeviceController::registerDevice(String configRegistration)
     reboot();
   }
 
-  Serial.println("[Device] config: " + maskApiKeyInJson(serviceData.payload));
+  Serial.println("[Device] config: " + ConfigParser::maskApiKeyInJson(serviceData.payload));
 
   // Roadmap #103: apiConfig()'s #67 parse-gate has no counterpart here - a truncated-but-non-empty
   // body (network hiccup mid-stream) passes both checks above (200/201 status, non-empty) and would
@@ -628,191 +608,12 @@ void DeviceController::removeBufferedFile(String filename)
   LittleFS.remove("/" + filename);
 }
 
+// Roadmap #128: field parsing moved to ConfigParser::parse() - this stays a thin wrapper so the
+// file-static `deviceConfig` above (read by powerRailPrimary/sleep/firmwareUpdate etc.) is still
+// the one mutated in place, same as before the split.
 DeviceConfig DeviceController::loadConfig(String configJson)
 {
-  Serial.println("[Device] Load config: " + maskApiKeyInJson(configJson));
-
-  DeserializationError error = deserializeJson(config, configJson);
-
-  if (error)
-  {
-    Serial.print("[Device] Load Config; deserializeJson() failed: ");
-    Serial.println(error.c_str());
-    deviceConfig.eventlog.error = true;
-    deviceConfig.eventlog.errorCode = 20; // 10 is reserved for deserialize fail
-    deviceConfig.eventlog.errorData = error.c_str();
-
-    return deviceConfig;
-  }
-
-  String servicePoint = config["servicePoint"];
-  // "| """ matters here: a bare assignment from a JSON null (the normal case - no self-signed
-  // cert pinned) does not reliably yield an empty ArduinoJson String, so
-  // ServiceController::requestPost's `servicePublicKey.length() > 0` check was true for a device
-  // with no pinned cert - it then fed that non-empty garbage to setCACert() as if it were a PEM
-  // certificate, and mbedTLS rejected the HTTPS handshake with "X509 ... format is invalid".
-  String servicePublicKey = config["servicePublicKey"] | "";
-  String apiId = config["apiId"];
-  String apiKey = config["apiKey"];
-
-  // Roadmap #107: "{}" (or any payload a contract-drifted server field rename produces) is valid,
-  // non-empty JSON, so it passes both of apiConfig()'s existing gates (isEmpty/deserializeJson) -
-  // a missing key here just silently reads back "". Without this check the device's own identity
-  // gets overwritten with "", the next Authenticate 401s, and #97's factory reset fires on what
-  // was actually a server-side contract bug. Reject BEFORE any deviceConfig field below is
-  // touched, same "keep current, signal the failure" contract as the deserializeJson gate above.
-  if (apiId.isEmpty() || apiKey.isEmpty() || servicePoint.isEmpty())
-  {
-    Serial.println("[Device] Load Config: missing required apiId/apiKey/servicePoint - rejecting (contract drift or malformed payload), keeping current config");
-    deviceConfig.eventlog.error = true;
-    deviceConfig.eventlog.errorCode = 21; // 20 is deserializeJson failure, 10 is reserved for registerDevice's own gate
-    deviceConfig.eventlog.errorData = "missing apiId/apiKey/servicePoint";
-    return deviceConfig;
-  }
-  // deviceConfig is a live member re-parsed in place on every call (not rebuilt from scratch), so
-  // a failure flagged above must not linger into the next call that actually succeeds.
-  deviceConfig.eventlog.error = false;
-
-  deviceConfig.configVersion = config["configVersion"];
-
-  deviceConfig.tenantID = config["tenantID"];
-  deviceConfig.deviceID = config["deviceID"];
-  deviceConfig.deviceUnitID = config["deviceUnitID"];
-  deviceConfig.deviceUnitZoneID = config["deviceUnitZoneID"];
-  deviceConfig.deviceTypeServiceID = config["deviceTypeServiceID"]; // 0 http, 1 https, 2 mqtt
-
-  deviceConfig.apiId = apiId;
-  deviceConfig.apiKey = apiKey;
-  deviceConfig.servicePoint = servicePoint;
-  deviceConfig.servicePublicKey = servicePublicKey;
-
-  deviceConfig.sleepSeconds = config["sleepSeconds"];
-  deviceConfig.sleepDeep = config["sleepDeep"];
-  // "| 0" keeps the current offset if an older server doesn't send this key, same reasoning as the
-  // hysteresis "|" fallbacks below - never silently jump to UTC just because the key was missing.
-  deviceConfig.utcOffsetSeconds = config["utcOffsetSeconds"] | deviceConfig.utcOffsetSeconds;
-  deviceConfig.deviceSensorEnabled = config["deviceSensorEnabled"];
-  deviceConfig.deviceControllerEnabled = config["deviceControllerEnabled"];
-  deviceConfig.batteryEnabled = config["batteryEnabled"];
-  deviceConfig.enabled = config["enabled"];
-  deviceConfig.debug = config["debug"];
-  deviceConfig.reboot = config["reboot"];
-  deviceConfig.reset = config["reset"];
-  deviceConfig.firmwareUpdate = config["firmwareUpdate"];
-  deviceConfig.firmwareVersion = config["firmwareVersion"] | String(""); // roadmap #3 (OTA)
-  deviceConfig.firmwareUrl = config["firmwareUrl"] | String("");
-
-  // Roadmap #34: "|" keeps the current value if an older server doesn't send this key, same
-  // fallback convention as utcOffsetSeconds/hysteresis above.
-  deviceConfig.commandVersion = config["commandVersion"] | deviceConfig.commandVersion;
-  JsonVariant pendingCommandJson = config["pendingCommand"];
-  if (pendingCommandJson.isNull())
-  {
-    deviceConfig.pendingCommand.present = false;
-  }
-  else
-  {
-    deviceConfig.pendingCommand.present = true;
-    deviceConfig.pendingCommand.idDeviceCommand = pendingCommandJson["idDeviceCommand"];
-    deviceConfig.pendingCommand.actionType = pendingCommandJson["actionType"];
-    deviceConfig.pendingCommand.expiresAt = pendingCommandJson["expiresAt"] | String("");
-  }
-
-  if (deviceConfig.deviceSensorEnabled)
-  {
-    JsonObject deviceConfigSensor = config["deviceConfigSensor"];
-
-    deviceConfig.configSensor.sensorBattery = deviceConfigSensor["sensorBattery"];
-    // Roadmap #12: same "fall back to whatever value is already here" rule as the hysteresis
-    // fields below - an older server that doesn't send these keys yet must not zero out a
-    // previously-configured divider calibration.
-    deviceConfig.configSensor.batteryDividerR1 = deviceConfigSensor["batteryDividerR1"] | deviceConfig.configSensor.batteryDividerR1;
-    deviceConfig.configSensor.batteryDividerR2 = deviceConfigSensor["batteryDividerR2"] | deviceConfig.configSensor.batteryDividerR2;
-    deviceConfig.configSensor.sensorTemp = deviceConfigSensor["sensorTemp"];
-    deviceConfig.configSensor.sensorTempSoil = deviceConfigSensor["sensorTempSoil"];
-    deviceConfig.configSensor.sensorHumid = deviceConfigSensor["sensorHumid"];
-    deviceConfig.configSensor.sensorMoist = deviceConfigSensor["sensorMoist"];
-    deviceConfig.configSensor.sensorLight = deviceConfigSensor["sensorLight"];
-    deviceConfig.configSensor.sensorCo2 = deviceConfigSensor["sensorCo2"];
-    deviceConfig.configSensor.sensorTvoc = deviceConfigSensor["sensorTvoc"];
-    deviceConfig.configSensor.sensorBarometer = deviceConfigSensor["sensorBarometer"];
-    deviceConfig.configSensor.sensorPH = deviceConfigSensor["sensorPH"];
-    deviceConfig.configSensor.sensorRainLevel = deviceConfigSensor["sensorRainLevel"];
-    deviceConfig.configSensor.sensorWaterLevel = deviceConfigSensor["sensorWaterLevel"];
-    deviceConfig.configSensor.sensorWind = deviceConfigSensor["sensorWind"];
-  }
-
-  if (deviceConfig.deviceControllerEnabled)
-  {
-    JsonObject deviceConfigController = config["deviceConfigController"];
-
-    deviceConfig.configController.tempLow = deviceConfigController["tempLow"];
-    deviceConfig.configController.tempHigh = deviceConfigController["tempHigh"];
-    deviceConfig.configController.humidLow = deviceConfigController["humidLow"];
-    deviceConfig.configController.humidHigh = deviceConfigController["humidHigh"];
-    deviceConfig.configController.moistLow = deviceConfigController["moistLow"];
-    deviceConfig.configController.moistHigh = deviceConfigController["moistHigh"];
-    deviceConfig.configController.lightLow = deviceConfigController["lightLow"];
-    deviceConfig.configController.lightHigh = deviceConfigController["lightHigh"];
-    deviceConfig.configController.waterLow = deviceConfigController["waterLow"];
-    deviceConfig.configController.waterHigh = deviceConfigController["waterHigh"];
-
-    // "|" fallback keeps the current value if the server doesn't send these keys (older API),
-    // instead of clobbering it with 0.
-    deviceConfig.configController.waterLevelHysteresis = deviceConfigController["waterLevelHysteresis"] | deviceConfig.configController.waterLevelHysteresis;
-    deviceConfig.configController.temperatureHysteresis = deviceConfigController["temperatureHysteresis"] | deviceConfig.configController.temperatureHysteresis;
-    deviceConfig.configController.humidityHysteresis = deviceConfigController["humidityHysteresis"] | deviceConfig.configController.humidityHysteresis;
-    deviceConfig.configController.lightHysteresis = deviceConfigController["lightHysteresis"] | deviceConfig.configController.lightHysteresis;
-
-    deviceConfig.configController.ventilationIntervalEnabled = deviceConfigController["ventilationIntervalEnabled"];
-    deviceConfig.configController.ventilationInterval = deviceConfigController["ventilationInterval"];
-    deviceConfig.configController.ventilationIntervalLength = deviceConfigController["ventilationIntervalLength"];
-    deviceConfig.configController.lightIntervalEnabled = deviceConfigController["lightIntervalEnabled"];
-    deviceConfig.configController.lightInterval = deviceConfigController["lightInterval"];
-    deviceConfig.configController.lightIntervalLength = deviceConfigController["lightIntervalLength"];
-    deviceConfig.configController.heatingIntervalEnabled = deviceConfigController["heatingIntervalEnabled"];
-    deviceConfig.configController.heatingInterval = deviceConfigController["heatingInterval"];
-    deviceConfig.configController.heatingIntervalLength = deviceConfigController["heatingIntervalLength"];
-    deviceConfig.configController.waterPumpIntervalEnabled = deviceConfigController["waterPumpIntervalEnabled"];
-    deviceConfig.configController.waterPumpInterval = deviceConfigController["waterPumpInterval"];
-    deviceConfig.configController.waterPumpIntervalLength = deviceConfigController["waterPumpIntervalLength"];
-
-    // Roadmap #39/#115: a JSON array of windows per relay function, capped at
-    // MAX_SCHEDULE_SLOTS_PER_FUNCTION - ArduinoJson's static-buffer parsing model has no dynamic
-    // growth on-device, so anything beyond the cap is silently dropped rather than overflowing the
-    // fixed array (the server already enforces the same cap when saving, DeviceApiController - this
-    // only matters for a pre-cap-enforcement server build or a hand-crafted payload).
-    auto parseSchedule = [](JsonArray arr, ScheduleWindow slots[], int &count)
-    {
-        count = 0;
-        for (JsonObject slot : arr)
-        {
-            if (count >= MAX_SCHEDULE_SLOTS_PER_FUNCTION)
-            {
-                break;
-            }
-            slots[count].daysOfWeek = slot["daysOfWeek"];
-            slots[count].start = slot["start"];
-            slots[count].duration = slot["duration"];
-            count++;
-        }
-    };
-    parseSchedule(deviceConfigController["ventilationSchedule"], deviceConfig.configController.ventilationSchedule, deviceConfig.configController.ventilationScheduleCount);
-    parseSchedule(deviceConfigController["lightSchedule"], deviceConfig.configController.lightSchedule, deviceConfig.configController.lightScheduleCount);
-    parseSchedule(deviceConfigController["heatingSchedule"], deviceConfig.configController.heatingSchedule, deviceConfig.configController.heatingScheduleCount);
-    parseSchedule(deviceConfigController["waterPumpSchedule"], deviceConfig.configController.waterPumpSchedule, deviceConfig.configController.waterPumpScheduleCount);
-
-    deviceConfig.configController.relayEnabled = deviceConfigController["relayEnabled"];
-    deviceConfig.configController.relay1 = deviceConfigController["relay1"];
-    deviceConfig.configController.relay2 = deviceConfigController["relay2"];
-    deviceConfig.configController.relay3 = deviceConfigController["relay3"];
-    deviceConfig.configController.relay4 = deviceConfigController["relay4"];
-    deviceConfig.configController.relay5 = deviceConfigController["relay5"];
-    deviceConfig.configController.relay6 = deviceConfigController["relay6"];
-    deviceConfig.configController.relay7 = deviceConfigController["relay7"];
-    deviceConfig.configController.relay8 = deviceConfigController["relay8"];
-  }
-
+  deviceConfig = ConfigParser::parse(configJson, deviceConfig);
   return deviceConfig;
 };
 
