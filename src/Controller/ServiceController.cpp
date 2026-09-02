@@ -16,6 +16,12 @@ extern const uint8_t rootca_crt_bundle_start[] asm("_binary_data_cert_x509_crt_b
 // and compared against OTA offers below.
 extern const char *firmware;
 
+// Roadmap #94: set per environment in platformio.ini; the fallback only covers a build that
+// bypassed it, and deliberately matches no catalog board so such an image is never OTA'd.
+#ifndef AGRUMY_BOARD
+#define AGRUMY_BOARD "unknown"
+#endif
+
 static ServiceRequest serviceRequest;
 static ServiceEndpoint serviceEndpoint;
 // requestPost()'s Authorization header is built from THIS file-static, not ServiceRequest.header -
@@ -293,6 +299,9 @@ bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest ser
     payload["Rssi"] = WiFi.RSSI();
     payload["FreeHeap"] = ESP.getFreeHeap();
     payload["FirmwareVersion"] = firmware;
+    // Roadmap #94: which release .bin fits this hardware - the PlatformIO env name from the
+    // AGRUMY_BOARD build flag (platformio.ini), never guessed from the chip at runtime.
+    payload["Board"] = AGRUMY_BOARD;
 
     serviceData = requestPost(payload, serviceRequest);
 

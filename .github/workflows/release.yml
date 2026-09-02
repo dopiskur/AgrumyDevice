@@ -1,0 +1,108 @@
+name: Firmware release
+
+# Roadmap #94 (part A): the ONLY process that produces a tagged, versioned, downloadable .bin.
+# Separate from build.yml on purpose - that one is the per-push regression gate, this one runs
+# only when a semver tag is pushed and publishes a GitHub Release with one .bin per PlatformIO
+# environment plus a manifest.json (SHA-256 per file) that the API's catalog sync (AgrumyApi
+# FirmwareCatalogService) and the offline-USB tools read.
+#
+# The embedded version string is DERIVED from the tag (FIRMWARE_VERSION env -> tools/
+# firmware_version.py -> -DFIRMWARE_VERSION), so the tag and what the device reports in its
+# heartbeat can never disagree. File names follow agrumy-<board>-v<version>.bin - the API
+# rejects anything else, on every import path.
+#
+# Usage:  git tag v1.2.3 && git push origin v1.2.3
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write   # create the release + upload assets
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        environment: [esp32dev, esp32s3usbotg]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # tags visible to git describe (fallback path of firmware_version.py)
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: pip install --upgrade platformio
+      - name: Build ${{ matrix.environment }} with the tag as FIRMWARE_VERSION
+        env:
+          FIRMWARE_VERSION: ${{ github.ref_name }}
+        run: pio run -e ${{ matrix.environment }}
+      - name: Name the artifact by convention
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p out
+          cp ".pio/build/${{ matrix.environment }}/firmware.bin" "out/agrumy-${{ matrix.environment }}-v${VERSION}.bin"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.environment }}
+          path: out/*.bin
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Write manifest.json + SHA256SUMS.txt
+        env:
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cd assets
+          sha256sum *.bin > SHA256SUMS.txt
+          python3 - <<'PY'
+          import hashlib, json, os, re, datetime
+          repo, tag = os.environ["REPO"], os.environ["TAG"]
+          version = tag[1:] if tag.startswith("v") else tag
+          pattern = re.compile(r"^agrumy-(?P<board>[a-z0-9]+)-v(?P<version>[^/]+)\.bin$")
+          files = []
+          for name in sorted(os.listdir(".")):
+              m = pattern.match(name)
+              if not m:
+                  continue
+              with open(name, "rb") as f:
+                  digest = hashlib.sha256(f.read()).hexdigest()
+              files.append({
+                  "board": m.group("board"),
+                  "fileName": name,
+                  "sizeBytes": os.path.getsize(name),
+                  "sha256": digest,
+                  "url": f"https://github.com/{repo}/releases/download/{tag}/{name}",
+              })
+          manifest = {
+              "schemaVersion": 1,
+              "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              "source": f"github:{repo}",
+              "releases": [{"version": version,
+                            "publishedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                            "files": files}],
+          }
+          with open("manifest.json", "w") as f:
+              json.dump(manifest, f, indent=2)
+          print(json.dumps(manifest, indent=2))
+          PY
+      # SHA-pinned (same practice as the scaleTrigger repo): a moving major tag could be
+      # repointed at anything; the pinned commit is exactly what was reviewed.
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          name: Firmware ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            assets/agrumy-*.bin
+            assets/manifest.json
+            assets/SHA256SUMS.txt

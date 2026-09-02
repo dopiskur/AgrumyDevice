@@ -476,15 +476,32 @@ bool DeviceController::firmwareUpdate(String url, bool isHttps)
 
   if (isHttps)
   {
-    // Validate against the embedded CA bundle, same as ServiceController::requestPost().
-    secureClient.setCACert(nullptr);
-    secureClient.setCACertBundle(rootca_crt_bundle_start);
+    // Roadmap #94: the download host decides which trust to use. A Local-repository URL is served
+    // by our own API - if the operator pinned a (self-signed) servicePublicKey, only that cert
+    // validates it, exactly as requestPost() does. Any other host (GitHub release asset, a Custom
+    // repository) validates against the embedded CA bundle - a pinned cert can never match those,
+    // which is precisely why the Local mode exists for pinned-cert installs.
+    bool ownServer = deviceConfig.servicePublicKey.length() > 0 &&
+                     deviceConfig.servicePoint.length() > 0 &&
+                     url.indexOf(deviceConfig.servicePoint) >= 0;
+    if (ownServer)
+    {
+      secureClient.setCACert(deviceConfig.servicePublicKey.c_str());
+    }
+    else
+    {
+      secureClient.setCACert(nullptr);
+      secureClient.setCACertBundle(rootca_crt_bundle_start);
+    }
     http.begin(secureClient, url);
   }
   else
   {
     http.begin(url);
   }
+  // Roadmap #94: a GitHub release asset URL answers 302 to objects.githubusercontent.com -
+  // without this the GET returns the redirect itself (HTTP 302, no body) and OTA "fails".
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
   int httpCode = http.GET();
   if (httpCode != HTTP_CODE_OK)

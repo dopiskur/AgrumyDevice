@@ -14,7 +14,12 @@
 #include "Controller/ServiceController.h"
 #include "Controller/ActuatorController.h"
 
-const char *firmware = "0.1.4";
+// Roadmap #94: injected by tools/firmware_version.py (git tag / FIRMWARE_VERSION env var) - the
+// fallback only exists for a build that skipped extra_scripts, so the symbol is never missing.
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION "0.0.0-dev"
+#endif
+const char *firmware = FIRMWARE_VERSION;
 const String CONFIG_BASE = "deviceRegistration.json";
 const String CONFIG_DEFAULTS = "config.json";
 
