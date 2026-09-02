@@ -17,14 +17,14 @@
 #include "SensorController.h"
 #include "DeviceController.h"
 #include "ServiceController.h"
-#include "ControllerController.h"
+#include "ActuatorController.h"
 
 DeviceConfig deviceConfig;
 ServiceEndpoint serviceEndpoint;
 
 DeviceController device;
 ServiceController service;
-ControllerController controller;
+ActuatorController controller;
 
 static JsonDocument jsonDoc;
 static JsonArray sensorDataJsonArray = jsonDoc.to<JsonArray>();

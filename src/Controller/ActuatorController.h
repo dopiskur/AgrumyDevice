@@ -1,5 +1,5 @@
-#ifndef ControllerController_H
-#define ControllerController_H
+#ifndef ActuatorController_H
+#define ActuatorController_H
 #include "Arduino.h"
 #include <ArduinoJson.h>
 
@@ -22,7 +22,10 @@ enum class RelayFunctionType
     WaterPump = 4,
 };
 
-class ControllerController
+// Roadmap #110: renamed from ControllerController - "Relay" was too narrow (roadmap #58 PID and
+// future output types are not relays), "Actuator" correctly covers any output-driving component
+// (relay/PID/valve/motor alike); the old name also read as "controller of a controller".
+class ActuatorController
 {
 public:
     DeviceConfig deviceConfig;

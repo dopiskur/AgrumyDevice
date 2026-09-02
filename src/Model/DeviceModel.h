@@ -163,7 +163,7 @@ struct ConfigController
 
     // Roadmap #39: a third relay-control mode alongside threshold and interval above - "be on
     // during this wall-clock window on these days", independent of any sensor reading. Evaluated
-    // by ControllerController::scheduleRelayFunction against LOCAL time, derived on-device from
+    // by ActuatorController::scheduleRelayFunction against LOCAL time, derived on-device from
     // DeviceConfig.utcOffsetSeconds (no timezone database needed here - see that field's comment).
     // daysOfWeek is a 7-bit mask matching C's tm_wday (bit 0 = Sunday .. bit 6 = Saturday). start/
     // duration are seconds since local midnight - v1 does not support a window crossing midnight
@@ -293,6 +293,11 @@ struct ServiceRequest
     String servicePoint="";
     String endpoint="";
     ServiceHeader header;
+
+    // Roadmap #110: single source of truth for the full request URL - was duplicated as raw
+    // string concatenation at both call sites (DeviceController::registerDevice,
+    // ServiceController::requestPost).
+    String url() const { return serviceType + servicePoint + endpoint; }
 };
 
 

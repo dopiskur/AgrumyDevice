@@ -21,7 +21,7 @@ public:
 
     // Roadmap #85: NTP-derived wall-clock seconds, re-synced fresh every boot (timeClient is a
     // file-local global re-created on every reset - see setupController()) - the grid-aligned
-    // interval formula in ControllerController needs this instead of millis(), which resets on
+    // interval formula in ActuatorController needs this instead of millis(), which resets on
     // every reboot including a bare power loss and was exactly what made the old interval timers
     // misfire after one.
     time_t getEpochSeconds();
@@ -36,6 +36,12 @@ public:
     // mid-write leaves the target file either untouched or fully replaced, never half-written.
     void saveFile(String data, String filename);
     String loadFile(String filename);
+
+    // Roadmap #110: bounded verification helpers - replace the old "delay(1000) and hope" pattern
+    // around saveFile()/loadFile() call sites with an actual check, still bounded so neither can
+    // hang if the assumption they verify ever turns out to be wrong.
+    bool waitForFileCommitted(String filename, unsigned long timeoutMs = 1000);
+    String loadFileRetry(String filename, int maxAttempts = 5, unsigned long retryDelayMs = 100);
 
     // Backs up the current config.json to config.json.bak (only if it exists and parses) before
     // atomically replacing it - config integrity, pairs with consumeRollbackTrigger() below.

@@ -6,13 +6,13 @@
 
 #include "DeviceController.h"
 #include "ServiceController.h"
-#include "ControllerController.h"
+#include "ActuatorController.h"
 
 // No file-local DeviceConfig here: member functions resolve `deviceConfig` to the class
 // member, so a file-static copy is dead weight that only ever shadows intent - the config
 // arrives via the member, assigned in SensorController before each initController() call.
 
-void ControllerController::setupController(){
+void ActuatorController::setupController(){
 
 
 }
@@ -21,7 +21,7 @@ void ControllerController::setupController(){
 // because that is how the model arrives from the API/EF layer - this is the one place that
 // flattens them into something loopable, so a ninth relay slot (if the hardware ever grows one)
 // is a single line here instead of a new copy-pasted branch in every caller.
-int ControllerController::collectPinsForFunction(RelayFunctionType relayFunction, int pins[8]) const
+int ActuatorController::collectPinsForFunction(RelayFunctionType relayFunction, int pins[8]) const
 {
     const int configuredType[8] = {
         deviceConfig.configController.relay1, deviceConfig.configController.relay2,
@@ -60,7 +60,7 @@ int ControllerController::collectPinsForFunction(RelayFunctionType relayFunction
 // Roadmap #19/#95: the duty-cycle math itself lives in computeIntervalState() (src/Logic/
 // RelayLogic.cpp, native-testable) - this wrapper only decides WHETHER to touch these pins at all
 // (enabled, interval valid, a relay slot actually assigned) and then does the hardware write.
-void ControllerController::intervalRelayFunction(RelayFunctionType relayFunction, bool intervalEnabled, int interval, int intervalLenght, time_t epochSeconds)
+void ActuatorController::intervalRelayFunction(RelayFunctionType relayFunction, bool intervalEnabled, int interval, int intervalLenght, time_t epochSeconds)
 {
     if (!intervalEnabled || interval <= 0)
     {
@@ -98,7 +98,7 @@ void ControllerController::intervalRelayFunction(RelayFunctionType relayFunction
 // RelayLogic.cpp, native-testable) - this wrapper only resolves WHICH reading/threshold/hysteresis
 // apply to relayFunction (a plain lookup, not hardware) and does the pinMode/digitalRead/
 // digitalWrite/logging around it.
-void ControllerController::thresholdRelayFunction(RelayFunctionType relayFunction, int relayPin, SensorData sensorData)
+void ActuatorController::thresholdRelayFunction(RelayFunctionType relayFunction, int relayPin, SensorData sensorData)
 {
     double reading;
     double threshold;
@@ -158,7 +158,7 @@ void ControllerController::thresholdRelayFunction(RelayFunctionType relayFunctio
 // Roadmap #19/#95: the window-membership math itself lives in computeScheduleState() (src/Logic/
 // RelayLogic.cpp, native-testable) - this wrapper only decides WHETHER to touch these pins at all
 // (scheduleEnabled) and does the hardware write.
-void ControllerController::scheduleRelayFunction(RelayFunctionType relayFunction, bool scheduleEnabled, int daysOfWeek,
+void ActuatorController::scheduleRelayFunction(RelayFunctionType relayFunction, bool scheduleEnabled, int daysOfWeek,
                                                    int startSeconds, int durationSeconds, int localWeekday, int localSecondsOfDay)
 {
     if (!scheduleEnabled)
@@ -177,7 +177,7 @@ void ControllerController::scheduleRelayFunction(RelayFunctionType relayFunction
     }
 }
 
-void ControllerController::initController(SensorData sensorData, time_t epochSeconds)
+void ActuatorController::initController(SensorData sensorData, time_t epochSeconds)
 {
     intervalRelayFunction(RelayFunctionType::Ventilation, deviceConfig.configController.ventilationIntervalEnabled,
                            deviceConfig.configController.ventilationInterval, deviceConfig.configController.ventilationIntervalLenght, epochSeconds);

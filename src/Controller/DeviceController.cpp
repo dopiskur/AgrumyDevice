@@ -217,6 +217,43 @@ String DeviceController::loadFile(String filename)
   return data;
 };
 
+// Roadmap #110: replaces a bare post-write delay() "hope it's committed by now" workaround with
+// an actual check - saveFile()'s LittleFS.rename() above already completes synchronously, so this
+// bounded poll normally returns on the very first check (0ms lost) and only spends real time if
+// that assumption is ever wrong for some platform/flash combination.
+bool DeviceController::waitForFileCommitted(String filename, unsigned long timeoutMs)
+{
+  String path = "/" + filename;
+  unsigned long start = millis();
+  while (!LittleFS.exists(path))
+  {
+    if (millis() - start >= timeoutMs)
+    {
+      Serial.println("[Device] waitForFileCommitted: " + path + " still not visible after " + String(timeoutMs) + "ms");
+      return false;
+    }
+    delay(50);
+  }
+  return true;
+}
+
+// Roadmap #110: replaces a bare post-read delay() "hope the race resolved by now" workaround with
+// an actual bounded retry - re-reads only when the previous attempt came back empty, instead of
+// unconditionally pausing whether or not a retry was ever needed. A file that legitimately doesn't
+// exist yet (e.g. first-ever boot, nothing registered) still reads empty on every attempt and
+// returns after maxAttempts - this never masks that case, it just stops trusting a single early
+// read blindly either way.
+String DeviceController::loadFileRetry(String filename, int maxAttempts, unsigned long retryDelayMs)
+{
+  String data = loadFile(filename);
+  for (int attempt = 1; data.isEmpty() && attempt < maxAttempts; attempt++)
+  {
+    delay(retryDelayMs);
+    data = loadFile(filename);
+  }
+  return data;
+}
+
 void DeviceController::initializeWifi()
 {
 
@@ -265,7 +302,7 @@ void DeviceController::initializeDevice()
   serializeJsonPretty(config, data);
   Serial.println("[Device] Saving registration data " + data);
   saveFile(data, "deviceRegistration.json");
-  delay(1000);
+  waitForFileCommitted("deviceRegistration.json");
   reboot();
 };
 
@@ -294,7 +331,7 @@ void DeviceController::registerDevice(String configRegistration)
   serviceRequest.servicePoint = servicePoint;
   serviceRequest.endpoint = serviceEndpoint.apiRegister;
 
-  String serviceURL = serviceRequest.serviceType + serviceRequest.servicePoint + serviceRequest.endpoint; // TODO: extract as a constant
+  String serviceURL = serviceRequest.url();
   Serial.println("[Device] Fetching config from " + serviceURL);
   String exitData;
   serializeJsonPretty(payload, exitData);
@@ -336,7 +373,7 @@ void DeviceController::registerDevice(String configRegistration)
   }
 
   saveFile(serviceData.payload, "config.json");
-  delay(1000);
+  waitForFileCommitted("config.json");
   reboot();
 }
 
@@ -395,7 +432,7 @@ void DeviceController::powerRailSecondary(bool state)
 // Roadmap #26: powers the chip down between cycles; the timer wake is a full reset back
 // through setup(). Caller (main loop) decides WHEN sleeping is safe - notably never while
 // this device drives relays, since deep sleep drops GPIO outputs and wipes the millis-based
-// interval state in ControllerController.
+// interval state in ActuatorController.
 void DeviceController::sleep()
 {
   // uint64 math: seconds * 1e6 overflows int32 for anything past ~35 minutes, and

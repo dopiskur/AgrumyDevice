@@ -166,7 +166,7 @@
         },
         "ventilationScheduleDaysOfWeek": {
           "type": ["integer", "null"],
-          "description": "7-bit mask, bit 0 = Sunday .. bit 6 = Saturday (matches C's tm_wday - see ControllerController::scheduleRelayFunction)."
+          "description": "7-bit mask, bit 0 = Sunday .. bit 6 = Saturday (matches C's tm_wday - see ActuatorController::scheduleRelayFunction)."
         },
         "ventilationScheduleStart": {
           "type": ["integer", "null"],

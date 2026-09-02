@@ -2,11 +2,11 @@
 #define RelayLogic_H
 
 // Roadmap #19/#95: the ON/OFF DECISION for each of the three relay-control modes
-// (interval #85, schedule #39, threshold+hysteresis #10), pulled out of ControllerController
+// (interval #85, schedule #39, threshold+hysteresis #10), pulled out of ActuatorController
 // so it can be unit-tested on the host (PlatformIO's `native` env) without an ESP32/Arduino
 // toolchain. Deliberately plain C++ - no Arduino.h, no digitalWrite/pinMode/Serial, nothing
 // ESP-IDF-specific - so this header and its .cpp compile identically on a dev laptop and on
-// the device. ControllerController.cpp's intervalRelayFunction/scheduleRelayFunction/
+// the device. ActuatorController.cpp's intervalRelayFunction/scheduleRelayFunction/
 // thresholdRelayFunction are now thin wrappers: gate on "should we touch these pins at all"
 // (relayEnabled, an assigned relay slot), call the matching function below for the decision,
 // then do the actual pinMode/digitalWrite.
@@ -23,7 +23,7 @@
 // Grid-aligned duty cycle: true for the first intervalLenght seconds of every `interval`-second
 // repeating cycle, keyed off epochSeconds directly (not time-since-last-transition) so the state
 // is a pure function of wall-clock time - nothing to persist, nothing to lose on reboot.
-// interval <= 0 returns false rather than dividing by it - defensive; ControllerController's
+// interval <= 0 returns false rather than dividing by it - defensive; ActuatorController's
 // caller already guards this case before ever reaching here in production, but a native test can
 // still exercise this path directly.
 bool computeIntervalState(int interval, int intervalLenght, time_t epochSeconds);

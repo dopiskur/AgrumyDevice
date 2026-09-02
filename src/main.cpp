@@ -12,7 +12,7 @@
 #include "Controller/DeviceController.h"
 #include "Controller/SensorController.h"
 #include "Controller/ServiceController.h"
-#include "Controller/ControllerController.h"
+#include "Controller/ActuatorController.h"
 
 const char *firmware = "0.1.4";
 const String CONFIG_BASE = "deviceRegistration.json";
@@ -66,8 +66,8 @@ void setup()
   EEPROM.begin(512);
   delay(500);
 
-  String configRegistration = device.loadFile(CONFIG_BASE);
-  delay(1000); // bare delay works around a failed-read race
+  // Roadmap #110: verified bounded retry, not a bare delay() - see DeviceController::loadFileRetry.
+  String configRegistration = device.loadFileRetry(CONFIG_BASE);
   if (configRegistration.isEmpty())
   {
     Serial.println("[Main] Registration file not found, starting initialization...");
@@ -86,8 +86,8 @@ void setup()
   // WiFi/auth are up below (a rollback boot confirms CrashLoopRollback, never ConfigApplied, even
   // though both flags are set together on the reboot that triggered the rollback).
   bool configJustApplied = device.consumeConfigAppliedPending();
-  String configDefaults = rollbackToBackup ? device.loadFile("config.json.bak") : device.loadFile(CONFIG_DEFAULTS);
-  delay(1000); // bare delay works around a failed-read race
+  // Roadmap #110: verified bounded retry, not a bare delay() - see DeviceController::loadFileRetry.
+  String configDefaults = rollbackToBackup ? device.loadFileRetry("config.json.bak") : device.loadFileRetry(CONFIG_DEFAULTS);
   if (rollbackToBackup)
   {
     if (configDefaults.isEmpty())
@@ -111,7 +111,7 @@ void setup()
   device.deviceConfig = deviceConfig;
   sensor.deviceConfig = deviceConfig;
   service.deviceConfig = deviceConfig;
-  // No ControllerController here: the acting instance lives in SensorController.cpp and gets
+  // No ActuatorController here: the acting instance lives in SensorController.cpp and gets
   // the config right before every initController() call - a second copy on a main.cpp-local
   // instance is exactly the bug that made relay control a no-op (it held the config, but the
   // instance that ran never saw it).
@@ -174,8 +174,6 @@ void setup()
 void loop()
 {
   Serial.println("[Loop]-----> Start <-----[Loop]");
-  Serial.print("[Heap] loop start: "); // TEMPORARY DIAGNOSTIC: heap-leak investigation
-  Serial.println(ESP.getFreeHeap());
   if (deviceConfig.batteryEnabled)
   {
     device.powerRailPrimary(true);
@@ -185,7 +183,7 @@ void loop()
   // Roadmap #67: true = a new config was hot-applied in place (no reboot) - re-copy it into the
   // per-module value copies, mirroring setup(). Deliberate roadmap option (b): one explicit
   // re-copy at the single call site instead of a reference refactor across every module.
-  // ControllerController needs nothing here - SensorController already hands it the fresh config
+  // ActuatorController needs nothing here - SensorController already hands it the fresh config
   // right before every initController() call (see the #77 note in setup()).
   if (service.apiConfig(deviceConfig, serviceRequest, device))
   {
@@ -216,7 +214,7 @@ void loop()
   // idling at full draw - the wake is a fresh boot through setup() (config re-read from
   // LittleFS, WDT re-armed at the end of setup, #62's RTC counter untouched because only the
   // config-reboot path feeds it). A device that drives relays must NOT deep sleep: GPIO
-  // outputs drop during deep sleep and ControllerController's millis-based interval state is
+  // outputs drop during deep sleep and ActuatorController's millis-based interval state is
   // lost, so it falls through to the powered chunked delay below.
   if (deviceConfig.sleepDeep && deviceConfig.sleepSeconds > 0)
   {

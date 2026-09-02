@@ -53,7 +53,7 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
     if ((WiFi.status() == WL_CONNECTED))
     {
         HTTPClient http;
-        String serviceURL = service.serviceType + service.servicePoint + service.endpoint;
+        String serviceURL = service.url();
         Serial.println("[Service] POST: " + serviceURL);
         Serial.println("[Service] apiId: " + service.header.apiId); // identifier, not a secret - see roadmap #73
         Serial.println("[Service] apiKey: " + maskSecret(service.header.apiKey));
@@ -184,9 +184,6 @@ void ServiceController::apiAuthenticate(DeviceConfig deviceConfig, ServiceReques
     }
     consecutiveAuthFailures = 0;
 
-    Serial.print("[Heap] before deserializeJson (apiAuthenticate): "); // TEMPORARY DIAGNOSTIC (roadmap #3)
-    Serial.println(ESP.getFreeHeap());
-
     DeserializationError error = deserializeJson(payload, serviceData.payload);
     if (error)
     {
@@ -281,7 +278,7 @@ bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest ser
             } else {
                 Serial.println("[Service] New config received, saving new config");
                 device.saveConfigFile(serviceData.payload); // backs up the old config.json before overwriting it (config integrity)
-                delay(1000); // let the write settle
+                device.waitForFileCommitted("config.json"); // roadmap #110: verified, not a bare delay()
 
                 fwFlag    = newConfig.firmwareUpdate;
                 fwVersion = newConfig.firmwareVersion;
