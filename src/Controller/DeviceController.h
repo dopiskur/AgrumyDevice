@@ -9,6 +9,11 @@
 class ServiceController;
 class SensorController;
 
+// Roadmap #127: this class's own .cpp is now a thin facade - file I/O lives in
+// StorageController, power-rail/sleep/reboot/reset in PowerController, OTA download+flash in
+// OtaController, config-field parsing in ConfigParser (#128). Every method below keeps its exact
+// signature so existing call sites (main.cpp, ServiceController.cpp, SensorController.cpp) needed
+// no changes - DeviceController.cpp just delegates instead of implementing each one inline.
 class DeviceController
 {
 

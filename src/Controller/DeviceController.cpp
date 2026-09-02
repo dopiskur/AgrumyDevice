@@ -1,22 +1,17 @@
 #include "Arduino.h"
 #include <WiFi.h>
 #include <EEPROM.h>
-#include "LittleFS.h"
-#include "FS.h"
 #include "WiFiManager.h"
-#include <HTTPClient.h>       // roadmap #3 (OTA): firmware download
-#include <WiFiClientSecure.h> // roadmap #3 (OTA): https firmware download
-#include <Update.h>           // roadmap #3 (OTA): Arduino-ESP32 built-in updater
 
 #include "DeviceController.h"
 #include "ServiceController.h"
 #include "ConfigParser.h"
+#include "StorageController.h"
+#include "PowerController.h"
+#include "OtaController.h"
 
 #include <NTPClient.h>
 #include <WiFiUdp.h>
-
-// Same CA bundle ServiceController::requestPost() validates against; re-declared here for the OTA download.
-extern const uint8_t rootca_crt_bundle_start[] asm("_binary_data_cert_x509_crt_bundle_bin_start");
 
 static ServiceController service; // static resolves a conflict with main
 
@@ -67,67 +62,17 @@ void DeviceController::setupController()
   timeClient.update();
 }
 
-// LittleFS lives in the partition labelled "spiffs" (default scheme, no board_build.partitions):
-// esp32dev (4MB, default.csv) = 1408 KB; esp32s3usbotg (8MB, default_8MB.csv)
-// = 1536 KB. It is a separate flash region from the OTA app partitions (ota_0/ota_1), so roadmap
-// #3 OTA never touches it. Stored today: config.json ~2.2 KB + deviceRegistration.json ~0.15 KB
-// => < 2% used, leaving ~1.35-1.5 MB for the roadmap #9 store-and-forward queue.
+// Roadmap #127: file I/O moved to StorageController - these stay thin wrappers so every existing
+// `device.saveFile(...)`/`device.loadFile(...)`/etc. call site keeps working unchanged.
 void DeviceController::saveFile(String data, String filename)
 {
-  String path = "/" + filename;
-  String tmpPath = path + ".tmp";
-
-  File file = LittleFS.open(tmpPath, "w");
-  if (!file)
-  {
-    Serial.println("Failed to open file for write, formating device");
-    LittleFS.format();
-    return;
-  }
-
-  Serial.print("Saving file: ");
-  Serial.println(filename);
-  size_t written = file.print(data);
-  file.close();
-
-  // Atomic write: only replace the real file once the write to the .tmp copy is confirmed
-  // complete. A power loss before this point leaves the old file untouched (the .tmp is
-  // orphaned and gets overwritten next call). rename() goes through VFSImpl::rename() -> POSIX
-  // rename() -> lfs_rename(), which atomically replaces an existing destination in one
-  // filesystem transaction - deliberately NOT preceded by a separate remove(path), which would
-  // reopen exactly the half-written-file window this function exists to close.
-  if (written != (size_t)data.length())
-  {
-    Serial.println("[Device] saveFile: incomplete write (" + String((unsigned)written) + "/" + String(data.length()) + " bytes) to " + tmpPath + " - leaving " + path + " untouched");
-    LittleFS.remove(tmpPath);
-    return;
-  }
-
-  if (!LittleFS.rename(tmpPath, path))
-  {
-    Serial.println("[Device] saveFile: rename " + tmpPath + " -> " + path + " failed");
-  }
+  StorageController::saveFile(data, filename);
 };
 
-// See DeviceController.h for the config-integrity rationale.
+// See StorageController.h for the config-integrity rationale.
 void DeviceController::saveConfigFile(String newConfigJson)
 {
-  String currentConfig = loadFile("config.json");
-  if (!currentConfig.isEmpty())
-  {
-    JsonDocument parseCheck;
-    if (deserializeJson(parseCheck, currentConfig) == DeserializationError::Ok)
-    {
-      saveFile(currentConfig, "config.json.bak");
-      Serial.println("[Device] Backed up current config.json to config.json.bak");
-    }
-    else
-    {
-      Serial.println("[Device] Current config.json failed to parse - not backing it up as a rollback target");
-    }
-  }
-
-  saveFile(newConfigJson, "config.json");
+  StorageController::saveConfigFile(newConfigJson);
 }
 
 void DeviceController::notePendingConfigReboot(unsigned long uptimeMs)
@@ -163,75 +108,17 @@ bool DeviceController::consumeConfigAppliedPending()
 
 String DeviceController::loadFile(String filename)
 {
-  String path = "/" + filename;
-  File file = LittleFS.open(path, "r");
-
-  if (!file || file.isDirectory())
-  {
-    Serial.println("[Device] loadFile: cannot open " + path);
-    return String(); // empty => caller treats the file as absent
-  }
-
-  Serial.print("Reading file: ");
-  Serial.println(filename);
-
-  // Bounded read - do not trust available() alone: a corrupt LittleFS size
-  // field spun this loop forever. config/registration are ~2 KB.
-  size_t want = file.size();
-  if (want > 16384)
-  {
-    want = 16384;
-  }
-  String data;
-  data.reserve(want + 1);
-  while (data.length() < want)
-  {
-    int c = file.read();
-    if (c < 0)
-    {
-      break;
-    }
-    data += (char)c;
-  }
-  file.close();
-  return data;
+  return StorageController::loadFile(filename);
 };
 
-// Roadmap #110: replaces a bare post-write delay() "hope it's committed by now" workaround with
-// an actual check - saveFile()'s LittleFS.rename() above already completes synchronously, so this
-// bounded poll normally returns on the very first check (0ms lost) and only spends real time if
-// that assumption is ever wrong for some platform/flash combination.
 bool DeviceController::waitForFileCommitted(String filename, unsigned long timeoutMs)
 {
-  String path = "/" + filename;
-  unsigned long start = millis();
-  while (!LittleFS.exists(path))
-  {
-    if (millis() - start >= timeoutMs)
-    {
-      Serial.println("[Device] waitForFileCommitted: " + path + " still not visible after " + String(timeoutMs) + "ms");
-      return false;
-    }
-    delay(50);
-  }
-  return true;
+  return StorageController::waitForFileCommitted(filename, timeoutMs);
 }
 
-// Roadmap #110: replaces a bare post-read delay() "hope the race resolved by now" workaround with
-// an actual bounded retry - re-reads only when the previous attempt came back empty, instead of
-// unconditionally pausing whether or not a retry was ever needed. A file that legitimately doesn't
-// exist yet (e.g. first-ever boot, nothing registered) still reads empty on every attempt and
-// returns after maxAttempts - this never masks that case, it just stops trusting a single early
-// read blindly either way.
 String DeviceController::loadFileRetry(String filename, int maxAttempts, unsigned long retryDelayMs)
 {
-  String data = loadFile(filename);
-  for (int attempt = 1; data.isEmpty() && attempt < maxAttempts; attempt++)
-  {
-    delay(retryDelayMs);
-    data = loadFile(filename);
-  }
-  return data;
+  return StorageController::loadFileRetry(filename, maxAttempts, retryDelayMs);
 }
 
 void DeviceController::initializeWifi()
@@ -371,241 +258,53 @@ String DeviceController::macAddr()
   return macAddr;
 }
 
+// Roadmap #127: power-rail/sleep/reboot/reset moved to PowerController - reads the same
+// file-static `deviceConfig` these always read, just now via parameters instead of member access.
 void DeviceController::powerRailPrimary(bool state)
 {
-  const int powerPin = deviceConfig.configPin.POWER_RAIL_PRIMARY;
-  pinMode(powerPin, OUTPUT);
-
-  if (state)
-  {
-    digitalWrite(powerPin, HIGH);
-    Serial.println("[Power rail on]");
-  }
-  else
-  {
-    digitalWrite(powerPin, LOW);
-    Serial.println("[Power rail off]");
-  }
-  delay(500);
+  PowerController::railPrimary(deviceConfig.configPin.POWER_RAIL_PRIMARY, state);
 }
 
 void DeviceController::powerRailSecondary(bool state)
 {
-  const int powerPin = deviceConfig.configPin.POWER_RAIL_SECONDARY;
-  pinMode(powerPin, OUTPUT);
-
-  delay(1000);
-
-  if (state)
-  {
-    digitalWrite(powerPin, HIGH);
-    Serial.println("[Power analog sensor on]");
-  }
-  else
-  {
-    digitalWrite(powerPin, LOW);
-    Serial.println("[Power analog sensor off]");
-  }
-  delay(500);
+  PowerController::railSecondary(deviceConfig.configPin.POWER_RAIL_SECONDARY, state);
 }
 
-// Roadmap #26: powers the chip down between cycles; the timer wake is a full reset back
-// through setup(). Caller (main loop) decides WHEN sleeping is safe - notably never while
-// this device drives relays, since deep sleep drops GPIO outputs and wipes the millis-based
-// interval state in ActuatorController.
 void DeviceController::sleep()
 {
-  // uint64 math: seconds * 1e6 overflows int32 for anything past ~35 minutes, and
-  // esp_sleep_enable_timer_wakeup takes uint64 microseconds anyway.
-  const uint64_t uS_TO_S_FACTOR = 1000000ULL;
-  int TIME_TO_SLEEP = deviceConfig.sleepSeconds;
-  esp_sleep_enable_timer_wakeup((uint64_t)TIME_TO_SLEEP * uS_TO_S_FACTOR);
-
-  if (deviceConfig.sleepDeep)
-  {
-    Serial.println("Setup ESP32 to sleep for every " + String(TIME_TO_SLEEP) + " Seconds");
-    Serial.println("Going to sleep now");
-    Serial.flush();
-    esp_deep_sleep_start(); // never returns
-  }
-  else
-  {
-    Serial.println("Deep sleep disabled");
-  }
+  PowerController::sleep(deviceConfig.sleepSeconds, deviceConfig.sleepDeep);
 }
 
 void DeviceController::reboot()
 {
-  Serial.println("[Rebooting...]");
-  ESP.restart();
+  PowerController::reboot();
 }
 
-// roadmap #3 (OTA): stream `url` into the inactive OTA partition; returns true once fully written and verified (caller reboots), false leaves the running firmware untouched.
+// Roadmap #127: OTA download+flash moved to OtaController.
 bool DeviceController::firmwareUpdate(String url, bool isHttps)
 {
-  Serial.println("[Firmware] Starting OTA update from: " + url);
-
-  if (WiFi.status() != WL_CONNECTED)
-  {
-    Serial.println("[Firmware] No WiFi, aborting OTA");
-    return false;
-  }
-
-  HTTPClient http;
-  WiFiClientSecure secureClient;
-
-  if (isHttps)
-  {
-    // Roadmap #94: the download host decides which trust to use. A Local-repository URL is served
-    // by our own API - if the operator pinned a (self-signed) servicePublicKey, only that cert
-    // validates it, exactly as requestPost() does. Any other host (GitHub release asset, a Custom
-    // repository) validates against the embedded CA bundle - a pinned cert can never match those,
-    // which is precisely why the Local mode exists for pinned-cert installs.
-    bool ownServer = deviceConfig.servicePublicKey.length() > 0 &&
-                     deviceConfig.servicePoint.length() > 0 &&
-                     url.indexOf(deviceConfig.servicePoint) >= 0;
-    if (ownServer)
-    {
-      secureClient.setCACert(deviceConfig.servicePublicKey.c_str());
-    }
-    else
-    {
-      secureClient.setCACert(nullptr);
-      secureClient.setCACertBundle(rootca_crt_bundle_start);
-    }
-    http.begin(secureClient, url);
-  }
-  else
-  {
-    http.begin(url);
-  }
-  // Roadmap #94: a GitHub release asset URL answers 302 to objects.githubusercontent.com -
-  // without this the GET returns the redirect itself (HTTP 302, no body) and OTA "fails".
-  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-
-  int httpCode = http.GET();
-  if (httpCode != HTTP_CODE_OK)
-  {
-    Serial.printf("[Firmware] Download failed, HTTP code: %d\n", httpCode);
-    http.end();
-    return false;
-  }
-
-  int contentLength = http.getSize();
-  if (contentLength <= 0)
-  {
-    Serial.printf("[Firmware] Invalid content length: %d\n", contentLength);
-    http.end();
-    return false;
-  }
-
-  if (!Update.begin(contentLength))
-  {
-    Serial.printf("[Firmware] Update.begin failed (need %d bytes free in OTA partition): %s\n",
-                  contentLength, Update.errorString());
-    http.end();
-    return false;
-  }
-
-  WiFiClient *stream = http.getStreamPtr();
-  size_t written = Update.writeStream(*stream);
-  if (written != (size_t)contentLength)
-  {
-    Serial.printf("[Firmware] Wrote %u/%d bytes\n", (unsigned)written, contentLength);
-    Update.abort();
-    http.end();
-    return false;
-  }
-
-  if (!Update.end() || !Update.isFinished())
-  {
-    Serial.printf("[Firmware] Update did not finish: %s\n", Update.errorString());
-    http.end();
-    return false;
-  }
-
-  http.end();
-  Serial.println("[Firmware] Update written and verified");
-  return true;
+  return OtaController::update(url, isHttps, deviceConfig.servicePublicKey, deviceConfig.servicePoint);
 }
 
 void DeviceController::reset()
 {
-  LittleFS.format();
-  ESP.restart();
+  PowerController::reset();
 }
 
-// Roadmap #9. The 70% cap is checked BEFORE every write, which also covers the "a write just
-// pushed usage over the line" case the spec calls out: the next 8KB spill re-runs this same
-// check and discards, no separate post-write state needed.
+// Roadmap #127: roadmap #9 store-and-forward buffer moved to StorageController.
 bool DeviceController::bufferSensorDataToDisk(String payloadJson)
 {
-  size_t total = LittleFS.totalBytes();
-  size_t used = LittleFS.usedBytes();
-  if (total == 0 || used * 100 >= total * 70)
-  {
-    Serial.printf("[Device] Sensor buffer DISCARDED: LittleFS %u/%u bytes (>= 70%% full) - deliberate data loss by design\n", (unsigned)used, (unsigned)total);
-    return false;
-  }
-
-  // Lazy one-time init per boot: create /buffer and continue numbering after the highest
-  // survivor from before the reboot, so chronological order holds across power cycles.
-  static int nextIndex = -1;
-  if (nextIndex < 0)
-  {
-    LittleFS.mkdir("/buffer"); // no-op if it already exists
-    nextIndex = 1;
-    File dir = LittleFS.open("/buffer");
-    File entry;
-    while (dir && (entry = dir.openNextFile()))
-    {
-      int n = String(entry.name()).toInt(); // "00042.json" -> 42; non-numeric -> 0, harmless
-      entry.close();
-      if (n >= nextIndex)
-      {
-        nextIndex = n + 1;
-      }
-    }
-  }
-
-  char name[24];
-  snprintf(name, sizeof(name), "buffer/%05d.json", nextIndex);
-  nextIndex++;
-  saveFile(payloadJson, name); // #62 atomic tmp+rename helper, reused as-is
-
-  Serial.printf("[Device] Sensor buffer spilled to /%s - LittleFS now %u/%u bytes\n", name, (unsigned)LittleFS.usedBytes(), (unsigned)total);
-  return true;
+  return StorageController::bufferSensorDataToDisk(payloadJson);
 }
 
 String DeviceController::oldestBufferedSensorFile()
 {
-  File dir = LittleFS.open("/buffer");
-  if (!dir || !dir.isDirectory())
-  {
-    return String();
-  }
-
-  String best;
-  File entry;
-  while ((entry = dir.openNextFile()))
-  {
-    String name = entry.name();
-    entry.close();
-    if (!name.endsWith(".json")) // skips orphaned .tmp files from an interrupted atomic write
-    {
-      continue;
-    }
-    if (best.isEmpty() || name.compareTo(best) < 0)
-    {
-      best = name;
-    }
-  }
-  return best.isEmpty() ? String() : "buffer/" + best;
+  return StorageController::oldestBufferedSensorFile();
 }
 
 void DeviceController::removeBufferedFile(String filename)
 {
-  LittleFS.remove("/" + filename);
+  StorageController::removeBufferedFile(filename);
 }
 
 // Roadmap #128: field parsing moved to ConfigParser::parse() - this stays a thin wrapper so the
