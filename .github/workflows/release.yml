@@ -3,7 +3,7 @@ name: Firmware release
 # Roadmap #94 (part A): the ONLY process that produces a tagged, versioned, downloadable .bin.
 # Separate from build.yml on purpose - that one is the per-push regression gate, this one runs
 # only when a semver tag is pushed and publishes a GitHub Release with one .bin per PlatformIO
-# environment plus a manifest.json (SHA-256 per file) that the API's catalog sync (AgrumyApi
+# environment plus a manifest.json (SHA-256 per file) that the API's catalog sync (AgrumyService
 # FirmwareCatalogService) and the offline-USB tools read.
 #
 # The embedded version string is DERIVED from the tag (FIRMWARE_VERSION env -> tools/

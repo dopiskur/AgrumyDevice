@@ -8,7 +8,7 @@
 #     - src/Controller/SensorController.cpp   buildSensorDataPayload()
 #
 #  check_contract.py validates the key sets below against the JSON Schemas in
-#  contracts/device-api/ (a copy of AgrumyApi/contracts/device-api/ - see that
+#  contracts/device-api/ (a copy of AgrumyService/contracts/device-api/ - see that
 #  folder's README for the source commit).
 #
 #  This is the stand-in until real firmware unit tests exist (roadmap #19); it

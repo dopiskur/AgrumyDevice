@@ -12,7 +12,7 @@
 #
 # Usage:
 #   prepare-offline-repo.sh <target-dir> [--repo owner/name] [--limit N] [--token TOKEN]
-#     --repo   GitHub repository (default dopiskur/AgrumyDevice)
+#     --repo   GitHub repository (default dopiskur/AgrumyFirmware)
 #     --limit  only the N newest releases (default: all)
 #     --token  GitHub API token (optional; public repos need none)
 #
@@ -20,7 +20,7 @@
 set -euo pipefail
 
 TARGET="${1:-}"
-REPO="dopiskur/AgrumyDevice"
+REPO="dopiskur/AgrumyFirmware"
 LIMIT=0
 TOKEN="${GITHUB_TOKEN:-}"
 shift || true

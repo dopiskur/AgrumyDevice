@@ -3,7 +3,7 @@
 Firmware <-> API contract check (roadmap #5).
 
 Validates the hand-maintained key lists in firmware_fields.py against the JSON
-Schemas in ../../contracts/device-api/ (a copy of the AgrumyApi source of truth).
+Schemas in ../../contracts/device-api/ (a copy of the AgrumyService source of truth).
 
 It catches the drift that a C++ compile will not:
   * the API renames/removes a field the firmware reads     -> reads_subset fails

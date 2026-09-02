@@ -7,7 +7,7 @@ Resolution order (first hit wins):
      pushed tag (v1.2.3 -> 1.2.3), and what a developer can set for a local release-style build.
   2. `git describe --tags --always --dirty`  - a local build gets e.g. "1.2.3-4-gabc1234-dirty"
      (semver-ish: the server treats anything unparseable as "older than any release", so a dev
-     board is still offered the latest release - see AgrumyApi FirmwareVersion.IsNewer).
+     board is still offered the latest release - see AgrumyService FirmwareVersion.IsNewer).
   3. "0.0.0-dev"                              - no git at all (tarball checkout).
 
 Injected as -DFIRMWARE_VERSION="..." ; main.cpp falls back to "0.0.0-dev" if the define is absent

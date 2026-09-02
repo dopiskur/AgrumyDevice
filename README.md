@@ -1,8 +1,8 @@
-# AgrumyDevice
+# AgrumyFirmware
 
 ESP32 firmware for the Agrumy greenhouse monitoring and control system.
 This is the device side of the ecosystem; the backend API and admin UI live
-in the separate [AgrumyApi](https://github.com/dopiskur/AgrumyApi) repository.
+in the separate [AgrumyService](https://github.com/dopiskur/AgrumyService) repository.
 
 > Agrumy core (API, firmware, enclosures) is free and open source under the
 > [Apache 2.0 license](LICENSE.txt). The mobile apps are proprietary.
@@ -58,7 +58,7 @@ agrumy-<board>-v<version>.bin     e.g. agrumy-esp32dev-v1.2.3.bin
 ```
 
 - and publishes a GitHub Release with those files plus `manifest.json` (SHA-256 per
-file) and `SHA256SUMS.txt`. The AgrumyApi admin UI (Firmware page) reads these
+file) and `SHA256SUMS.txt`. The AgrumyService admin UI (Firmware page) reads these
 releases directly (default **GitHub** source), can pull them into its own **Local**
 repository (needed for air-gapped installs or a pinned self-signed API certificate),
 or can point at a **Custom** repository serving the same `manifest.json` format.

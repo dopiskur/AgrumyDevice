@@ -13,7 +13,7 @@
 #>
 param(
     [Parameter(Mandatory = $true)] [string] $Target,
-    [string] $Repo = "dopiskur/AgrumyDevice",
+    [string] $Repo = "dopiskur/AgrumyFirmware",
     [int] $Limit = 0,
     [string] $Token = $env:GITHUB_TOKEN
 )
