@@ -284,6 +284,10 @@ struct DeviceConfig
     bool firmwareUpdate; // 0 no update, 1 update available
     String firmwareVersion; // roadmap #3 (OTA): newest published version for this device type, "" if none
     String firmwareUrl;     // roadmap #3 (OTA): .bin download URL, paired with firmwareVersion
+    // Roadmap #131: expected SHA-256 (lowercase hex) of the .bin at firmwareUrl, from the catalog
+    // row's manifest hash - "" when the server has no hash for that source (OtaController skips
+    // verification rather than failing closed, same tolerance as a pre-#131 firmware/catalog entry).
+    String firmwareSha256;
 
     ConfigSensor configSensor;
     ConfigController configController;

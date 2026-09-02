@@ -95,6 +95,7 @@ DeviceConfig ConfigParser::parse(const String &configJson, DeviceConfig currentC
   currentConfig.firmwareUpdate = config["firmwareUpdate"];
   currentConfig.firmwareVersion = config["firmwareVersion"] | String(""); // roadmap #3 (OTA)
   currentConfig.firmwareUrl = config["firmwareUrl"] | String("");
+  currentConfig.firmwareSha256 = config["firmwareSha256"] | String(""); // roadmap #131
 
   // Roadmap #34: "|" keeps the current value if an older server doesn't send this key, same
   // fallback convention as utcOffsetSeconds/hysteresis above.

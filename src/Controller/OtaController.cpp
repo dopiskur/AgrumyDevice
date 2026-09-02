@@ -3,14 +3,27 @@
 #include <HTTPClient.h>       // roadmap #3 (OTA): firmware download
 #include <WiFiClientSecure.h> // roadmap #3 (OTA): https firmware download
 #include <Update.h>           // roadmap #3 (OTA): Arduino-ESP32 built-in updater
+#include "mbedtls/sha256.h"   // roadmap #131: integrity check, hardware-accelerated on ESP32
 
 #include "OtaController.h"
 
 // Same CA bundle ServiceController::requestPost() validates against; re-declared here for the OTA download.
 extern const uint8_t rootca_crt_bundle_start[] asm("_binary_data_cert_x509_crt_bundle_bin_start");
 
+// Roadmap #131: 32 raw bytes -> 64 lowercase hex chars + NUL.
+static void sha256ToHex(const unsigned char digest[32], char out[65])
+{
+  static const char *hexDigits = "0123456789abcdef";
+  for (int i = 0; i < 32; i++)
+  {
+    out[i * 2] = hexDigits[(digest[i] >> 4) & 0x0F];
+    out[i * 2 + 1] = hexDigits[digest[i] & 0x0F];
+  }
+  out[64] = '\0';
+}
+
 // roadmap #3 (OTA): stream `url` into the inactive OTA partition; returns true once fully written and verified (caller reboots), false leaves the running firmware untouched.
-bool OtaController::update(String url, bool isHttps, const String &servicePublicKey, const String &servicePoint)
+bool OtaController::update(String url, bool isHttps, const String &servicePublicKey, const String &servicePoint, const String &expectedSha256)
 {
   Serial.println("[Firmware] Starting OTA update from: " + url);
 
@@ -76,14 +89,74 @@ bool OtaController::update(String url, bool isHttps, const String &servicePublic
     return false;
   }
 
-  WiFiClient *stream = http.getStreamPtr();
-  size_t written = Update.writeStream(*stream);
-  if (written != (size_t)contentLength)
+  // Roadmap #131: hashed WHILE streaming (not re-read from flash afterwards) so the check covers
+  // exactly the bytes handed to Update.write() - a 64-char lowercase-hex expectedSha256 is a real
+  // catalog hash; anything else (including "", the pre-#131/no-manifest case) skips verification
+  // rather than failing closed, same tolerance FirmwareCatalogService already applies server-side
+  // when a source has no manifest hash to offer.
+  bool verifyHash = expectedSha256.length() == 64;
+  mbedtls_sha256_context shaCtx;
+  if (verifyHash)
   {
-    Serial.printf("[Firmware] Wrote %u/%d bytes\n", (unsigned)written, contentLength);
+    mbedtls_sha256_init(&shaCtx);
+    mbedtls_sha256_starts(&shaCtx, 0); // 0 = SHA-256, not the truncated SHA-224 variant
+  }
+  else if (expectedSha256.length() > 0)
+  {
+    Serial.println("[Firmware] Ignoring malformed expected SHA-256 (not 64 hex chars) - proceeding unverified");
+  }
+
+  WiFiClient *stream = http.getStreamPtr();
+  uint8_t buf[1024];
+  size_t remaining = (size_t)contentLength;
+  while (remaining > 0 && http.connected())
+  {
+    size_t chunk = remaining < sizeof(buf) ? remaining : sizeof(buf);
+    size_t got = stream->readBytes(buf, chunk);
+    if (got == 0)
+    {
+      break; // stalled/closed before all bytes arrived - reported as a short write below
+    }
+    if (Update.write(buf, got) != got)
+    {
+      Serial.printf("[Firmware] Update.write failed: %s\n", Update.errorString());
+      Update.abort();
+      http.end();
+      if (verifyHash) mbedtls_sha256_free(&shaCtx);
+      return false;
+    }
+    if (verifyHash)
+    {
+      mbedtls_sha256_update(&shaCtx, buf, got);
+    }
+    remaining -= got;
+  }
+
+  if (remaining > 0)
+  {
+    Serial.printf("[Firmware] Wrote %u/%d bytes\n", (unsigned)(contentLength - remaining), contentLength);
     Update.abort();
     http.end();
+    if (verifyHash) mbedtls_sha256_free(&shaCtx);
     return false;
+  }
+
+  if (verifyHash)
+  {
+    unsigned char digest[32];
+    mbedtls_sha256_finish(&shaCtx, digest);
+    mbedtls_sha256_free(&shaCtx);
+    char actualHex[65];
+    sha256ToHex(digest, actualHex);
+    if (!expectedSha256.equalsIgnoreCase(actualHex))
+    {
+      Serial.printf("[Firmware] SHA-256 mismatch - expected %s, got %s. Aborting before flash is finalized.\n",
+                    expectedSha256.c_str(), actualHex);
+      Update.abort();
+      http.end();
+      return false;
+    }
+    Serial.println("[Firmware] SHA-256 verified");
   }
 
   if (!Update.end() || !Update.isFinished())

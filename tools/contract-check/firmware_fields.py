@@ -67,7 +67,7 @@ CONTRACT = {
             "deviceTypeServiceID", "sleepSeconds", "sleepDeep", "utcOffsetSeconds",  # roadmap #39
             "deviceSensorEnabled", "deviceControllerEnabled", "batteryEnabled", "enabled",
             "debug", "reboot", "reset",
-            "firmwareUpdate", "firmwareVersion", "firmwareUrl",  # roadmap #3 (OTA)
+            "firmwareUpdate", "firmwareVersion", "firmwareUrl", "firmwareSha256",  # roadmap #3 (OTA) / #131
             "commandVersion", "pendingCommand",  # roadmap #34
             "deviceConfigSensor", "deviceConfigController",
         ],

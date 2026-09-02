@@ -280,10 +280,11 @@ void DeviceController::reboot()
   PowerController::reboot();
 }
 
-// Roadmap #127: OTA download+flash moved to OtaController.
-bool DeviceController::firmwareUpdate(String url, bool isHttps)
+// Roadmap #127: OTA download+flash moved to OtaController. Roadmap #131: expectedSha256 passed
+// through to OtaController so it can verify the flashed image before Update.end().
+bool DeviceController::firmwareUpdate(String url, bool isHttps, String expectedSha256)
 {
-  return OtaController::update(url, isHttps, deviceConfig.servicePublicKey, deviceConfig.servicePoint);
+  return OtaController::update(url, isHttps, deviceConfig.servicePublicKey, deviceConfig.servicePoint, expectedSha256);
 }
 
 void DeviceController::reset()

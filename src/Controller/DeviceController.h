@@ -82,7 +82,9 @@ public:
     String camera();
 
     void sleep();
-    bool firmwareUpdate(String url, bool isHttps); // roadmap #3 (OTA): download+flash a .bin, returns true on success (caller reboots)
+    // roadmap #3 (OTA): download+flash a .bin, returns true on success (caller reboots).
+    // expectedSha256 (roadmap #131): lowercase hex SHA-256 from the catalog, "" to skip verification.
+    bool firmwareUpdate(String url, bool isHttps, String expectedSha256);
     void reboot();
     void reset();
     void button(); // short press runs query, long press erase device

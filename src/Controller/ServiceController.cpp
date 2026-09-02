@@ -195,6 +195,7 @@ void ServiceController::processPendingCommand(DeviceConfig& config, ServiceReque
         // "Force" = skip apiConfig()'s normal fwVersion != running-image gate, not a different
         // download path - same device.firmwareUpdate() the regular OTA check already uses.
         String fwUrl = config.firmwareUrl;
+        String fwSha256 = config.firmwareSha256; // roadmap #131
         bool otaHttps = fwUrl.startsWith("https://") || fwUrl.startsWith("HTTPS://");
 
         if (fwUrl.length() == 0)
@@ -204,7 +205,7 @@ void ServiceController::processPendingCommand(DeviceConfig& config, ServiceReque
             break;
         }
 
-        if (device.firmwareUpdate(fwUrl, otaHttps))
+        if (device.firmwareUpdate(fwUrl, otaHttps, fwSha256))
         {
             Serial.println("[Service] Command " + String(commandId) + " (ForceOTA) succeeded, rebooting into new image");
             pushEvent(serviceRequest, "CommandExecuted", "version=" + config.firmwareVersion, commandId);
@@ -334,6 +335,7 @@ bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest ser
     bool   fwFlag    = deviceConfig.firmwareUpdate;
     String fwVersion = deviceConfig.firmwareVersion;
     String fwUrl     = deviceConfig.firmwareUrl;
+    String fwSha256  = deviceConfig.firmwareSha256; // roadmap #131
 
     bool receivedNewConfig = !serviceData.payload.isEmpty();
     DeviceConfig newConfig;
@@ -366,6 +368,7 @@ bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest ser
                 fwFlag    = newConfig.firmwareUpdate;
                 fwVersion = newConfig.firmwareVersion;
                 fwUrl     = newConfig.firmwareUrl;
+                fwSha256  = newConfig.firmwareSha256; // roadmap #131
 
                 // Roadmap #34: ahead of the regular OTA gate below on purpose - a pending Reboot
                 // must fire before anything else in this cycle, and a pending ForceOTA should get
@@ -380,7 +383,7 @@ bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest ser
     if (fwFlag && fwUrl.length() > 0 && fwVersion != String(firmware)) {
         bool otaHttps = fwUrl.startsWith("https://") || fwUrl.startsWith("HTTPS://");
         Serial.println("[Service] Firmware update " + fwVersion + " available (running " + String(firmware) + ")");
-        if (device.firmwareUpdate(fwUrl, otaHttps)) {
+        if (device.firmwareUpdate(fwUrl, otaHttps, fwSha256)) {
             Serial.println("[Service] OTA succeeded, rebooting into new image");
             device.reboot();
         }
