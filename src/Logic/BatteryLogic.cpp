@@ -11,11 +11,7 @@ double computeDividerBatteryVoltage(double measuredVoltageVolts, double r1Ohms, 
 
 int computeBatteryPercentFromVoltage(double batteryVoltageVolts)
 {
-    // Reference points for a single-cell (3.7V nominal) LiPo under light/no load, roughly
-    // matching the well-known "3.0V empty / 4.2V full" curve - front-loaded (steep below 3.5V,
-    // flat through the 3.7-4.0V midrange, matching how LiPo chemistry actually discharges) so a
-    // dead-zone-free linear interpolation across the whole 3.0-4.2V span would otherwise read
-    // "half full" long before the pack is actually half discharged.
+    // Non-linear reference points (steep below 3.5V, flat through 3.7-4.0V) matching how LiPo chemistry actually discharges - a plain linear interpolation across 3.0-4.2V would read "half full" long before the pack is actually half discharged.
     static const double voltages[] = {3.00, 3.30, 3.50, 3.60, 3.70, 3.75, 3.80, 3.90, 4.00, 4.10, 4.20};
     static const int percents[] = {0, 5, 10, 20, 40, 50, 60, 70, 80, 90, 100};
     const int points = sizeof(voltages) / sizeof(voltages[0]);
