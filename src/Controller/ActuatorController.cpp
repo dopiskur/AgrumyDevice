@@ -225,6 +225,16 @@ void ActuatorController::initController(SensorData sensorData, time_t epochSecon
             }
         }
 
+        // Roadmap #11: the rain veto is a final AND-NOT gate applied AFTER the OR above, same
+        // architectural slot as the WaterPump safety limits below - a Weather condition cannot be a
+        // Rule like Threshold/Interval/Schedule, since OR-combining rules means a Weather rule could
+        // only ever ADD a reason to turn WaterPump on, never suppress one already decided by another
+        // rule (user decision, 2026-09-04).
+        if (function == RelayFunctionType::WaterPump && deviceConfig.configController.skipWaterPumpForRain)
+        {
+            shouldBeOn = false;
+        }
+
         for (int i = 0; i < pinCount; i++)
         {
             relayPinMode(pins[i], i2cAddr, i2cSda, i2cScl);

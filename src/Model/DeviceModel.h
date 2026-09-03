@@ -318,6 +318,13 @@ struct ConfigController
     int waterPumpMaxRunSeconds = 0;
     int waterPumpCooldownSeconds = 0;
 
+    // Roadmap #11: final AND-NOT veto over WaterPump, computed server-side
+    // (DeviceApiController.BuildDeviceConfigAsync) from the zone's own opt-in AND the install-wide
+    // forecast - the device just applies one flag, it never sees the raw forecast or the zone's
+    // choice separately. Applied in ActuatorController::initController right after the WaterPump
+    // function's rules are OR'd together, same architectural slot as the two fields above.
+    bool skipWaterPumpForRain = false;
+
     // Relay-pin mapping - physical/hardware, stays per-device (roadmap #21 explicit decision).
     int relayEnabled;
     int relay1;

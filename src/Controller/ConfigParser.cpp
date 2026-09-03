@@ -186,6 +186,10 @@ DeviceConfig ConfigParser::parse(const String &configJson, DeviceConfig currentC
     currentConfig.configController.waterPumpMaxRunSeconds = deviceConfigController["waterPumpMaxRunSeconds"] | currentConfig.configController.waterPumpMaxRunSeconds;
     currentConfig.configController.waterPumpCooldownSeconds = deviceConfigController["waterPumpCooldownSeconds"] | currentConfig.configController.waterPumpCooldownSeconds;
 
+    // Roadmap #11: same "|" keep-current-value fallback as the two lines above - an older server
+    // build that doesn't send this key must not accidentally re-arm a pump the last sync deliberately vetoed.
+    currentConfig.configController.skipWaterPumpForRain = deviceConfigController["skipWaterPumpForRain"] | currentConfig.configController.skipWaterPumpForRain;
+
     currentConfig.configController.relayEnabled = deviceConfigController["relayEnabled"];
     currentConfig.configController.relay1 = deviceConfigController["relay1"];
     currentConfig.configController.relay2 = deviceConfigController["relay2"];
