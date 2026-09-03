@@ -12,25 +12,17 @@
 
 #include <NTPClient.h>
 #include <WiFiUdp.h>
-#include <esp_core_dump.h> // roadmap #135
-
-// Roadmap #129: `service`/`deviceConfig`/`serviceEndpoint` are the single canonical instances
-// (declared in main.cpp, extern-visible via ServiceController.h/DeviceModel.h) - this file no
-// longer keeps its own separate copies.
+#include <esp_core_dump.h>
 
 static DeviceDefaults deviceDefaults;
 
 DeviceRegistration deviceRegistration;
 JsonDocument config;
 
-// Roadmap-new (config integrity): survives ESP.restart() (RTC slow memory) but not a real power
-// cycle - a hard power loss just loses the streak, which is the safe direction to fail (worst
-// case one extra bad-config reboot before rollback kicks in, never a false rollback).
+// RTC_DATA_ATTR survives ESP.restart() (RTC slow memory) but not a real power cycle - a hard power loss just loses the streak, which is the safe direction to fail.
 RTC_DATA_ATTR static int rtcRapidConfigRebootCount = 0;
 
-// Roadmap #37: separate from the crash-loop counter above - this is unconditional (set on every
-// config-triggered reboot, not just rapid ones) and answers a different question ("did this boot
-// follow a just-applied new config") rather than "is this a suspicious streak".
+// Separate from the crash-loop counter above: unconditional (set on every config-triggered reboot, not just rapid ones), answers "did this boot follow a just-applied config" rather than "is this a suspicious streak".
 RTC_DATA_ATTR static bool rtcConfigJustAppliedPending = false;
 
 WiFiUDP ntpUDP;
@@ -63,8 +55,6 @@ void DeviceController::setupController()
   timeClient.update();
 }
 
-// Roadmap #127: file I/O moved to StorageController - these stay thin wrappers so every existing
-// `device.saveFile(...)`/`device.loadFile(...)`/etc. call site keeps working unchanged.
 void DeviceController::saveFile(String data, String filename)
 {
   StorageController::saveFile(data, filename);
@@ -87,7 +77,7 @@ void DeviceController::notePendingConfigReboot(unsigned long uptimeMs)
   {
     rtcRapidConfigRebootCount = 0; // ran fine for a while first - this config isn't the problem
   }
-  rtcConfigJustAppliedPending = true; // roadmap #37 - unconditional, every config-triggered reboot
+  rtcConfigJustAppliedPending = true; // unconditional - every config-triggered reboot, not just rapid ones
 }
 
 bool DeviceController::consumeRollbackTrigger()
@@ -107,10 +97,7 @@ bool DeviceController::consumeConfigAppliedPending()
   return pending;
 }
 
-// Roadmap #135. exc_bt_info.bt holds up to 16 return addresses but the reported Message stays
-// short on purpose - symbolicating ANY of them still needs firmware.elf (xtensa-esp32-elf-addr2line
-// against the exact version this device reports) regardless of how many are included, so more than
-// a handful adds length without adding usable signal without that file already in hand.
+// exc_bt_info.bt holds up to 16 return addresses, but symbolicating ANY of them needs firmware.elf regardless of how many are included - more than a handful adds length without adding usable signal.
 static const uint32_t MaxCrashBacktraceAddresses = 8;
 
 String DeviceController::consumeCrashSummary()
@@ -120,8 +107,7 @@ String DeviceController::consumeCrashSummary()
     return ""; // no dump since the partition was last cleared - the common case, every normal boot
   }
 
-  // Per esp_core_dump.h's own documented usage: heap-allocated, not a ~250+ byte stack frame that
-  // would otherwise sit in setup()'s frame for the rest of the function on every single boot.
+  // Heap-allocated, not a ~250+ byte stack frame that would otherwise sit in setup()'s frame for the rest of the function on every boot.
   esp_core_dump_summary_t *summary = (esp_core_dump_summary_t *)malloc(sizeof(esp_core_dump_summary_t));
   String result = "";
   if (summary != nullptr && esp_core_dump_get_summary(summary) == ESP_OK)
@@ -154,9 +140,7 @@ String DeviceController::consumeCrashSummary()
   }
   free(summary);
 
-  // Best-effort, same as the rest of #28's reporting (pushEvent never retries): erase regardless of
-  // whether the summary above actually got formatted, so a corrupt/unreadable dump never wedges
-  // every future boot into re-attempting the same failed read forever.
+  // Erase regardless of whether the summary above got formatted, so a corrupt/unreadable dump never wedges every future boot into re-attempting the same failed read.
   esp_core_dump_image_erase();
 
   return result;
@@ -249,7 +233,7 @@ void DeviceController::registerDevice(String configRegistration)
 
   String servicePoint = config["servicePoint"];
   ServiceRequest serviceRequest;
-  // Bootstrap call carrying email+PIN before any server config exists, so force HTTPS (roadmap #25).
+  // Bootstrap call carrying email+PIN before any server config exists, so force HTTPS.
   serviceRequest.serviceType = serviceType(1, serviceRequest.isHttps);
   serviceRequest.servicePoint = servicePoint;
   serviceRequest.endpoint = serviceEndpoint.apiRegister;
@@ -267,9 +251,7 @@ void DeviceController::registerDevice(String configRegistration)
     reset();
   }
 
-  // Only a 2xx with a body is a real config. Anything else (5xx, timeout, no WiFi,
-  // empty body) must NOT be written to config.json - that would persist an empty
-  // file and boot-loop. Back off and reboot to retry a clean registration.
+  // Only a 2xx with a body is a real config - anything else must NOT be written to config.json (would persist an empty file and boot-loop).
   if ((serviceData.eventlog.errorCode != 200 && serviceData.eventlog.errorCode != 201) ||
       serviceData.payload.isEmpty())
   {
@@ -281,12 +263,7 @@ void DeviceController::registerDevice(String configRegistration)
 
   Serial.println("[Device] config: " + ConfigParser::maskApiKeyInJson(serviceData.payload));
 
-  // Roadmap #103: apiConfig()'s #67 parse-gate has no counterpart here - a truncated-but-non-empty
-  // body (network hiccup mid-stream) passes both checks above (200/201 status, non-empty) and would
-  // be persisted as-is. saveFile()'s atomic write (#62) only protects DISK integrity, not CONTENT
-  // validity - a malformed config.json boot-loops on the very next startup. Parse-gate before
-  // persisting, same principle as #67: on failure, retry via the same reboot-and-backoff path the
-  // HTTP-status/empty-body failure above already uses.
+  // A truncated-but-non-empty body would pass both checks above (200/201 status, non-empty) and get persisted - saveFile()'s atomic write only protects DISK integrity, not CONTENT validity, so parse-gate before persisting.
   JsonDocument parseCheck;
   if (deserializeJson(parseCheck, serviceData.payload) != DeserializationError::Ok)
   {
@@ -314,9 +291,6 @@ String DeviceController::macAddr()
   return macAddr;
 }
 
-// Roadmap #127: power-rail/sleep/reboot/reset moved to PowerController - reads the same
-// canonical `deviceConfig` these always read (roadmap #129), just now via parameters instead of
-// member access.
 void DeviceController::powerRailPrimary(bool state)
 {
   PowerController::railPrimary(deviceConfig.configPin.POWER_RAIL_PRIMARY, state);
@@ -337,8 +311,6 @@ void DeviceController::reboot()
   PowerController::reboot();
 }
 
-// Roadmap #127: OTA download+flash moved to OtaController. Roadmap #131: expectedSha256 passed
-// through to OtaController so it can verify the flashed image before Update.end().
 bool DeviceController::firmwareUpdate(String url, bool isHttps, String expectedSha256)
 {
   return OtaController::update(url, isHttps, deviceConfig.servicePublicKey, deviceConfig.servicePoint, expectedSha256);
@@ -349,7 +321,6 @@ void DeviceController::reset()
   PowerController::reset();
 }
 
-// Roadmap #127: roadmap #9 store-and-forward buffer moved to StorageController.
 bool DeviceController::bufferSensorDataToDisk(String payloadJson)
 {
   return StorageController::bufferSensorDataToDisk(payloadJson);
@@ -365,9 +336,7 @@ void DeviceController::removeBufferedFile(String filename)
   StorageController::removeBufferedFile(filename);
 }
 
-// Roadmap #128: field parsing moved to ConfigParser::parse() - this stays a thin wrapper. Roadmap
-// #129: mutates the single canonical `deviceConfig` (DeviceModel.h extern), the same one
-// powerRailPrimary/sleep/firmwareUpdate below read.
+// Mutates the single canonical deviceConfig, not just a local copy.
 DeviceConfig DeviceController::loadConfig(String configJson)
 {
   deviceConfig = ConfigParser::parse(configJson, deviceConfig);

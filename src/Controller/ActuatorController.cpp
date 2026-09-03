@@ -8,19 +8,12 @@
 #include "ServiceController.h"
 #include "ActuatorController.h"
 
-// Roadmap #129: no deviceConfig member on this class anymore - member functions below resolve
-// unqualified `deviceConfig` to the single canonical instance (DeviceModel.h extern), the same one
-// every other controller reads.
-
 void ActuatorController::setupController(){
 
 
 }
 
-// Roadmap #87: relay1..relay8/RELAY_1..RELAY_8 are eight parallel struct members, not an array,
-// because that is how the model arrives from the API/EF layer - this is the one place that
-// flattens them into something loopable, so a ninth relay slot (if the hardware ever grows one)
-// is a single line here instead of a new copy-pasted branch in every caller.
+// relay1..relay8/RELAY_1..RELAY_8 are eight parallel struct members, not an array (that is how the model arrives from the API/EF layer) - this is the one place that flattens them into something loopable.
 int ActuatorController::collectPinsForFunction(RelayFunctionType relayFunction, int pins[8]) const
 {
     const int configuredType[8] = {
@@ -47,19 +40,7 @@ int ActuatorController::collectPinsForFunction(RelayFunctionType relayFunction, 
     return count;
 }
 
-// Roadmap #21: replaces the pre-#21 intervalRelayFunction/thresholdRelayFunction/
-// scheduleRelayFunction trio with one generic evaluator, switching on the rule's own type. Each
-// branch calls the SAME pure compute*State() from src/Logic/RelayLogic.cpp (roadmap #19/#95,
-// native-testable) that its pre-#21 dispatch function used - only the wrapper/dispatch layer
-// changed, not the decision logic itself.
-//
-// Threshold's reading/direction lookup (roadmap #10) is unchanged from the pre-#21
-// thresholdRelayFunction switch: Ventilation reacts to humidity and is the only function whose
-// "on" direction is inverted (exhausting excess humidity, not replenishing a deficit); Light/
-// Heating/WaterPump all turn on BELOW their threshold and off once the reading climbs back above
-// threshold+hysteresis. isCurrentlyOn is the target function's live physical state, needed only
-// for this dead-zone math - interval/schedule ignore it entirely, matching roadmap #85's original
-// "pure function of wall-clock time" design for interval and the midnight-safe design for schedule.
+// Ventilation reacts to humidity and is the only function whose "on" direction is inverted (exhausting excess humidity, not replenishing a deficit); Light/Heating/WaterPump all turn on BELOW their threshold and off above threshold+hysteresis. isCurrentlyOn is needed only for this dead-zone math - interval/schedule ignore it entirely.
 bool ActuatorController::evaluateRule(const Rule &rule, SensorData sensorData, time_t epochSeconds,
                                        int localWeekday, int localSecondsOfDay, bool isCurrentlyOn) const
 {
@@ -101,15 +82,9 @@ bool ActuatorController::evaluateRule(const Rule &rule, SensorData sensorData, t
     }
 }
 
-// Roadmap #36: state machine combining runTimeCeilingHit()/cooldownActive() into the two
-// timestamps this one physical slot needs. Order matters - cooldown is evaluated against the OLD
-// offSinceEpoch BEFORE anything below is allowed to touch onSinceEpoch/offSinceEpoch, so an ON
-// request that arrives mid-cooldown can never look like a fresh off-transition and reset its own
-// clock (which would turn a bounded cooldown into a permanent lockout as long as some mode keeps
-// requesting ON every tick).
+// Order matters: cooldown is evaluated against the OLD offSinceEpoch BEFORE anything below touches onSinceEpoch/offSinceEpoch, so an ON request arriving mid-cooldown can never reset its own clock into a permanent lockout.
 void ActuatorController::applyWaterPumpSafetyLimits(int slot, int pin, time_t epochSeconds)
 {
-    // Roadmap #149: RelayIO instead of digitalRead/digitalWrite directly - see RelayIO.h.
     int i2cAddr = deviceConfig.configPin.RELAY_I2C_ADDRESS;
     int i2cSda = deviceConfig.configPin.RELAY_I2C_SDA;
     int i2cScl = deviceConfig.configPin.RELAY_I2C_SCL;
@@ -131,10 +106,7 @@ void ActuatorController::applyWaterPumpSafetyLimits(int slot, int pin, time_t ep
 
     if (!finalState && waterPumpOnSinceEpoch[slot] != 0)
     {
-        // A real on-stretch just ended - whether the underlying mode itself decided off, or a
-        // limit above forced it - start the cooldown clock from this moment either way; the
-        // physics reason for cooldown (water needs time to drain) applies to every pump-off, not
-        // just ones a safety limit caused.
+        // Start the cooldown clock on every pump-off (not just safety-limit-caused ones) - water needs time to drain regardless of why the pump stopped.
         waterPumpOffSinceEpoch[slot] = epochSeconds;
         waterPumpOnSinceEpoch[slot] = 0;
     }
@@ -172,26 +144,18 @@ bool ActuatorController::consumeSafetyLimitEvent(String &outMessage)
 
 void ActuatorController::initController(SensorData sensorData, time_t epochSeconds)
 {
-    // Roadmap #39: gmtime() on a pre-shifted epoch (epochSeconds + utcOffsetSeconds) yields LOCAL
-    // wall-clock calendar fields for free - it is pure calendar math with no timezone database
-    // involved, so feeding it an already-offset epoch is the standard microcontroller trick for
-    // "local time without an IANA database on-device" (see DeviceConfig.utcOffsetSeconds' comment).
-    // Computed once here, not once per rule evaluated below.
+    // gmtime() on a pre-shifted epoch yields LOCAL wall-clock calendar fields with no timezone database needed. Computed once here, not once per rule evaluated below.
     time_t localEpoch = epochSeconds + deviceConfig.utcOffsetSeconds;
     struct tm *localTm = gmtime(&localEpoch);
     int localWeekday = localTm->tm_wday;      // 0=Sunday..6=Saturday
     int localSecondsOfDay = localTm->tm_hour * 3600 + localTm->tm_min * 60 + localTm->tm_sec;
 
-    // Roadmap #149: routes through RelayIO so an I2C-expander kit (KC868-A6) works the same as a
-    // direct-GPIO one - see RelayIO.h.
+    // Routes through RelayIO so an I2C-expander kit (KC868-A6) works the same as a direct-GPIO one.
     int i2cAddr = deviceConfig.configPin.RELAY_I2C_ADDRESS;
     int i2cSda = deviceConfig.configPin.RELAY_I2C_SDA;
     int i2cScl = deviceConfig.configPin.RELAY_I2C_SCL;
 
-    // Roadmap #21: ONE pass per relay function - was three separate passes before (interval/
-    // threshold/schedule), with threshold additionally run per-PIN rather than per-function. Every
-    // rule targeting this function is OR'd together (any rule saying "on" wins, user decision:
-    // 2026-09-04), then the single result is written to every pin assigned to it.
+    // ONE pass per relay function: every rule targeting it is OR'd together (any rule saying "on" wins), then the single result is written to every pin assigned to it.
     const RelayFunctionType functions[4] = {
         RelayFunctionType::Ventilation, RelayFunctionType::Light,
         RelayFunctionType::Heating, RelayFunctionType::WaterPump,
@@ -205,12 +169,7 @@ void ActuatorController::initController(SensorData sensorData, time_t epochSecon
             continue; // no relay slot assigned to this function
         }
 
-        // Threshold rules need the function's CURRENT physical state for their hysteresis math
-        // (RelayLogic::computeThresholdState) - read once from the first assigned pin. Every pin
-        // sharing one function is kept in sync by the write below, so any one of them is
-        // representative (threshold is now evaluated per-function, not per-pin, like interval/
-        // schedule always were - roadmap #21 simplification, removes an asymmetry that had no
-        // functional reason to exist).
+        // Threshold rules need the function's CURRENT physical state for hysteresis math - read once from the first assigned pin; every pin sharing one function is kept in sync by the write below, so any one is representative.
         relayPinMode(pins[0], i2cAddr, i2cSda, i2cScl);
         bool isCurrentlyOn = relayRead(pins[0], i2cAddr, i2cSda, i2cScl);
 
@@ -225,11 +184,7 @@ void ActuatorController::initController(SensorData sensorData, time_t epochSecon
             }
         }
 
-        // Roadmap #11: the rain veto is a final AND-NOT gate applied AFTER the OR above, same
-        // architectural slot as the WaterPump safety limits below - a Weather condition cannot be a
-        // Rule like Threshold/Interval/Schedule, since OR-combining rules means a Weather rule could
-        // only ever ADD a reason to turn WaterPump on, never suppress one already decided by another
-        // rule (user decision, 2026-09-04).
+        // Final AND-NOT gate applied AFTER the OR above - a Weather condition can't be a Rule like Threshold/Interval/Schedule, since OR-combining rules means it could only ever ADD a reason to turn WaterPump on, never suppress one.
         if (function == RelayFunctionType::WaterPump && deviceConfig.configController.skipWaterPumpForRain)
         {
             shouldBeOn = false;
@@ -242,13 +197,7 @@ void ActuatorController::initController(SensorData sensorData, time_t epochSecon
         }
     }
 
-    // Roadmap #36: safety limits are the LAST word for WaterPump specifically, applied per
-    // PHYSICAL SLOT (not once for the function, unlike the loop above) - each relay slot sharing
-    // the WaterPump function keeps its OWN independent on/off-since history
-    // (waterPumpOnSinceEpoch/OffSinceEpoch, indexed by physical slot 0..7), matching the pre-#21
-    // per-slot application exactly. Case numbers must match deviceTypeRelay's IDDeviceTypeRelay
-    // seed order (db/agrumyDB-final.sql: 1=Ventilation, 2=Light, 3=Heating, 4=Water pump) - the Web
-    // admin dropdown stores that ID directly into relay1..relay8.
+    // Safety limits are applied per PHYSICAL SLOT (not once for the function, unlike the loop above) - each relay slot sharing the WaterPump function keeps its own independent on/off-since history.
     const int relayType[8] = {
         deviceConfig.configController.relay1, deviceConfig.configController.relay2,
         deviceConfig.configController.relay3, deviceConfig.configController.relay4,
