@@ -14,8 +14,7 @@
 #include "Controller/ServiceController.h"
 #include "Controller/ActuatorController.h"
 
-// Roadmap #94: injected by tools/firmware_version.py (git tag / FIRMWARE_VERSION env var) - the
-// fallback only exists for a build that skipped extra_scripts, so the symbol is never missing.
+// Injected by tools/firmware_version.py (git tag / FIRMWARE_VERSION env var); the fallback only covers a build that skipped extra_scripts.
 #ifndef FIRMWARE_VERSION
 #define FIRMWARE_VERSION "0.0.0-dev"
 #endif
@@ -23,32 +22,16 @@ const char *firmware = FIRMWARE_VERSION;
 const String CONFIG_BASE = "deviceRegistration.json";
 const String CONFIG_DEFAULTS = "config.json";
 
-// arduino-esp32's default loopTask stack (8192 bytes) isn't enough for two back-to-back HTTPS/
-// mbedTLS handshakes against the embedded CA bundle in one loop() cycle (apiConfig's 401 retry
-// chains straight into apiAuthenticate) - overflowed it ("Stack canary watchpoint triggered
-// (loopTask)" crash-loop, seen 2026-09-02 against api.agrumy.com). A `-D CONFIG_ARDUINO_LOOP_
-// STACK_SIZE=...` build flag can't fix this: the framework's own sdkconfig.h unconditionally
-// redefines that macro after the flag is set, clobbering it back to 8192 before main.cpp reads
-// it - SET_LOOP_TASK_STACK_SIZE overrides the weak getArduinoLoopTaskStackSize() at link time
-// instead, which sdkconfig.h can't touch.
+// arduino-esp32's default loopTask stack (8192 bytes) overflows on two back-to-back HTTPS/mbedTLS handshakes in one loop() cycle (apiConfig's 401 retry chains into apiAuthenticate). A `-D CONFIG_ARDUINO_LOOP_STACK_SIZE=...` build flag can't fix this: sdkconfig.h unconditionally clobbers that macro back to 8192 - SET_LOOP_TASK_STACK_SIZE overrides the weak getArduinoLoopTaskStackSize() at link time instead, which sdkconfig.h can't touch.
 SET_LOOP_TASK_STACK_SIZE(16384);
 
-// Hardware watchdog (roadmap #18): reboot if a loop() cycle wedges before it completes
-// (infinite loop, deadlock, a network call that never returns). Sized to clear the
-// worst-case work phase - up to ~4 sequential HTTPClient calls per cycle (config sync,
-// re-auth, retry, sensor push), each with the arduino-esp32 default 5 s TCP timeout,
-// plus the TLS handshake - with margin. The trailing inter-cycle sleep is a bounded idle
-// wait and is fed separately in loop(), so this value is independent of the server-set
-// sleepSeconds.
+// Reboots if a loop() cycle wedges before completing. Sized to clear ~4 sequential HTTPClient calls per cycle (config sync, re-auth, retry, sensor push) at the default 5s TCP timeout each, with margin. Independent of server-set sleepSeconds - the inter-cycle sleep is fed separately in loop().
 static const uint32_t WDT_TIMEOUT_SECONDS = 90;
 
 static JsonDocument jsonData;
 static String servicePoint;
 
-// Roadmap #98/#129: single canonical instances - deviceConfig/serviceEndpoint declared extern in
-// DeviceModel.h, device/service/sensor/controller declared extern in their own headers. Defined
-// here (not `static`, so every other translation unit's extern reaches this same object) instead
-// of each file keeping its own separate copy manually kept in sync.
+// Single canonical instances (see externs in DeviceModel.h and each controller's own header).
 DeviceConfig deviceConfig;
 ServiceEndpoint serviceEndpoint;
 
@@ -68,22 +51,16 @@ void setup()
   Serial.println();
   Serial.println("[Initialization started]");
 
-  // Roadmap #135: read (and clear) any core dump the panic handler wrote on the LAST crash before
-  // anything else touches flash/WiFi - it has no dependency on either, and doing it first keeps the
-  // summary ready for the "confirm last reboot's outcome" reporting block further down, once
-  // apiAuthenticate() is available.
+  // Read (and clear) any core dump before anything else touches flash/WiFi - it has no dependency on either, and the summary is needed by the reboot-outcome reporting block further down.
   String crashSummary = device.consumeCrashSummary();
 
-  // Roadmap #26: on a deep-sleeping node every cycle re-enters setup() - say so explicitly,
-  // otherwise a serial log full of reboots is indistinguishable from a crash loop.
+  // On a deep-sleeping node every cycle re-enters setup() - say so explicitly, otherwise a serial log full of reboots is indistinguishable from a crash loop.
   if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER)
   {
     Serial.println("[Boot] Woke from deep sleep (timer)");
   }
 
-  // format-on-fail: first boot after the SPIFFS->LittleFS switch reformats the partition.
-  // A partition still holding SPIFFS bytes must fail the mount here so the format runs -
-  // if it does not, flash the board with a full chip erase.
+  // format-on-fail: a partition still holding SPIFFS bytes must fail the mount here so the format runs - if it does not, flash the board with a full chip erase.
   if (!LittleFS.begin(true))
   {
     Serial.println("[Main] LittleFS mount/format FAILED");
@@ -92,7 +69,6 @@ void setup()
   EEPROM.begin(512);
   delay(500);
 
-  // Roadmap #110: verified bounded retry, not a bare delay() - see DeviceController::loadFileRetry.
   String configRegistration = device.loadFileRetry(CONFIG_BASE);
   if (configRegistration.isEmpty())
   {
@@ -103,16 +79,10 @@ void setup()
   device.initializeWifi();
   delay(1000);
 
-  // Config-integrity crash-loop guard: 3 config-triggered reboots in a row, each within 60s of
-  // its own boot, means the last config update is likely the cause - load the backup instead of
-  // repeating the same crash forever. See ServiceController::apiConfig's notePendingConfigReboot,
-  // the only place that feeds this counter.
+  // 3 config-triggered reboots in a row, each within 60s of its own boot, means the last config update is likely the cause - load the backup instead of repeating the same crash forever.
   bool rollbackToBackup = device.consumeRollbackTrigger();
-  // Roadmap #37 - always consumed regardless of rollbackToBackup; which one wins is decided once
-  // WiFi/auth are up below (a rollback boot confirms CrashLoopRollback, never ConfigApplied, even
-  // though both flags are set together on the reboot that triggered the rollback).
+  // Always consumed regardless of rollbackToBackup; a rollback boot confirms CrashLoopRollback, never ConfigApplied, even though both flags are set together on the reboot that triggered the rollback.
   bool configJustApplied = device.consumeConfigAppliedPending();
-  // Roadmap #110: verified bounded retry, not a bare delay() - see DeviceController::loadFileRetry.
   String configDefaults = rollbackToBackup ? device.loadFileRetry("config.json.bak") : device.loadFileRetry(CONFIG_DEFAULTS);
   if (rollbackToBackup)
   {
@@ -133,9 +103,6 @@ void setup()
     device.registerDevice(configRegistration);
   }
 
-  // Roadmap #129: loadConfig() mutates the single canonical deviceConfig in place and returns it -
-  // no per-module re-copy needed anymore (device/sensor/service/controller all read this same
-  // object directly).
   deviceConfig = device.loadConfig(configDefaults);
 
   serviceRequest.serviceType = device.serviceType(deviceConfig.deviceTypeServiceID, serviceRequest.isHttps);
@@ -143,23 +110,14 @@ void setup()
 
   sensor.serviceRequest = serviceRequest;
 
-  // Roadmap #28/#37/#135: confirm the outcome of the reboot that just happened back to the server,
-  // now that deviceConfig/serviceRequest are populated (too early to do this above, where the
-  // rollback branch runs). A rollback boot always wins over configJustApplied - both flags are set
-  // together on the reboot that triggered the rollback (see notePendingConfigReboot()), but that
-  // boot is applying the OLD backup, not the new config configJustApplied refers to. A crash summary
-  // only reports when NEITHER of those (orderly, config-triggered) reboots is what actually happened.
+  // Confirm the outcome of the reboot back to the server. A rollback boot always wins over configJustApplied - both flags are set together on the reboot that triggered the rollback, but that boot applies the OLD backup, not the new config. A crash summary only reports when neither happened.
   if (rollbackToBackup || configJustApplied || !crashSummary.isEmpty())
   {
-    // apiAuthenticate() takes serviceRequest by value, so its internal apiId/apiKey/endpoint
-    // mutations never reach this copy - re-set apiId here before reusing serviceRequest below.
+    // apiAuthenticate() takes serviceRequest by value, so its internal apiId/apiKey/endpoint mutations never reach this copy - re-set apiId here before reusing serviceRequest below.
     service.apiAuthenticate(deviceConfig, serviceRequest, device);
     serviceRequest.header.apiId = deviceConfig.apiId;
     if (rollbackToBackup)
     {
-      // The threshold in consumeRollbackTrigger() is a fixed compile-time 3, and it fires the
-      // moment the count first reaches it (called every boot) - so "3" is always accurate here,
-      // even though the counter itself is already reset by the time this message is composed.
       service.pushEvent(serviceRequest, "CrashLoopRollback", "3 consecutive early reboots detected");
     }
     else if (configJustApplied)
@@ -172,12 +130,7 @@ void setup()
     }
   }
 
-  // Unconditional on purpose, not leftover test code (roadmap #86): sensor.setupSensor() below
-  // needs the rails powered to init, and for a non-battery (mains) device this is the ONLY place
-  // that ever drives these pins - loop()'s batteryEnabled on/off cycling (below) never touches
-  // them when batteryEnabled is false, so a conditional here would leave mains-powered sensors
-  // permanently unpowered. For a battery device, loop() takes over duty-cycling from the very
-  // next iteration - this call only covers the brief window until then.
+  // Unconditional on purpose: for a non-battery (mains) device, loop()'s batteryEnabled cycling never touches these pins, so this is the ONLY place that powers them. A battery device's loop() takes over duty-cycling from the next iteration.
   device.powerRailPrimary(true);
   device.powerRailSecondary(true);
   delay(1000);
@@ -185,11 +138,7 @@ void setup()
   sensor.setupSensor();    // early init for more precise measurement
   device.setupController(); // initialize time
 
-  // Arm the watchdog only now that setup (incl. the blocking WiFi portal / registration
-  // path) is done - those legitimately take longer than one loop cycle. The arduino-esp32
-  // core already runs a 5 s task WDT watching the CPU0 idle task; tear that down and
-  // re-init at our own timeout with panic+reboot before subscribing the loop task,
-  // because esp_task_wdt_init() is a no-op if the WDT is already initialized.
+  // Arm the watchdog only now that setup (incl. the blocking WiFi portal/registration path) is done - those legitimately take longer than one loop cycle. esp_task_wdt_init() is a no-op if the WDT (arduino-esp32's own 5s default) is already initialized, so tear it down first.
   esp_task_wdt_deinit();
   esp_task_wdt_init(WDT_TIMEOUT_SECONDS, true); // true: panic-handler reboot on timeout
   esp_task_wdt_add(NULL);                       // watch the Arduino loop task
@@ -206,10 +155,7 @@ void loop()
     device.powerRailSecondary(true);
   }
 
-  // Roadmap #67/#129: deviceConfig is passed by reference and is the single canonical instance, so
-  // a hot-applied config (no reboot) is visible to every module the instant apiConfig() returns -
-  // no per-module re-copy needed anymore (that used to be option (b) here specifically to avoid a
-  // wider reference refactor; #129 did that refactor).
+  // deviceConfig is passed by reference and is the single canonical instance, so a hot-applied config (no reboot) is visible to every module the instant apiConfig() returns.
   service.apiConfig(deviceConfig, serviceRequest, device);
 
   if (deviceConfig.enabled) {
@@ -225,30 +171,20 @@ void loop()
   Serial.println("[Loop]-----> END <-----[Loop]");
   Serial.println("");
 
-  // A full cycle finished without wedging - feed the watchdog. Anything that hangs inside
-  // apiConfig() / buildSensorData() never reaches this point, so the reboot backstop stays
-  // effective against a real stall.
+  // A full cycle finished without wedging - feed the watchdog. Anything that hangs inside apiConfig()/buildSensorData() never reaches this point, so the reboot backstop stays effective against a real stall.
   esp_task_wdt_reset();
 
-  // Roadmap #26: a sensor-only node with sleepDeep set powers down between cycles instead of
-  // idling at full draw - the wake is a fresh boot through setup() (config re-read from
-  // LittleFS, WDT re-armed at the end of setup, #62's RTC counter untouched because only the
-  // config-reboot path feeds it). A device that drives relays must NOT deep sleep: GPIO
-  // outputs drop during deep sleep and ActuatorController's millis-based interval state is
-  // lost, so it falls through to the powered chunked delay below.
+  // A device that drives relays must NOT deep sleep: GPIO outputs drop during deep sleep and ActuatorController's interval state is lost, so it falls through to the powered chunked delay below.
   if (deviceConfig.sleepDeep && deviceConfig.sleepSeconds > 0)
   {
     if (!deviceConfig.deviceControllerEnabled)
     {
       device.sleep(); // never returns
     }
-    Serial.println("[Sleep] sleepDeep is set but this device drives relays - staying powered (roadmap #26)");
+    Serial.println("[Sleep] sleepDeep is set but this device drives relays - staying powered");
   }
 
-  // Inter-cycle pause. It is a bounded idle wait, not work that can hang, so keep petting
-  // the watchdog through it in steps shorter than the timeout - otherwise a server-set
-  // sleepSeconds longer than WDT_TIMEOUT_SECONDS would look like a stall and reboot the
-  // device every cycle.
+  // Bounded idle wait, not work that can hang - keep petting the watchdog through it in steps shorter than the timeout, otherwise a server-set sleepSeconds longer than WDT_TIMEOUT_SECONDS looks like a stall.
   uint32_t sleepRemaining = (uint32_t)deviceConfig.sleepSeconds * 1000UL;
   const uint32_t sleepStep = WDT_TIMEOUT_SECONDS * 1000UL / 3;
   while (sleepRemaining > 0)
