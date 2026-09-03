@@ -23,12 +23,7 @@ void StorageController::saveFile(String data, String filename)
   size_t written = file.print(data);
   file.close();
 
-  // Atomic write: only replace the real file once the write to the .tmp copy is confirmed
-  // complete. A power loss before this point leaves the old file untouched (the .tmp is
-  // orphaned and gets overwritten next call). rename() goes through VFSImpl::rename() -> POSIX
-  // rename() -> lfs_rename(), which atomically replaces an existing destination in one
-  // filesystem transaction - deliberately NOT preceded by a separate remove(path), which would
-  // reopen exactly the half-written-file window this function exists to close.
+  // Only replace the real file once the .tmp write is confirmed complete; a power loss before this point leaves the old file untouched. Deliberately NOT preceded by a separate remove(path), which would reopen the half-written-file window this function exists to close.
   if (written != (size_t)data.length())
   {
     Serial.println("[Device] saveFile: incomplete write (" + String((unsigned)written) + "/" + String(data.length()) + " bytes) to " + tmpPath + " - leaving " + path + " untouched");
@@ -42,7 +37,6 @@ void StorageController::saveFile(String data, String filename)
   }
 };
 
-// See StorageController.h for the config-integrity rationale.
 void StorageController::saveConfigFile(String newConfigJson)
 {
   String currentConfig = loadFile("config.json");
@@ -77,8 +71,7 @@ String StorageController::loadFile(String filename)
   Serial.print("Reading file: ");
   Serial.println(filename);
 
-  // Bounded read - do not trust available() alone: a corrupt LittleFS size
-  // field spun this loop forever. config/registration are ~2 KB.
+  // Bounded read - do not trust available() alone: a corrupt LittleFS size field spun this loop forever.
   size_t want = file.size();
   if (want > 16384)
   {
@@ -99,10 +92,7 @@ String StorageController::loadFile(String filename)
   return data;
 };
 
-// Roadmap #110: replaces a bare post-write delay() "hope it's committed by now" workaround with
-// an actual check - saveFile()'s LittleFS.rename() above already completes synchronously, so this
-// bounded poll normally returns on the very first check (0ms lost) and only spends real time if
-// that assumption is ever wrong for some platform/flash combination.
+// saveFile()'s LittleFS.rename() completes synchronously, so this bounded poll normally returns on the very first check and only spends real time if that assumption is ever wrong.
 bool StorageController::waitForFileCommitted(String filename, unsigned long timeoutMs)
 {
   String path = "/" + filename;
@@ -119,12 +109,7 @@ bool StorageController::waitForFileCommitted(String filename, unsigned long time
   return true;
 }
 
-// Roadmap #110: replaces a bare post-read delay() "hope the race resolved by now" workaround with
-// an actual bounded retry - re-reads only when the previous attempt came back empty, instead of
-// unconditionally pausing whether or not a retry was ever needed. A file that legitimately doesn't
-// exist yet (e.g. first-ever boot, nothing registered) still reads empty on every attempt and
-// returns after maxAttempts - this never masks that case, it just stops trusting a single early
-// read blindly either way.
+// Re-reads only when the previous attempt came back empty. A file that legitimately doesn't exist yet still reads empty on every attempt and returns after maxAttempts.
 String StorageController::loadFileRetry(String filename, int maxAttempts, unsigned long retryDelayMs)
 {
   String data = loadFile(filename);
@@ -136,9 +121,7 @@ String StorageController::loadFileRetry(String filename, int maxAttempts, unsign
   return data;
 }
 
-// Roadmap #9. The 70% cap is checked BEFORE every write, which also covers the "a write just
-// pushed usage over the line" case the spec calls out: the next 8KB spill re-runs this same
-// check and discards, no separate post-write state needed.
+// The 70% cap is checked BEFORE every write - a write that just pushed usage over the line is caught by the next spill re-running this same check, no separate post-write state needed.
 bool StorageController::bufferSensorDataToDisk(String payloadJson)
 {
   size_t total = LittleFS.totalBytes();
@@ -149,8 +132,7 @@ bool StorageController::bufferSensorDataToDisk(String payloadJson)
     return false;
   }
 
-  // Lazy one-time init per boot: create /buffer and continue numbering after the highest
-  // survivor from before the reboot, so chronological order holds across power cycles.
+  // Lazy one-time init per boot: continue numbering after the highest survivor from before the reboot, so chronological order holds across power cycles.
   static int nextIndex = -1;
   if (nextIndex < 0)
   {
@@ -172,7 +154,7 @@ bool StorageController::bufferSensorDataToDisk(String payloadJson)
   char name[24];
   snprintf(name, sizeof(name), "buffer/%05d.json", nextIndex);
   nextIndex++;
-  saveFile(payloadJson, name); // #62 atomic tmp+rename helper, reused as-is
+  saveFile(payloadJson, name);
 
   Serial.printf("[Device] Sensor buffer spilled to /%s - LittleFS now %u/%u bytes\n", name, (unsigned)LittleFS.usedBytes(), (unsigned)total);
   return true;

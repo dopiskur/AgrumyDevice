@@ -40,21 +40,12 @@ DeviceConfig ConfigParser::parse(const String &configJson, DeviceConfig currentC
   }
 
   String servicePoint = config["servicePoint"];
-  // "| """ matters here: a bare assignment from a JSON null (the normal case - no self-signed
-  // cert pinned) does not reliably yield an empty ArduinoJson String, so
-  // ServiceController::requestPost's `servicePublicKey.length() > 0` check was true for a device
-  // with no pinned cert - it then fed that non-empty garbage to setCACert() as if it were a PEM
-  // certificate, and mbedTLS rejected the HTTPS handshake with "X509 ... format is invalid".
+  // "| """ matters: a bare assignment from a JSON null does not reliably yield an empty ArduinoJson String, which made requestPost's servicePublicKey.length()>0 check true for a device with no pinned cert, feeding garbage to setCACert() and failing the HTTPS handshake.
   String servicePublicKey = config["servicePublicKey"] | "";
   String apiId = config["apiId"];
   String apiKey = config["apiKey"];
 
-  // Roadmap #107: "{}" (or any payload a contract-drifted server field rename produces) is valid,
-  // non-empty JSON, so it passes both of apiConfig()'s existing gates (isEmpty/deserializeJson) -
-  // a missing key here just silently reads back "". Without this check the device's own identity
-  // gets overwritten with "", the next Authenticate 401s, and #97's factory reset fires on what
-  // was actually a server-side contract bug. Reject BEFORE any deviceConfig field below is
-  // touched, same "keep current, signal the failure" contract as the deserializeJson gate above.
+  // "{}" (or any contract-drifted payload) is valid, non-empty JSON, so it passes the deserializeJson gate above with missing keys silently reading back "". Reject BEFORE any deviceConfig field is touched, rather than overwriting identity with blanks.
   if (apiId.isEmpty() || apiKey.isEmpty() || servicePoint.isEmpty())
   {
     Serial.println("[Device] Load Config: missing required apiId/apiKey/servicePoint - rejecting (contract drift or malformed payload), keeping current config");
@@ -63,8 +54,7 @@ DeviceConfig ConfigParser::parse(const String &configJson, DeviceConfig currentC
     currentConfig.eventlog.errorData = "missing apiId/apiKey/servicePoint";
     return currentConfig;
   }
-  // currentConfig is re-parsed in place on every call (not rebuilt from scratch), so a failure
-  // flagged above must not linger into the next call that actually succeeds.
+  // currentConfig is re-parsed in place on every call, so a failure flagged above must not linger into the next call that succeeds.
   currentConfig.eventlog.error = false;
 
   currentConfig.configVersion = config["configVersion"];
@@ -82,8 +72,7 @@ DeviceConfig ConfigParser::parse(const String &configJson, DeviceConfig currentC
 
   currentConfig.sleepSeconds = config["sleepSeconds"];
   currentConfig.sleepDeep = config["sleepDeep"];
-  // "| 0" keeps the current offset if an older server doesn't send this key, same reasoning as the
-  // hysteresis "|" fallbacks below - never silently jump to UTC just because the key was missing.
+  // Keeps the current offset if an older server doesn't send this key - never silently jump to UTC just because the key was missing.
   currentConfig.utcOffsetSeconds = config["utcOffsetSeconds"] | currentConfig.utcOffsetSeconds;
   currentConfig.deviceSensorEnabled = config["deviceSensorEnabled"];
   currentConfig.deviceControllerEnabled = config["deviceControllerEnabled"];
@@ -93,12 +82,10 @@ DeviceConfig ConfigParser::parse(const String &configJson, DeviceConfig currentC
   currentConfig.reboot = config["reboot"];
   currentConfig.reset = config["reset"];
   currentConfig.firmwareUpdate = config["firmwareUpdate"];
-  currentConfig.firmwareVersion = config["firmwareVersion"] | String(""); // roadmap #3 (OTA)
+  currentConfig.firmwareVersion = config["firmwareVersion"] | String("");
   currentConfig.firmwareUrl = config["firmwareUrl"] | String("");
-  currentConfig.firmwareSha256 = config["firmwareSha256"] | String(""); // roadmap #131
+  currentConfig.firmwareSha256 = config["firmwareSha256"] | String("");
 
-  // Roadmap #34: "|" keeps the current value if an older server doesn't send this key, same
-  // fallback convention as utcOffsetSeconds/hysteresis above.
   currentConfig.commandVersion = config["commandVersion"] | currentConfig.commandVersion;
   JsonVariant pendingCommandJson = config["pendingCommand"];
   if (pendingCommandJson.isNull())
@@ -118,9 +105,7 @@ DeviceConfig ConfigParser::parse(const String &configJson, DeviceConfig currentC
     JsonObject deviceConfigSensor = config["deviceConfigSensor"];
 
     currentConfig.configSensor.sensorBattery = deviceConfigSensor["sensorBattery"];
-    // Roadmap #12: same "fall back to whatever value is already here" rule as the hysteresis
-    // fields below - an older server that doesn't send these keys yet must not zero out a
-    // previously-configured divider calibration.
+    // Falls back to the existing value so an older server that omits these keys doesn't zero out a configured divider calibration.
     currentConfig.configSensor.batteryDividerR1 = deviceConfigSensor["batteryDividerR1"] | currentConfig.configSensor.batteryDividerR1;
     currentConfig.configSensor.batteryDividerR2 = deviceConfigSensor["batteryDividerR2"] | currentConfig.configSensor.batteryDividerR2;
     currentConfig.configSensor.sensorTemp = deviceConfigSensor["sensorTemp"];
@@ -141,12 +126,7 @@ DeviceConfig ConfigParser::parse(const String &configJson, DeviceConfig currentC
   {
     JsonObject deviceConfigController = config["deviceConfigController"];
 
-    // Roadmap #21: Rule[] replaces the old flat threshold/interval/schedule/hysteresis fields -
-    // capped at MAX_RULES, same "ArduinoJson has no dynamic growth on-device, extras are silently
-    // dropped, server already enforces a matching cap" tolerance the pre-#21 schedule-slot parsing
-    // established. A rule with an unrecognized conditionType is skipped (not counted) rather than
-    // stored half-populated - forward-compatible with a future condition type (e.g. #11 Weather)
-    // an older firmware build does not understand yet.
+    // Capped at MAX_RULES - ArduinoJson has no dynamic growth on-device, extras are silently dropped (server enforces a matching cap). A rule with an unrecognized conditionType is skipped, not stored half-populated.
     JsonArray rules = deviceConfigController["rules"];
     currentConfig.configController.ruleCount = 0;
     for (JsonObject r : rules)
@@ -180,14 +160,10 @@ DeviceConfig ConfigParser::parse(const String &configJson, DeviceConfig currentC
         currentConfig.configController.ruleCount++;
     }
 
-    // Roadmap #21/#36: "|" fallback keeps the current value if the server doesn't send these keys
-    // (older API), instead of clobbering it with 0 - now copied from the device's assigned zone
-    // server-side (DeviceApiController.BuildDeviceConfigAsync), same field names on the wire.
     currentConfig.configController.waterPumpMaxRunSeconds = deviceConfigController["waterPumpMaxRunSeconds"] | currentConfig.configController.waterPumpMaxRunSeconds;
     currentConfig.configController.waterPumpCooldownSeconds = deviceConfigController["waterPumpCooldownSeconds"] | currentConfig.configController.waterPumpCooldownSeconds;
 
-    // Roadmap #11: same "|" keep-current-value fallback as the two lines above - an older server
-    // build that doesn't send this key must not accidentally re-arm a pump the last sync deliberately vetoed.
+    // Falls back to the current value so an older server build can't accidentally re-arm a pump the last sync deliberately vetoed.
     currentConfig.configController.skipWaterPumpForRain = deviceConfigController["skipWaterPumpForRain"] | currentConfig.configController.skipWaterPumpForRain;
 
     currentConfig.configController.relayEnabled = deviceConfigController["relayEnabled"];
