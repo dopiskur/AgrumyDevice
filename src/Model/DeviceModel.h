@@ -1,7 +1,6 @@
 #ifndef DATASTRUCTURE_H
 #define DATASTRUCTURE_H
 #include "Arduino.h"
-#include "../Logic/RelayLogic.h" // ScheduleWindow/MAX_SCHEDULE_SLOTS_PER_FUNCTION (roadmap #115) - plain C++, no Arduino dependency of its own
 
 struct DeviceDefaults {
     String servicePoint = "api.agrumy.com";
@@ -250,73 +249,76 @@ struct ConfigSensor
     int sensorWind;
 };
 
+// Roadmap #21: mirrors api.Models.ConditionType - same raw-int-on-the-wire convention as
+// CommandActionType/relay-function ids above, not a string.
+enum ConditionType
+{
+    CONDITION_THRESHOLD = 1,
+    CONDITION_INTERVAL = 2,
+    CONDITION_SCHEDULE = 3,
+};
+
+// Roadmap #21: one automation rule, read from the device's ASSIGNED ZONE at every config sync
+// (server-side: DeviceApiController.BuildDeviceConfigAsync merges the zone's rules onto this same
+// deviceConfigController object) - replaces the old flat threshold/interval/schedule/hysteresis
+// fields below. Flat, tagged-union-style (only the fields matching `type` are meaningful), same
+// convention as ConfigController itself and ScheduleWindow, not a real C++ union.
+//
+// targetFunction is a plain int (RelayFunctionType's own raw values - see ActuatorController.h),
+// not that enum directly: DeviceModel.h is included BY ActuatorController.h, not the reverse, so
+// this struct cannot name that type without a circular include - ActuatorController.cpp casts at
+// the point of use, exactly like ConfigController.relay1..relay8 below already do.
+struct Rule
+{
+    int targetFunction = 0; // RelayFunctionType raw value: 1=Ventilation,2=Light,3=Heating,4=WaterPump
+    int type = 0;           // ConditionType raw value
+
+    // Threshold - metric/direction are implicit in targetFunction (Ventilation=humidity/above,
+    // Light=light/below, Heating=temperature/below, WaterPump=waterLevel/below), unchanged from
+    // the pre-#21 thresholdRelayFunction switch - see ActuatorController::evaluateRule.
+    double threshold = 0;
+    double hysteresis = 0;
+
+    // Interval - on for intervalLength seconds out of every interval-second period, grid-aligned
+    // to epoch (roadmap #85, RelayLogic::computeIntervalState - unchanged).
+    int interval = 0;
+    int intervalLength = 0;
+
+    // Schedule - roadmap #39/#115's ScheduleWindow, inlined: ONE wall-clock window per rule (not a
+    // list like the pre-#21 model) - multiple windows for the same function are now multiple
+    // Schedule-type rules for it, OR'd together the same way any other pair of rules is (user
+    // decision). daysOfWeek is a 7-bit mask matching C's tm_wday (bit 0 = Sunday .. bit 6 =
+    // Saturday); start/duration are seconds since local midnight - v1 does not support a window
+    // crossing midnight (enforced server-side, DeviceUnitApiController.RuleConditionConfigError).
+    int daysOfWeek = 0;
+    int start = 0;
+    int duration = 0;
+};
+
+// Roadmap #21: fixed cap for ConfigController.rules[] below - ArduinoJson's static-buffer parsing
+// model has no dynamic growth on-device, so anything beyond this is silently dropped by
+// ConfigParser rather than overflowing the array; the server already enforces a matching cap when
+// saving (same tolerance the pre-#21 MAX_SCHEDULE_SLOTS_PER_FUNCTION cap established).
+static const int MAX_RULES = 32;
+
 struct ConfigController
 {
+    // Roadmap #21: the zone's rules for whichever RelayFunction(s) relay1..relay8 below actually
+    // wire up - empty (ruleCount 0) when the device has no assigned zone, meaning every relay
+    // function simply stays off (see ActuatorController::initController).
+    Rule rules[MAX_RULES];
+    int ruleCount = 0;
 
-    double tempLow;
-    double tempHigh;
-    double humidLow;
-    double humidHigh;
-    int moistLow;
-    int moistHigh;
-    int lightLow;
-    int lightHigh;
-    int waterLow;
-    int waterHigh;
-
-    // Hysteresis (dead zone) margins for the four threshold-based relay functions - prevents
-    // chattering when a sensor value sits right at its threshold. Server-configurable (roadmap
-    // #10), sent as part of deviceConfigController on every config sync. Default member
-    // initializers below are the fallback used if the server doesn't send these keys (older
-    // API) - loadConfig() falls back to whatever value is already here, so a config sync never
-    // resets a device to 0.
-    double waterLevelHysteresis = 5.0;   // same raw unit as waterLevel/waterLow
-    double temperatureHysteresis = 1.0;  // deg C
-    double humidityHysteresis = 5.0;     // percent
-    double lightHysteresis = 20.0;       // same raw unit as light/lightLow
-
-    int ventilationIntervalEnabled;
-    int ventilationInterval;
-    int ventilationIntervalLength;
-    int lightIntervalEnabled;
-    int lightInterval;
-    int lightIntervalLength;
-    int heatingIntervalEnabled;
-    int heatingInterval;
-    int heatingIntervalLength;
-    int waterPumpIntervalEnabled;
-    int waterPumpInterval;
-    int waterPumpIntervalLength;
-
-    // Roadmap #39/#115: a third relay-control mode alongside threshold and interval above - "be
-    // on during any of these wall-clock windows on these days", independent of any sensor
-    // reading. Evaluated by ActuatorController::scheduleRelayFunction (RelayLogic::
-    // computeAnyScheduleState, OR'd across the *ScheduleCount active slots) against LOCAL time,
-    // derived on-device from DeviceConfig.utcOffsetSeconds (no timezone database needed here -
-    // see that field's comment). Each ScheduleWindow's daysOfWeek is a 7-bit mask matching C's
-    // tm_wday (bit 0 = Sunday .. bit 6 = Saturday); start/duration are seconds since local
-    // midnight - v1 does not support a window crossing midnight (enforced server-side,
-    // DeviceApiController.ScheduleWindowError). *ScheduleCount == 0 means "no windows configured"
-    // - the old disabled flag's semantics, not "windows that are all currently off".
-    ScheduleWindow ventilationSchedule[MAX_SCHEDULE_SLOTS_PER_FUNCTION];
-    int ventilationScheduleCount = 0;
-    ScheduleWindow lightSchedule[MAX_SCHEDULE_SLOTS_PER_FUNCTION];
-    int lightScheduleCount = 0;
-    ScheduleWindow heatingSchedule[MAX_SCHEDULE_SLOTS_PER_FUNCTION];
-    int heatingScheduleCount = 0;
-    ScheduleWindow waterPumpSchedule[MAX_SCHEDULE_SLOTS_PER_FUNCTION];
-    int waterPumpScheduleCount = 0;
-
-    // Roadmap #36: WaterPump-only device-side hard safety limits, independent of whichever mode
-    // (threshold/interval/schedule/future #58 PID) decided the pump should be on - see
-    // RelayLogic::runTimeCeilingHit/cooldownActive for the math and ActuatorController::
-    // applyWaterPumpSafetyLimits for how they're combined. 0 disables either one. Server-
-    // configurable per device (same ServerConfig-default-plus-per-device-override pattern as the
-    // hysteresis fields above), not hardcoded, so a fallback of 0 here (never enforced) is safe
-    // until the first real config sync fills it in - a device is never worse off than pre-#36.
+    // Roadmap #21/#36: WaterPump-only device-side hard safety limits, independent of whichever
+    // rule decided the pump should be on - see RelayLogic::runTimeCeilingHit/cooldownActive for
+    // the math and ActuatorController::applyWaterPumpSafetyLimits for how they're combined. Copied
+    // from the assigned zone server-side (api.Models.DeviceUnitZone), same field names on the
+    // wire as before #21 moved them off the per-device row. 0 disables either one; the fallback
+    // here (never enforced) is safe until the first real config sync fills it in.
     int waterPumpMaxRunSeconds = 0;
     int waterPumpCooldownSeconds = 0;
 
+    // Relay-pin mapping - physical/hardware, stays per-device (roadmap #21 explicit decision).
     int relayEnabled;
     int relay1;
     int relay2;

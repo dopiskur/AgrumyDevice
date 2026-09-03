@@ -141,65 +141,48 @@ DeviceConfig ConfigParser::parse(const String &configJson, DeviceConfig currentC
   {
     JsonObject deviceConfigController = config["deviceConfigController"];
 
-    currentConfig.configController.tempLow = deviceConfigController["tempLow"];
-    currentConfig.configController.tempHigh = deviceConfigController["tempHigh"];
-    currentConfig.configController.humidLow = deviceConfigController["humidLow"];
-    currentConfig.configController.humidHigh = deviceConfigController["humidHigh"];
-    currentConfig.configController.moistLow = deviceConfigController["moistLow"];
-    currentConfig.configController.moistHigh = deviceConfigController["moistHigh"];
-    currentConfig.configController.lightLow = deviceConfigController["lightLow"];
-    currentConfig.configController.lightHigh = deviceConfigController["lightHigh"];
-    currentConfig.configController.waterLow = deviceConfigController["waterLow"];
-    currentConfig.configController.waterHigh = deviceConfigController["waterHigh"];
-
-    // "|" fallback keeps the current value if the server doesn't send these keys (older API),
-    // instead of clobbering it with 0.
-    currentConfig.configController.waterLevelHysteresis = deviceConfigController["waterLevelHysteresis"] | currentConfig.configController.waterLevelHysteresis;
-    currentConfig.configController.temperatureHysteresis = deviceConfigController["temperatureHysteresis"] | currentConfig.configController.temperatureHysteresis;
-    currentConfig.configController.humidityHysteresis = deviceConfigController["humidityHysteresis"] | currentConfig.configController.humidityHysteresis;
-    currentConfig.configController.lightHysteresis = deviceConfigController["lightHysteresis"] | currentConfig.configController.lightHysteresis;
-
-    currentConfig.configController.ventilationIntervalEnabled = deviceConfigController["ventilationIntervalEnabled"];
-    currentConfig.configController.ventilationInterval = deviceConfigController["ventilationInterval"];
-    currentConfig.configController.ventilationIntervalLength = deviceConfigController["ventilationIntervalLength"];
-    currentConfig.configController.lightIntervalEnabled = deviceConfigController["lightIntervalEnabled"];
-    currentConfig.configController.lightInterval = deviceConfigController["lightInterval"];
-    currentConfig.configController.lightIntervalLength = deviceConfigController["lightIntervalLength"];
-    currentConfig.configController.heatingIntervalEnabled = deviceConfigController["heatingIntervalEnabled"];
-    currentConfig.configController.heatingInterval = deviceConfigController["heatingInterval"];
-    currentConfig.configController.heatingIntervalLength = deviceConfigController["heatingIntervalLength"];
-    currentConfig.configController.waterPumpIntervalEnabled = deviceConfigController["waterPumpIntervalEnabled"];
-    currentConfig.configController.waterPumpInterval = deviceConfigController["waterPumpInterval"];
-    currentConfig.configController.waterPumpIntervalLength = deviceConfigController["waterPumpIntervalLength"];
-
-    // Roadmap #39/#115: a JSON array of windows per relay function, capped at
-    // MAX_SCHEDULE_SLOTS_PER_FUNCTION - ArduinoJson's static-buffer parsing model has no dynamic
-    // growth on-device, so anything beyond the cap is silently dropped rather than overflowing the
-    // fixed array (the server already enforces the same cap when saving, DeviceApiController - this
-    // only matters for a pre-cap-enforcement server build or a hand-crafted payload).
-    auto parseSchedule = [](JsonArray arr, ScheduleWindow slots[], int &count)
+    // Roadmap #21: Rule[] replaces the old flat threshold/interval/schedule/hysteresis fields -
+    // capped at MAX_RULES, same "ArduinoJson has no dynamic growth on-device, extras are silently
+    // dropped, server already enforces a matching cap" tolerance the pre-#21 schedule-slot parsing
+    // established. A rule with an unrecognized conditionType is skipped (not counted) rather than
+    // stored half-populated - forward-compatible with a future condition type (e.g. #11 Weather)
+    // an older firmware build does not understand yet.
+    JsonArray rules = deviceConfigController["rules"];
+    currentConfig.configController.ruleCount = 0;
+    for (JsonObject r : rules)
     {
-        count = 0;
-        for (JsonObject slot : arr)
+        if (currentConfig.configController.ruleCount >= MAX_RULES)
         {
-            if (count >= MAX_SCHEDULE_SLOTS_PER_FUNCTION)
-            {
-                break;
-            }
-            slots[count].daysOfWeek = slot["daysOfWeek"];
-            slots[count].start = slot["start"];
-            slots[count].duration = slot["duration"];
-            count++;
+            break;
         }
-    };
-    parseSchedule(deviceConfigController["ventilationSchedule"], currentConfig.configController.ventilationSchedule, currentConfig.configController.ventilationScheduleCount);
-    parseSchedule(deviceConfigController["lightSchedule"], currentConfig.configController.lightSchedule, currentConfig.configController.lightScheduleCount);
-    parseSchedule(deviceConfigController["heatingSchedule"], currentConfig.configController.heatingSchedule, currentConfig.configController.heatingScheduleCount);
-    parseSchedule(deviceConfigController["waterPumpSchedule"], currentConfig.configController.waterPumpSchedule, currentConfig.configController.waterPumpScheduleCount);
+        Rule &rule = currentConfig.configController.rules[currentConfig.configController.ruleCount];
+        rule.targetFunction = r["relayFunction"];
+        rule.type = r["conditionType"];
+        JsonObject conditionConfig = r["conditionConfig"];
+        switch (rule.type)
+        {
+        case CONDITION_THRESHOLD:
+            rule.threshold = conditionConfig["threshold"];
+            rule.hysteresis = conditionConfig["hysteresis"];
+            break;
+        case CONDITION_INTERVAL:
+            rule.interval = conditionConfig["interval"];
+            rule.intervalLength = conditionConfig["intervalLength"];
+            break;
+        case CONDITION_SCHEDULE:
+            rule.daysOfWeek = conditionConfig["daysOfWeek"];
+            rule.start = conditionConfig["start"];
+            rule.duration = conditionConfig["duration"];
+            break;
+        default:
+            continue; // unrecognized conditionType - skip, do not advance ruleCount
+        }
+        currentConfig.configController.ruleCount++;
+    }
 
-    // Roadmap #36: same "|" current-value fallback as the hysteresis fields above - an older
-    // server build that doesn't send these keys yet must not clobber whatever safety limits are
-    // already in effect back down to 0 (disabled).
+    // Roadmap #21/#36: "|" fallback keeps the current value if the server doesn't send these keys
+    // (older API), instead of clobbering it with 0 - now copied from the device's assigned zone
+    // server-side (DeviceApiController.BuildDeviceConfigAsync), same field names on the wire.
     currentConfig.configController.waterPumpMaxRunSeconds = deviceConfigController["waterPumpMaxRunSeconds"] | currentConfig.configController.waterPumpMaxRunSeconds;
     currentConfig.configController.waterPumpCooldownSeconds = deviceConfigController["waterPumpCooldownSeconds"] | currentConfig.configController.waterPumpCooldownSeconds;
 

@@ -46,27 +46,27 @@ public:
 private:
     // Walks ConfigController.relay1..relay8 and collects the physical pin of every slot assigned
     // to relayFunction into pins[] (caller-provided, must hold 8). Returns how many were found.
-    // Shared by the interval and threshold table-driven functions below - the one place that
-    // knows relay1..relay8/RELAY_1..RELAY_8 are eight parallel slots, not an array in the model.
+    // The one place that knows relay1..relay8/RELAY_1..RELAY_8 are eight parallel slots, not an
+    // array in the model.
     int collectPinsForFunction(RelayFunctionType relayFunction, int pins[8]) const;
 
-    void intervalRelayFunction(RelayFunctionType relayFunction, bool intervalEnabled, int interval, int intervalLength, time_t epochSeconds);
-    void thresholdRelayFunction(RelayFunctionType relayFunction, int relayPin, SensorData sensorData);
-
-    // Roadmap #39/#115: localWeekday (0=Sunday..6=Saturday, C's tm_wday) and localSecondsOfDay
-    // (0..86399) are computed ONCE per initController() tick from epochSeconds+utcOffsetSeconds
-    // and passed to all four calls below, rather than each call re-deriving them - cheap, but no
-    // reason to repeat the same gmtime() call four times a tick. slots/slotCount is one relay
-    // function's list of windows (RelayLogic::computeAnyScheduleState ORs them together).
-    void scheduleRelayFunction(RelayFunctionType relayFunction, const ScheduleWindow slots[], int slotCount,
-                                int localWeekday, int localSecondsOfDay);
+    // Roadmap #21: replaces the pre-#21 intervalRelayFunction/thresholdRelayFunction/
+    // scheduleRelayFunction trio - ONE rule, evaluated to on/off. localWeekday (0=Sunday..6=
+    // Saturday, C's tm_wday) and localSecondsOfDay (0..86399) are computed ONCE per
+    // initController() tick from epochSeconds+utcOffsetSeconds and passed through rather than
+    // re-derived per rule. isCurrentlyOn is the target function's CURRENT physical pin state
+    // (needed only by Threshold's hysteresis math - see RelayLogic::computeThresholdState); every
+    // rule reads the SAME live state regardless of type, so several Threshold rules for one
+    // function each see the real pin, not a stale/differing view.
+    bool evaluateRule(const Rule &rule, SensorData sensorData, time_t epochSeconds,
+                       int localWeekday, int localSecondsOfDay, bool isCurrentlyOn) const;
 
     // Roadmap #36: the LAST word for a WaterPump-assigned physical relay slot, applied right after
-    // thresholdRelayFunction (whatever it just wrote for this pin, in the trailing per-slot loop of
-    // initController) - independent of which mode produced that decision. slot (0..7) is the
-    // physical relay index, not the discovery order collectPinsForFunction would give - so each
-    // slot's on/off history stays correctly independent even if several relays share the WaterPump
-    // function. See RelayLogic::runTimeCeilingHit/cooldownActive for the pure math this wraps.
+    // this function's rules have been OR'd and written for this tick - independent of which rule
+    // (if any) produced that decision. slot (0..7) is the physical relay index, not the discovery
+    // order collectPinsForFunction would give - so each slot's on/off history stays correctly
+    // independent even if several relays share the WaterPump function. See RelayLogic::
+    // runTimeCeilingHit/cooldownActive for the pure math this wraps.
     void applyWaterPumpSafetyLimits(int slot, int pin, time_t epochSeconds);
     void reportSafetyLimitTripped(const String &message);
 
