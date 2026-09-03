@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [esp32dev, esp32s3usbotg]
+        environment: [esp32dev, esp32s3usbotg, kc868-a6, esp32-s3-relay-6ch]
     steps:
       # Roadmap #121: SHA-pinned (same practice as release.yml) - a moving major tag could be
       # repointed at anything; the pinned commit is exactly what was reviewed.

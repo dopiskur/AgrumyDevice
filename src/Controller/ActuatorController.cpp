@@ -76,10 +76,15 @@ void ActuatorController::intervalRelayFunction(RelayFunctionType relayFunction, 
 
     bool shouldBeOn = computeIntervalState(interval, intervalLength, epochSeconds);
 
+    // Roadmap #149: routes through RelayIO so an I2C-expander kit (KC868-A6) works the same as a
+    // direct-GPIO one - see RelayIO.h.
+    int i2cAddr = deviceConfig.configPin.RELAY_I2C_ADDRESS;
+    int i2cSda = deviceConfig.configPin.RELAY_I2C_SDA;
+    int i2cScl = deviceConfig.configPin.RELAY_I2C_SCL;
     for (int i = 0; i < pinCount; i++)
     {
-        pinMode(pins[i], OUTPUT);
-        digitalWrite(pins[i], shouldBeOn ? HIGH : LOW);
+        relayPinMode(pins[i], i2cAddr, i2cSda, i2cScl);
+        relayWrite(pins[i], shouldBeOn, i2cAddr, i2cSda, i2cScl);
     }
 }
 
@@ -135,13 +140,17 @@ void ActuatorController::thresholdRelayFunction(RelayFunctionType relayFunction,
         return; // relay slot unassigned (RelayFunctionType::None) - nothing to control
     }
 
-    pinMode(relayPin, OUTPUT);
-    bool isCurrentlyOn = digitalRead(relayPin) == HIGH;
+    // Roadmap #149: RelayIO instead of pinMode/digitalRead/digitalWrite directly - see RelayIO.h.
+    int i2cAddr = deviceConfig.configPin.RELAY_I2C_ADDRESS;
+    int i2cSda = deviceConfig.configPin.RELAY_I2C_SDA;
+    int i2cScl = deviceConfig.configPin.RELAY_I2C_SCL;
+    relayPinMode(relayPin, i2cAddr, i2cSda, i2cScl);
+    bool isCurrentlyOn = relayRead(relayPin, i2cAddr, i2cSda, i2cScl);
     bool newState = computeThresholdState(isCurrentlyOn, reading, threshold, hysteresis, turnsOnAboveThreshold);
 
     if (newState != isCurrentlyOn)
     {
-        digitalWrite(relayPin, newState ? HIGH : LOW);
+        relayWrite(relayPin, newState, i2cAddr, i2cSda, i2cScl);
         Serial.println(newState ? "[Power rail on]" : "[Power rail off]");
     }
     delay(500);
@@ -170,10 +179,14 @@ void ActuatorController::scheduleRelayFunction(RelayFunctionType relayFunction, 
 
     int pins[8];
     int pinCount = collectPinsForFunction(relayFunction, pins);
+    // Roadmap #149: RelayIO instead of pinMode/digitalWrite directly - see RelayIO.h.
+    int i2cAddr = deviceConfig.configPin.RELAY_I2C_ADDRESS;
+    int i2cSda = deviceConfig.configPin.RELAY_I2C_SDA;
+    int i2cScl = deviceConfig.configPin.RELAY_I2C_SCL;
     for (int i = 0; i < pinCount; i++)
     {
-        pinMode(pins[i], OUTPUT);
-        digitalWrite(pins[i], inWindow ? HIGH : LOW);
+        relayPinMode(pins[i], i2cAddr, i2cSda, i2cScl);
+        relayWrite(pins[i], inWindow, i2cAddr, i2cSda, i2cScl);
     }
 }
 
@@ -185,7 +198,11 @@ void ActuatorController::scheduleRelayFunction(RelayFunctionType relayFunction, 
 // requesting ON every tick).
 void ActuatorController::applyWaterPumpSafetyLimits(int slot, int pin, time_t epochSeconds)
 {
-    bool desiredState = digitalRead(pin) == HIGH; // whatever threshold/interval/schedule already wrote this tick
+    // Roadmap #149: RelayIO instead of digitalRead/digitalWrite directly - see RelayIO.h.
+    int i2cAddr = deviceConfig.configPin.RELAY_I2C_ADDRESS;
+    int i2cSda = deviceConfig.configPin.RELAY_I2C_SDA;
+    int i2cScl = deviceConfig.configPin.RELAY_I2C_SCL;
+    bool desiredState = relayRead(pin, i2cAddr, i2cSda, i2cScl); // whatever threshold/interval/schedule already wrote this tick
     int maxRunSeconds = deviceConfig.configController.waterPumpMaxRunSeconds;
     int cooldownSeconds = deviceConfig.configController.waterPumpCooldownSeconds;
 
@@ -213,7 +230,7 @@ void ActuatorController::applyWaterPumpSafetyLimits(int slot, int pin, time_t ep
 
     if (finalState != desiredState)
     {
-        digitalWrite(pin, finalState ? HIGH : LOW);
+        relayWrite(pin, finalState, i2cAddr, i2cSda, i2cScl);
         if (ceilingHit)
         {
             reportSafetyLimitTripped("WaterPump max run time exceeded (" + String(maxRunSeconds) + "s)");

@@ -5,6 +5,7 @@
 
 #include "../Model/DeviceModel.h"
 #include "../Logic/RelayLogic.h"
+#include "RelayIO.h"
 
 // Forward declarations instead of includes
 class DeviceController;

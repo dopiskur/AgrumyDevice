@@ -22,6 +22,15 @@ extern const char *firmware;
 #define AGRUMY_BOARD "unknown"
 #endif
 
+// Roadmap #149: which commercial KIT (physical PCB) this image was built for, separate from
+// AGRUMY_BOARD above - Board picks the OTA binary (roadmap #94), Kit tells the server which
+// physical board self-reported so it can look up known relay-hardware capability
+// (deviceTypeKit). Empty on every generic chip-target environment (esp32dev/esp32s3usbotg) - the
+// server falls back to the existing, admin-controlled DeviceType/DeviceControllerEnabled for those.
+#ifndef AGRUMY_KIT
+#define AGRUMY_KIT ""
+#endif
+
 // Roadmap #129: `serviceEndpoint` is the single canonical instance (DeviceModel.h extern) - this
 // file no longer keeps its own separate copy. (The old file-static `serviceRequest` here was dead:
 // every method that touches serviceRequest takes it as its own parameter.)
@@ -304,6 +313,9 @@ bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest ser
     // Roadmap #94: which release .bin fits this hardware - the PlatformIO env name from the
     // AGRUMY_BOARD build flag (platformio.ini), never guessed from the chip at runtime.
     payload["Board"] = AGRUMY_BOARD;
+    // Roadmap #149: which commercial kit this image was built for (empty on generic environments)
+    // - lets the server auto-detect relay-hardware capability without an admin guess.
+    payload["Kit"] = AGRUMY_KIT;
 
     serviceData = requestPost(payload, serviceRequest);
 
