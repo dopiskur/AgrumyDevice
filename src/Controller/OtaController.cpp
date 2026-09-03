@@ -1,16 +1,16 @@
 #include "Arduino.h"
 #include <WiFi.h>
-#include <HTTPClient.h>       // roadmap #3 (OTA): firmware download
-#include <WiFiClientSecure.h> // roadmap #3 (OTA): https firmware download
-#include <Update.h>           // roadmap #3 (OTA): Arduino-ESP32 built-in updater
-#include "mbedtls/sha256.h"   // roadmap #131: integrity check, hardware-accelerated on ESP32
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
+#include <Update.h>
+#include "mbedtls/sha256.h" // hardware-accelerated on ESP32
 
 #include "OtaController.h"
 
 // Same CA bundle ServiceController::requestPost() validates against; re-declared here for the OTA download.
 extern const uint8_t rootca_crt_bundle_start[] asm("_binary_data_cert_x509_crt_bundle_bin_start");
 
-// Roadmap #131: 32 raw bytes -> 64 lowercase hex chars + NUL.
+// 32 raw bytes -> 64 lowercase hex chars + NUL.
 static void sha256ToHex(const unsigned char digest[32], char out[65])
 {
   static const char *hexDigits = "0123456789abcdef";
@@ -22,7 +22,6 @@ static void sha256ToHex(const unsigned char digest[32], char out[65])
   out[64] = '\0';
 }
 
-// roadmap #3 (OTA): stream `url` into the inactive OTA partition; returns true once fully written and verified (caller reboots), false leaves the running firmware untouched.
 bool OtaController::update(String url, bool isHttps, const String &servicePublicKey, const String &servicePoint, const String &expectedSha256)
 {
   Serial.println("[Firmware] Starting OTA update from: " + url);
@@ -38,11 +37,7 @@ bool OtaController::update(String url, bool isHttps, const String &servicePublic
 
   if (isHttps)
   {
-    // Roadmap #94: the download host decides which trust to use. A Local-repository URL is served
-    // by our own API - if the operator pinned a (self-signed) servicePublicKey, only that cert
-    // validates it, exactly as requestPost() does. Any other host (GitHub release asset, a Custom
-    // repository) validates against the embedded CA bundle - a pinned cert can never match those,
-    // which is precisely why the Local mode exists for pinned-cert installs.
+    // The download host decides which trust to use: our own API validates against a pinned servicePublicKey (if set), any other host (GitHub release, Custom repository) against the embedded CA bundle - a pinned cert can never match those.
     bool ownServer = servicePublicKey.length() > 0 &&
                      servicePoint.length() > 0 &&
                      url.indexOf(servicePoint) >= 0;
@@ -61,8 +56,7 @@ bool OtaController::update(String url, bool isHttps, const String &servicePublic
   {
     http.begin(url);
   }
-  // Roadmap #94: a GitHub release asset URL answers 302 to objects.githubusercontent.com -
-  // without this the GET returns the redirect itself (HTTP 302, no body) and OTA "fails".
+  // A GitHub release asset URL answers 302 to objects.githubusercontent.com - without this the GET returns the redirect itself (HTTP 302, no body) and OTA "fails".
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
   int httpCode = http.GET();
@@ -89,11 +83,7 @@ bool OtaController::update(String url, bool isHttps, const String &servicePublic
     return false;
   }
 
-  // Roadmap #131: hashed WHILE streaming (not re-read from flash afterwards) so the check covers
-  // exactly the bytes handed to Update.write() - a 64-char lowercase-hex expectedSha256 is a real
-  // catalog hash; anything else (including "", the pre-#131/no-manifest case) skips verification
-  // rather than failing closed, same tolerance FirmwareCatalogService already applies server-side
-  // when a source has no manifest hash to offer.
+  // Hashed WHILE streaming (not re-read from flash afterwards) so the check covers exactly the bytes handed to Update.write(). Anything other than a 64-char lowercase-hex hash (including "") skips verification rather than failing closed.
   bool verifyHash = expectedSha256.length() == 64;
   mbedtls_sha256_context shaCtx;
   if (verifyHash)
