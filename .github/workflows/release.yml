@@ -11,6 +11,15 @@ name: Firmware release
 # heartbeat can never disagree. File names follow agrumy-<board>-v<version>.bin - the API
 # rejects anything else, on every import path.
 #
+# Roadmap #41: each environment ALSO gets a agrumy-<board>-full-v<version>.bin - bootloader +
+# partition table + boot_app0 + the OTA app above, merged via esptool merge-bin into one file
+# flashable at offset 0 on a completely blank chip (the OTA .bin ALONE is only ever valid at
+# offset 0x10000 on a board that already has a bootloader - see AgrumyApi's web installer,
+# api.Firmware.FirmwareVersion.TryParseFullImageFileName). Offsets/flash sizes below are fixed by
+# platformio.ini's board choice + the partition CSV each board's framework config selects
+# (default.csv / default_8MB.csv) - not something this workflow computes, so they are pinned
+# per-environment rather than discovered at build time.
+#
 # Usage:  git tag v1.2.3 && git push origin v1.2.3
 
 on:
@@ -37,7 +46,7 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.x'
-      - run: pip install --upgrade platformio
+      - run: pip install --upgrade platformio esptool
       - name: Build ${{ matrix.environment }} with the tag as FIRMWARE_VERSION
         env:
           FIRMWARE_VERSION: ${{ github.ref_name }}
@@ -47,6 +56,31 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           mkdir -p out
           cp ".pio/build/${{ matrix.environment }}/firmware.bin" "out/agrumy-${{ matrix.environment }}-v${VERSION}.bin"
+      - name: Merge into one blank-chip-flashable image (roadmap #41)
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          BUILD_DIR=".pio/build/${{ matrix.environment }}"
+          BOOT_APP0="$HOME/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin"
+          case "${{ matrix.environment }}" in
+            esp32dev)
+              # Classic ESP32: second-stage bootloader lives at 0x1000 (the first 4 KB is the ROM's
+              # own boot header, not ours) - see FLASH_EXTRA_IMAGES in the arduino-esp32 platform's
+              # platformio-build.py, which special-cases esp32/esp32s2 this way.
+              CHIP=esp32; BOOTLOADER_OFFSET=0x1000; FLASH_SIZE=4MB ;;
+            esp32s3usbotg)
+              # Every other supported chip (S3 included) boots its bootloader from 0x0.
+              CHIP=esp32s3; BOOTLOADER_OFFSET=0x0; FLASH_SIZE=8MB ;;
+            *)
+              echo "::error::no merge-bin offsets known for environment '${{ matrix.environment }}' - add a case above before adding this env to the release matrix."
+              exit 1 ;;
+          esac
+          python3 -m esptool --chip "$CHIP" merge-bin \
+            -o "out/agrumy-${{ matrix.environment }}-full-v${VERSION}.bin" \
+            --flash-size "$FLASH_SIZE" \
+            "$BOOTLOADER_OFFSET" "$BUILD_DIR/bootloader.bin" \
+            0x8000 "$BUILD_DIR/partitions.bin" \
+            0xe000 "$BOOT_APP0" \
+            0x10000 "$BUILD_DIR/firmware.bin"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ matrix.environment }}
@@ -72,7 +106,11 @@ jobs:
           import hashlib, json, os, re, datetime
           repo, tag = os.environ["REPO"], os.environ["TAG"]
           version = tag[1:] if tag.startswith("v") else tag
-          pattern = re.compile(r"^agrumy-(?P<board>[a-z0-9]+)-v(?P<version>[^/]+)\.bin$")
+          # Roadmap #41: the "full-" marker sits BEFORE "v" (never after the version) so it can never
+          # collide with a semver pre-release tag - see AgrumyApi's FirmwareVersion.cs remarks on
+          # FullImageFileNameRegex for the full reasoning (that's the consuming side; this is the
+          # producing side, kept in sync by convention, not by sharing code across repos/languages).
+          pattern = re.compile(r"^agrumy-(?P<board>[a-z0-9]+)-(?P<kind>full-)?v(?P<version>[^/]+)\.bin$")
           files = []
           for name in sorted(os.listdir(".")):
               m = pattern.match(name)
@@ -86,6 +124,7 @@ jobs:
                   "sizeBytes": os.path.getsize(name),
                   "sha256": digest,
                   "url": f"https://github.com/{repo}/releases/download/{tag}/{name}",
+                  "kind": "full" if m.group("kind") else "ota",
               })
           manifest = {
               "schemaVersion": 1,
