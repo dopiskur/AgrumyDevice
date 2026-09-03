@@ -3,6 +3,7 @@
 
 #include "Arduino.h"
 #include "ArduinoJson.h"
+#include <Adafruit_Sensor.h> // sensors_event_t, used by the roadmap #130 DHT report helpers below
 
 #include "../Model/DeviceModel.h"
 
@@ -39,6 +40,16 @@ private:
     void sensor_liquid_PH(); // unavailable
     void sensor_analog_waterLevel(); // unavailable
     void sensor_rainLevel(); // unavailable
+
+    // Roadmap #130: shared print/store tail shared by the DHT11/DHT22, BMP180/BMP280 and
+    // CCS811 co2/tvoc pairs - only the read call itself differs per library, so that part stays
+    // in each sensor_* function and only the identical reporting logic moves here.
+    void reportDHTTemperature(sensors_event_t &event, const char *label);
+    void reportDHTHumidity(sensors_event_t &event, const char *label);
+    void reportSensorInitError(const char *label);
+    void reportTemperature(double celsius);
+    void reportPressure(double pascals);
+    bool tryReadCCS811(); // available()+readData(), false on either miss or heat-up wait
 
     // Roadmap #9: drains /buffer oldest-first, deleting each file only after its own 2xx.
     // Returns true when the queue is empty on exit; false = broke off mid-queue (connection

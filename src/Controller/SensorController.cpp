@@ -73,13 +73,11 @@ void SensorController::setupSensor()
 
 // Temperature and humidity sensors
 
-void SensorController::sensor_DHT11_temp()
+void SensorController::reportDHTTemperature(sensors_event_t &event, const char *label)
 {
-
-    Serial.println("[Sensor] DHT11 temperature");
-    sensors_event_t event;
-
-    dht11.temperature().getEvent(&event);
+    Serial.print("[Sensor] ");
+    Serial.print(label);
+    Serial.println(" temperature");
     if (isnan(event.temperature))
     {
         Serial.println("Error reading temperature!");
@@ -90,16 +88,14 @@ void SensorController::sensor_DHT11_temp()
         Serial.print(event.temperature);
         Serial.println(" C");
         sensorData.temperature=event.temperature;
-        
     }
 }
-void SensorController::sensor_DHT11_humid()
+
+void SensorController::reportDHTHumidity(sensors_event_t &event, const char *label)
 {
-
-    Serial.println("[Sensor] DHT11 humidity");
-    sensors_event_t event;
-
-    dht11.humidity().getEvent(&event);
+    Serial.print("[Sensor] ");
+    Serial.print(label);
+    Serial.println(" humidity");
     if (isnan(event.relative_humidity))
     {
         Serial.println("Error reading humidity!");
@@ -111,129 +107,88 @@ void SensorController::sensor_DHT11_humid()
         Serial.println(" %");
         sensorData.humidity=event.relative_humidity;
     }
+}
+
+void SensorController::sensor_DHT11_temp()
+{
+    sensors_event_t event;
+    dht11.temperature().getEvent(&event);
+    reportDHTTemperature(event, "DHT11");
+}
+void SensorController::sensor_DHT11_humid()
+{
+    sensors_event_t event;
+    dht11.humidity().getEvent(&event);
+    reportDHTHumidity(event, "DHT11");
 }
 
 void SensorController::sensor_DHT22_temp()
 {
-
-    Serial.println("[Sensor] DHT22 temperature");
     delay(500);
     dht22.begin();
     delay(500);
     sensors_event_t event;
-
     dht22.temperature().getEvent(&event);
-    if (isnan(event.temperature))
-    {
-        Serial.println("Error reading temperature!");
-    }
-    else
-    {
-        Serial.print("Temperature = ");
-        Serial.print(event.temperature);
-        Serial.println(" %");
-        sensorData.temperature=event.temperature;
-    }
+    reportDHTTemperature(event, "DHT22");
 }
 void SensorController::sensor_DHT22_humid()
 {
-
-    Serial.println("[Sensor] DHT22 humidity");
     delay(500);
     dht22.begin();
     delay(500);
     sensors_event_t event;
-
     dht22.humidity().getEvent(&event);
-    if (isnan(event.relative_humidity))
-    {
-        Serial.println("Error reading humidity!");
-    }
-    else
-    {
-        Serial.print("Humidity = ");
-        Serial.print(event.relative_humidity);
-        Serial.println(" %");
-        sensorData.humidity=event.relative_humidity;
-    }
+    reportDHTHumidity(event, "DHT22");
+}
+
+void SensorController::reportSensorInitError(const char *label)
+{
+    Serial.print("[Sensor] ");
+    Serial.print(label);
+    Serial.println(" error reading data");
+    sensorData.eventlog.error = true;
+}
+
+void SensorController::reportTemperature(double celsius)
+{
+    Serial.print("Temperature = ");
+    Serial.print(celsius);
+    Serial.println(" *C");
+    sensorData.temperature = celsius;
+}
+
+void SensorController::reportPressure(double pascals)
+{
+    Serial.print("Pressure = ");
+    Serial.print(pascals);
+    Serial.println(" Pa");
+    sensorData.barometer = pascals;
 }
 
 void SensorController::sensor_BMP180_temp()
 {
     Serial.println("[Sensor] BMP180 temperature");
-    if (!bmp180status)
-    {
-        Serial.println("[Sensor] BMP180 error reading data");
-        sensorData.eventlog.error = true;
-    }
-    else
-    {
-
-        double temperatureC = bmp180.readTemperature();
-
-        Serial.print("Temperature = ");
-        Serial.print(temperatureC);
-        Serial.println(" *C");
-        sensorData.temperature=temperatureC;
-    }
+    if (!bmp180status) reportSensorInitError("BMP180");
+    else reportTemperature(bmp180.readTemperature());
 }
 void SensorController::sensor_BMP180_pres()
 {
     Serial.println("[Sensor] BMP180 pressure");
-    if (!bmp180status)
-    {
-        Serial.println("[Sensor] BMP180 error reading data");
-        sensorData.eventlog.error = true;
-    }
-    else
-    {
-
-        double barometer = bmp180.readPressure();
-
-        Serial.print("Pressure = ");
-        Serial.print(barometer);
-        Serial.println(" Pa");
-        sensorData.barometer=barometer;
-    }
+    if (!bmp180status) reportSensorInitError("BMP180");
+    else reportPressure(bmp180.readPressure());
 }
 
 void SensorController::sensor_BMP280_temp()
 {
     Serial.println("[Sensor] BMP280 temperature");
-    if (!bmp280status)
-    {
-        Serial.println("[Sensor] BMP280 error reading data");
-        sensorData.eventlog.error = true;
-    }
-    else
-    {
-
-        double temperatureC = bmp280.readTemperature();
-
-        Serial.print("Temperature = ");
-        Serial.print(temperatureC);
-        Serial.println(" *C");
-        sensorData.temperature=temperatureC;
-    }
+    if (!bmp280status) reportSensorInitError("BMP280");
+    else reportTemperature(bmp280.readTemperature());
 }
 void SensorController::sensor_BMP280_pres()
 {
     Serial.println("[Sensor] BMP280 pressure");
-    if (!bmp280status)
-    {
-        Serial.println("[Sensor] BMP280 error reading data");
-        sensorData.eventlog.error = true;
-    }
-    else
-    {
-
-        double barometer = bmp280.readPressure();
-
-        Serial.print("Pressure = ");
-        Serial.print(barometer);
-        Serial.println(" Pa");
-        sensorData.barometer=barometer;
-    }
+    if (!bmp280status) reportSensorInitError("BMP280");
+    else reportPressure(bmp280.readPressure());
 }
 
 void SensorController::sensor_BME280_temp()
@@ -270,51 +225,42 @@ void SensorController::sensor_BH1750_lux()
 }
 
 // Co2 and Tvoc sensors
+
+// CO2 and TVOC sensor, needs time (~20min) to heat up and give info - available()+readData() is
+// identical for both quantities, only the getter/target field differs per caller.
+bool SensorController::tryReadCCS811()
+{
+    if (!ccs811.available())
+    {
+        return false;
+    }
+    if (ccs811.readData())
+    {
+        Serial.println("[Sensor] CCS811 waiting for sensor to heat up, no data");
+        return false;
+    }
+    return true;
+}
+
 void SensorController::sensor_CCS811_co2()
 {
-    // CO2 and TVOC sensor, needs time (~20min) to heat up and give info
-    EventLog eventlog;
     Serial.println("[Sensor] CCS811 Co2");
-
-    if (ccs811.available())
+    if (tryReadCCS811())
     {
-        if (!ccs811.readData())
-        {
-            Serial.print("CO2: ");
-            Serial.println(ccs811.geteCO2());
-            sensorData.co2 = ccs811.geteCO2();
-        }
-        else
-        {
-            eventlog.error = true;
-            eventlog.errorCode = 2106;
-            eventlog.errorData = "Waiting for sensor to heat up, no data";
-        }
+        Serial.print("CO2: ");
+        Serial.println(ccs811.geteCO2());
+        sensorData.co2 = ccs811.geteCO2();
     }
-
 }
 void SensorController::sensor_CCS811_tvoc()
 {
-    // CO2 and TVOC sensor, needs time (~20min) to heat up and give info
-    EventLog eventlog;
     Serial.println("[Sensor] CCS811 Tvoc");
-
-    if (ccs811.available())
+    if (tryReadCCS811())
     {
-        if (!ccs811.readData())
-        {
-            Serial.print("ppm, TVOC: ");
-            Serial.println(ccs811.getTVOC());
-            sensorData.tvoc = ccs811.getTVOC();
-        }
-        else
-        {
-            eventlog.error = true;
-            eventlog.errorCode = 2106;
-            eventlog.errorData = "Waiting for sensor to heat up, no data";
-        }
+        Serial.print("ppm, TVOC: ");
+        Serial.println(ccs811.getTVOC());
+        sensorData.tvoc = ccs811.getTVOC();
     }
-
 }
 
 void SensorController::sensor_analog_voltage() // 2001 - roadmap #12 VoltageDivider
