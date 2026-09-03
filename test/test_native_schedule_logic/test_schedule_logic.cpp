@@ -1,5 +1,3 @@
-// Roadmap #19/#95: native (host-based) tests for computeScheduleState() (roadmap #39's wall-clock
-// schedule window) - no ESP32/Arduino dependency, runs via `pio test -e native`.
 #include <unity.h>
 #include "../../src/Logic/RelayLogic.h"
 
@@ -13,8 +11,6 @@ static const int kWednesday = 1 << 3;
 static const int kSaturday = 1 << 6;
 static const int kWeekdays = kMonday | (1 << 2) | kWednesday | (1 << 4) | (1 << 5); // Mon-Fri
 static const int kAllDays = 0b1111111;
-
-// ---- day-of-week mask filtering -------------------------------------------------------
 
 void test_DayBitSet_WithinWindow_IsOn(void)
 {
@@ -46,8 +42,6 @@ void test_AllDaysMask_EveryWeekdayIncluded(void)
     }
 }
 
-// ---- start/duration window boundaries --------------------------------------------------
-
 void test_ExactlyAtStart_IsOn(void)
 {
     // [start, start+duration) is inclusive of start.
@@ -70,8 +64,6 @@ void test_ExactlyAtWindowEnd_IsOff(void)
     TEST_ASSERT_FALSE(computeScheduleState(kSunday, 21600, 3600, 0, 25200)); // 21600+3600
 }
 
-// ---- localSecondsOfDay's own valid range (0..86399) ------------------------------------
-
 void test_LocalSecondsOfDayZero_WithinMidnightWindow_IsOn(void)
 {
     TEST_ASSERT_TRUE(computeScheduleState(kSaturday, 0, 60, 6, 0));
@@ -83,23 +75,13 @@ void test_LocalSecondsOfDayLastSecond_WithinLateWindow_IsOn(void)
     TEST_ASSERT_TRUE(computeScheduleState(kSaturday, 86340, 60, 6, 86399));
 }
 
-// ---- no midnight-wraparound support in v1 (server rejects start+duration > 86400 before it -----
-// ---- ever reaches a device, so this function does not special-case it - pinning that here) -----
-
 void test_WindowExtendingPastMidnight_DoesNotWrapToNextDay(void)
 {
-    // start=86000, duration=1000 -> nominal window [86000, 87000), which the server would in
-    // practice never send (DeviceApiController.ScheduleWindowError rejects start+duration>86400)
-    // - but if it ever did reach the device, this proves the firmware has no wraparound logic:
-    // the tail end of "today" is honored (localSecondsOfDay can't exceed 86399 anyway)...
+    // start=86000, duration=1000 -> nominal window [86000, 87000). Proves the firmware has no wraparound logic: the tail end of "today" is honored...
     TEST_ASSERT_TRUE(computeScheduleState(kAllDays, 86000, 1000, 3, 86399));
-    // ...but the "spillover" into the next calendar day is NOT: 100 seconds after midnight on the
-    // NEXT day is < 86000, so it falls outside [86000, 87000) even though a wrapping
-    // implementation would have included it.
+    // ...but spillover into the next calendar day is NOT: 100s after midnight is < 86000, so it falls outside [86000, 87000) even though a wrapping implementation would include it.
     TEST_ASSERT_FALSE(computeScheduleState(kAllDays, 86000, 1000, 4, 100));
 }
-
-// ---- multiple windows OR'd together (roadmap #115) -------------------------------------
 
 void test_AnySchedule_ZeroSlots_IsOff(void)
 {
@@ -133,8 +115,7 @@ void test_AnySchedule_OneEnabledOneWrongDay_OnlyMatchingSlotCounts(void)
 
 void test_AnySchedule_OverlappingSlots_StillJustOn(void)
 {
-    // Overlap is explicitly allowed (roadmap #115: "functionally harmless, no validation needed") -
-    // OR of two true results is still just true, not some special double-on state.
+    // Overlap is explicitly allowed - OR of two true results is still just true, not some special double-on state.
     ScheduleWindow slots[2] = { { kAllDays, 21600, 3600 }, { kAllDays, 23400, 3600 } }; // overlap [23400,25200)
     TEST_ASSERT_TRUE(computeAnyScheduleState(slots, 2, 0, 24000));
 }

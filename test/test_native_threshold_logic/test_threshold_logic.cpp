@@ -1,14 +1,10 @@
-// Roadmap #19/#95: native (host-based) tests for computeThresholdState() (roadmap #10's dead-zone
-// hysteresis latch) - no ESP32/Arduino dependency, runs via `pio test -e native`.
 #include <unity.h>
 #include "../../src/Logic/RelayLogic.h"
 
 void setUp(void) {}
 void tearDown(void) {}
 
-// ---- normal direction (turnsOnAboveThreshold=false): heating/light/waterPump ------------
-// Turns ON when reading drops BELOW threshold, turns OFF once it climbs back to/above
-// threshold+hysteresis. E.g. heating: threshold=tempLow=18, hysteresis=1 -> on below 18, off at >=19.
+// Normal direction (turnsOnAboveThreshold=false): heating/light/waterPump. Turns ON when reading drops BELOW threshold, OFF once it climbs back to/above threshold+hysteresis. E.g. heating: threshold=tempLow=18, hysteresis=1 -> on below 18, off at >=19.
 
 void test_Normal_Off_ReadingBelowThreshold_TurnsOn(void)
 {
@@ -51,9 +47,7 @@ void test_Normal_On_ReadingWellAboveUpperBound_TurnsOff(void)
     TEST_ASSERT_FALSE(computeThresholdState(true, 25.0, 18.0, 1.0, false));
 }
 
-// ---- inverted direction (turnsOnAboveThreshold=true): ventilation only -------------------
-// Turns ON when reading climbs ABOVE threshold (humidHigh), turns OFF once it drops back to/below
-// threshold-hysteresis - exhausting excess humidity, the opposite polarity from the other three.
+// Inverted direction (turnsOnAboveThreshold=true): ventilation only. Turns ON when reading climbs ABOVE threshold, OFF once it drops back to/below threshold-hysteresis - opposite polarity from the other three.
 
 void test_Inverted_Off_ReadingAboveThreshold_TurnsOn(void)
 {

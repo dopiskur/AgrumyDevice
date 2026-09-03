@@ -1,12 +1,8 @@
-// Roadmap #19/#95: native (host-based) tests for computeIntervalState() (roadmap #85's
-// grid-aligned duty-cycle algorithm) - no ESP32/Arduino dependency, runs via `pio test -e native`.
 #include <unity.h>
 #include "../../src/Logic/RelayLogic.h"
 
 void setUp(void) {}
 void tearDown(void) {}
-
-// ---- basic on/off within a cycle -----------------------------------------------------
 
 void test_MidWindow_IsOn(void)
 {
@@ -18,8 +14,6 @@ void test_WellPastWindow_IsOff(void)
 {
     TEST_ASSERT_FALSE(computeIntervalState(3600, 600, 2000));
 }
-
-// ---- cycle boundary (epoch=0 and exact multiples of interval) -----------------------
 
 void test_EpochZero_IsOn(void)
 {
@@ -39,8 +33,6 @@ void test_MultipleCyclesIn_SameBehaviorAsFirstCycle(void)
     TEST_ASSERT_TRUE(computeIntervalState(3600, 600, (time_t)3600 * 100 + 100));
 }
 
-// ---- intervalLength boundary (the ON->OFF transition point) -------------------------
-
 void test_OneSecondBeforeIntervalLength_IsOn(void)
 {
     TEST_ASSERT_TRUE(computeIntervalState(3600, 600, 599));
@@ -51,8 +43,6 @@ void test_ExactlyAtIntervalLength_IsOff(void)
     // positionInCycle < intervalLength is a strict less-than - exactly at the boundary is OFF.
     TEST_ASSERT_FALSE(computeIntervalState(3600, 600, 600));
 }
-
-// ---- degenerate / misconfigured inputs -----------------------------------------------
 
 void test_IntervalZero_ReturnsFalse_NoDivideByZero(void)
 {
@@ -78,14 +68,9 @@ void test_IntervalLengthEqualsInterval_AlwaysOn(void)
     TEST_ASSERT_TRUE(computeIntervalState(3600, 3600, 3599));
 }
 
-// ---- large epoch (well beyond a typical uptime, proving the modulo itself is sound) --
-
 void test_LargeEpoch_NearUnsignedLongWraparound_StillDeterministic(void)
 {
-    // 4,000,000,000 is close to UINT32_MAX (4,294,967,295) - the width `unsigned long` actually has
-    // on the real ESP32 target. Not a real-world epoch (that's year ~2096), but proves the modulo
-    // arithmetic behaves the same way plain (epoch % interval) would for a value in this range,
-    // i.e. nothing about the (unsigned long) cast itself produces a surprising result here.
+    // 4,000,000,000 is close to UINT32_MAX - proves the modulo arithmetic behaves the same as plain (epoch % interval) even this close to the `unsigned long` width on the real ESP32 target.
     time_t epoch = 4000000000UL;
     unsigned long expectedPosition = (unsigned long)epoch % 3600UL;
     bool expected = expectedPosition < 600UL;

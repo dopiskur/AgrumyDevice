@@ -1,12 +1,8 @@
-// Roadmap #12: native (host-based) tests for BatteryLogic.h - resistor-divider math and the
-// approximate LiPo voltage->percent curve. No ESP32/Arduino dependency, runs via `pio test -e native`.
 #include <unity.h>
 #include "../../src/Logic/BatteryLogic.h"
 
 void setUp(void) {}
 void tearDown(void) {}
-
-// ---- computeDividerBatteryVoltage ---------------------------------------------------------
 
 void test_Divider_1to1_DoublesMeasuredVoltage(void)
 {
@@ -25,8 +21,6 @@ void test_Divider_ZeroR2_ReturnsZero_NotDivideByZero(void)
     // Defensive: an unconfigured (0/0) sensor row must not crash the firmware.
     TEST_ASSERT_EQUAL_DOUBLE(0.0, computeDividerBatteryVoltage(1.85, 100000.0, 0.0));
 }
-
-// ---- computeBatteryPercentFromVoltage -----------------------------------------------------
 
 void test_Percent_AtOrBelowEmpty_ReturnsZero(void)
 {

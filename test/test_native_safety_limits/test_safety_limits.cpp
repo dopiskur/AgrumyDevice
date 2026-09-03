@@ -1,13 +1,8 @@
-// Roadmap #19/#95/#36: native (host-based) tests for runTimeCeilingHit()/cooldownActive() -
-// WaterPump's device-side hard ceiling and cooldown, no ESP32/Arduino dependency, runs via
-// `pio test -e native`.
 #include <unity.h>
 #include "../../src/Logic/RelayLogic.h"
 
 void setUp(void) {}
 void tearDown(void) {}
-
-// ---- runTimeCeilingHit -------------------------------------------------------------------
 
 void test_Ceiling_NotTracked_NeverHits(void)
 {
@@ -42,12 +37,9 @@ void test_Ceiling_MaxRunSecondsNegative_Disabled(void)
     TEST_ASSERT_FALSE(runTimeCeilingHit(1003600, 1000000, -1));
 }
 
-// ---- cooldownActive -----------------------------------------------------------------------
-
 void test_Cooldown_NeverBeenOff_NotActive(void)
 {
-    // offSinceEpoch == 0 means "never been off since boot" - a fresh reboot must not be blocked
-    // by a cooldown it never actually observed (roadmap #36's own "acceptable to lose" decision).
+    // offSinceEpoch == 0 means "never been off since boot" - a fresh reboot must not be blocked by a cooldown it never actually observed.
     TEST_ASSERT_FALSE(cooldownActive(1000000, 0, 300));
 }
 
