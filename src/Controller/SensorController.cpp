@@ -11,7 +11,7 @@
 #include <Adafruit_BMP085.h> // BMP180 temp, pressure
 #include <Adafruit_BMP280.h>
 #include <Adafruit_CCS811.h> // CCS811 CO2, TVOC
-#include <SparkFun_MAX1704x_Fuel_Gauge_Arduino_Library.h> // MAX17048 battery fuel gauge, roadmap #12
+#include <SparkFun_MAX1704x_Fuel_Gauge_Arduino_Library.h> // MAX17048 battery fuel gauge
 
 #include <esp_task_wdt.h>
 
@@ -19,27 +19,21 @@
 #include "DeviceController.h"
 #include "ServiceController.h"
 #include "ActuatorController.h"
-#include "../Logic/BatteryLogic.h" // roadmap #12: divider math + LiPo voltage->percent curve
-
-// Roadmap #129: deviceConfig/serviceEndpoint/device/service/controller are the single canonical
-// instances (main.cpp) - this file no longer keeps its own separate copies.
+#include "../Logic/BatteryLogic.h" // divider math + LiPo voltage->percent curve
 
 static JsonDocument jsonDoc;
 static JsonArray sensorDataJsonArray = jsonDoc.to<JsonArray>();
 static String dateTime;
 
 static Adafruit_CCS811 ccs811;                               // Co2, Tvoc
-// DHT_Unified needs its pin at static-init time, before main.cpp's canonical `deviceConfig` is
-// guaranteed constructed (unspecified cross-TU static-init order) - configPin is fixed hardware
-// wiring, never server-configured (see ConfigPin's own comment), so a locally-scoped default
-// ConfigPin gives the same DHT pin with no cross-TU dependency.
+// DHT_Unified needs its pin at static-init time, before main.cpp's canonical `deviceConfig` is guaranteed constructed (unspecified cross-TU static-init order) - a locally-scoped default ConfigPin avoids the dependency.
 static ConfigPin defaultPins;
 static DHT_Unified dht11(defaultPins.DHT, DHT11); // temp, humidity
 static DHT_Unified dht22(defaultPins.DHT, DHT22); // temp, humidity
 static Adafruit_BMP085 bmp180;                               // temp, pressure
 static Adafruit_BMP280 bmp280;                               // temp, pressure
 BH1750 Bh1750;                                               // light
-static SFE_MAX1704X maxlipo;                                  // battery fuel gauge, roadmap #12
+static SFE_MAX1704X maxlipo;                                  // battery fuel gauge
 
 static unsigned bmp280status;
 static unsigned bmp180status;
@@ -57,21 +51,15 @@ void SensorController::setupSensor()
     bmp180status = bmp180.begin(0x77);
     bmp280status = bmp280.begin(0x76);
 
-    // CO2, TVOC
     ccs811.begin(0x5A); // 0x5B is default, mine is older version
 
-    // Light
     bh1750status = Bh1750.begin(BH1750::CONTINUOUS_HIGH_RES_MODE);
 
-    // Battery fuel gauge (roadmap #12) - fixed I2C address 0x36, shares the bus already begun
-    // above for BMP180/BMP280/CCS811. Harmless to call begin() when BatterySensorType is None or
-    // VoltageDivider - it just never gets read in buildSensorData()'s switch either way.
+    // Fixed I2C address 0x36, shares the bus already begun above. Harmless to call when BatterySensorType is None/VoltageDivider - it just never gets read.
     max17048status = maxlipo.begin();
 
     delay(5000);
 }
-
-// Temperature and humidity sensors
 
 void SensorController::reportDHTTemperature(sensors_event_t &event, const char *label)
 {
@@ -201,12 +189,10 @@ void SensorController::sensor_BME280_pres()
 {
 }
 
-// Soil temperature sensors
 void SensorController::sensor_DS18B20_temp()
 {
 }
 
-// Light sensors
 void SensorController::sensor_BH1750_lux()
 {
     Serial.println("[Sensor] BH1750 lux");
@@ -224,10 +210,7 @@ void SensorController::sensor_BH1750_lux()
     sensorData.light = lux;
 }
 
-// Co2 and Tvoc sensors
-
-// CO2 and TVOC sensor, needs time (~20min) to heat up and give info - available()+readData() is
-// identical for both quantities, only the getter/target field differs per caller.
+// CCS811 needs ~20min to heat up before it has data; available()+readData() is identical for both quantities, only the getter/target field differs per caller.
 bool SensorController::tryReadCCS811()
 {
     if (!ccs811.available())
@@ -263,15 +246,12 @@ void SensorController::sensor_CCS811_tvoc()
     }
 }
 
-void SensorController::sensor_analog_voltage() // 2001 - roadmap #12 VoltageDivider
+void SensorController::sensor_analog_voltage() // 2001, VoltageDivider
 {
     Serial.println("[Sensor battery - voltage divider]");
     device.powerRailSecondary(true);
 
-    // analogReadMilliVolts(), not raw analogRead() + a hand-rolled mV conversion - the ESP32
-    // Arduino core already runs the reading through esp-idf's adc_cali API (eFuse-based
-    // per-chip calibration), which is the automatic-calibration path roadmap #12 deliberately
-    // relies on instead of a manual calibration pass.
+    // analogReadMilliVolts(), not raw analogRead(): the ESP32 Arduino core already runs it through esp-idf's adc_cali API (eFuse-based per-chip calibration).
     uint32_t measuredMilliVolts = analogReadMilliVolts(deviceConfig.configPin.BATTERY_ADC);
     double batteryVoltage = computeDividerBatteryVoltage(
         measuredMilliVolts / 1000.0,
@@ -290,7 +270,7 @@ void SensorController::sensor_analog_voltage() // 2001 - roadmap #12 VoltageDivi
     sensorData.battery = String(percent);
 }
 
-void SensorController::sensor_battery_max17048() // 1009 - roadmap #12, RECOMMENDED option
+void SensorController::sensor_battery_max17048() // 1009
 {
     Serial.println("[Sensor battery - MAX17048]");
     if (!max17048status)
@@ -299,8 +279,7 @@ void SensorController::sensor_battery_max17048() // 1009 - roadmap #12, RECOMMEN
         return;
     }
 
-    // getSOC() (state of charge) is the fuel gauge's own coulomb-counting percentage - no
-    // voltage curve needed here, that is exactly the precision advantage over VoltageDivider.
+    // getSOC() is the fuel gauge's own coulomb-counting percentage - no voltage curve needed.
     float percent = maxlipo.getSOC();
     sensorData.battery = String((int)constrain(percent, 0.0f, 100.0f));
 }
@@ -416,8 +395,7 @@ void SensorController::buildSensorDataPayload()
     pushSensorData(sensorDataJsonArray); 
 }
 
-// Roadmap #9: one full RAM buffer's worth per file. A single reading is ~400 bytes, so this
-// spills roughly every 20 failed cycles; ~170 files fit under the 70% partition cap.
+// One full RAM buffer's worth per file (~400 bytes/reading, so this spills roughly every 20 failed cycles; ~170 files fit under the 70% partition cap).
 static const size_t SENSOR_BUFFER_SPILL_BYTES = 8192;
 
 bool SensorController::flushBufferedSensorData()
@@ -438,8 +416,7 @@ bool SensorController::flushBufferedSensorData()
         JsonDocument payload;
         if (payloadJson.isEmpty() || deserializeJson(payload, payloadJson) != DeserializationError::Ok)
         {
-            // A poison entry (corruption the #62-style atomic write can't rule out once the file
-            // is already committed) would wedge the whole queue forever - drop it, keep draining.
+            // A poison entry would wedge the whole queue forever - drop it, keep draining.
             Serial.println("[Sensor] Buffered file /" + filename + " unreadable - dropping it");
             device.removeBufferedFile(filename);
         }
@@ -454,9 +431,7 @@ bool SensorController::flushBufferedSensorData()
             device.removeBufferedFile(filename); // per-file delete, only after ITS OWN 2xx
         }
 
-        // Each file is a full HTTP round-trip (TLS handshake included) - a deep backlog would
-        // outlast the 90 s task WDT without feeding it per file. Same call main.cpp's
-        // sleep-chunking already uses.
+        // Each file is a full HTTP round-trip (TLS handshake included) - a deep backlog would outlast the 90s task WDT without feeding it per file.
         esp_task_wdt_reset();
 
         filename = device.oldestBufferedSensorFile();
@@ -466,29 +441,17 @@ bool SensorController::flushBufferedSensorData()
 
 void SensorController::pushSensorData(JsonDocument payload){
 
-    // Roadmap #80/#129: `service` used to be a SEPARATE ServiceController instance from main.cpp's
-    // with its own never-assigned deviceConfig, so requestPost()'s servicePublicKey.length()>0
-    // check was always false here and sensor-data push silently ignored an operator-pinned
-    // self-hosted cert. Now that `service`/`deviceConfig` are the single canonical instances
-    // (DeviceModel.h/ServiceController.h externs), that hand-off assignment is gone - there is
-    // nothing left to keep in sync.
     serviceRequest.endpoint = serviceEndpoint.apiSensorDataPost;
     serviceRequest.header.apiId = deviceConfig.apiId;
 
-    // Roadmap #36/#28: surfaced here (not from buildSensorData/initController directly) because
-    // pushEvent() takes its ServiceRequest argument BY VALUE (see ServiceController::pushEvent), so
-    // mutating its local copy's .endpoint to apiEvent never disturbs serviceRequest.endpoint for
-    // the sensor-data POST right after this, same as the BufferDiscarded push below.
+    // pushEvent() takes its ServiceRequest argument BY VALUE, so mutating its local copy's .endpoint to apiEvent never disturbs serviceRequest.endpoint for the sensor-data POST right after this.
     String safetyEventMessage;
     if (controller.consumeSafetyLimitEvent(safetyEventMessage))
     {
         service.pushEvent(serviceRequest, "SafetyLimitTripped", safetyEventMessage);
     }
 
-    // Roadmap #9: the disk backlog goes first, oldest file first, so the server receives rows in
-    // chronological order; the live RAM payload is only attempted once the backlog fully drained.
-    // A flush that broke off means the connection is down again - skip the doomed live attempt,
-    // the readings just keep accumulating below.
+    // Disk backlog goes first, oldest file first, so the server receives rows in chronological order; a flush that broke off means the connection is down again, so skip the doomed live attempt.
     bool sent = false;
     if (flushBufferedSensorData())
     {
@@ -502,9 +465,7 @@ void SensorController::pushSensorData(JsonDocument payload){
         return;
     }
 
-    // Failed send: readings stay in the RAM array (pre-#9 behaviour) but now with a cap - at
-    // SENSOR_BUFFER_SPILL_BYTES the array spills to one /buffer file and RAM restarts empty,
-    // instead of the old unbounded growth until the heap died.
+    // Failed send: readings stay in the RAM array, capped - at SENSOR_BUFFER_SPILL_BYTES it spills to one /buffer file and RAM restarts empty instead of growing unbounded.
     size_t pending = measureJson(sensorDataJsonArray);
     Serial.printf("[Sensor] SensorData send failed - %u bytes pending in RAM buffer\n", (unsigned)pending);
     if (pending >= SENSOR_BUFFER_SPILL_BYTES)
@@ -513,9 +474,7 @@ void SensorController::pushSensorData(JsonDocument payload){
         serializeJson(sensorDataJsonArray, spill);
         if (!device.bufferSensorDataToDisk(spill))
         {
-            // Partition >= 70% full: deliberate data loss by design. Fire-and-forget #28 event -
-            // unreachable while fully offline (chicken-and-egg, same as NoInternet), but a
-            // server-side outage with intact connectivity WILL land it.
+            // Partition >= 70% full: deliberate data loss by design.
             service.pushEvent(serviceRequest, "BufferDiscarded", "LittleFS >= 70% full, dropped " + String((unsigned)pending) + " bytes of sensor data");
         }
         sensorDataJsonArray = jsonDoc.to<JsonArray>();
@@ -538,7 +497,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
     sensorData.waterLevel="";
     sensorData.wind="";
 
-    // Battery - roadmap #12
     switch (deviceConfig.configSensor.sensorBattery)
     {
     case 1009:
@@ -551,7 +509,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
         break;
     }
 
-    // Temperature
     switch (deviceConfig.configSensor.sensorTemp)
     {
     case 1001:
@@ -573,7 +530,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
         break;
     }
 
-    // Temperature soil
     switch (deviceConfig.configSensor.sensorTempSoil)
     {
     case 1007:
@@ -584,7 +540,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
         break;
     }
 
-    // Humidity
     switch (deviceConfig.configSensor.sensorHumid)
     {
     case 1001:
@@ -594,7 +549,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
     default:
         break;
     }
-    // Humidity
     switch (deviceConfig.configSensor.sensorHumid)
     {
     case 1002:
@@ -604,7 +558,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
     default:
         break;
     }
-    // Humidity
     switch (deviceConfig.configSensor.sensorHumid)
     {
     case 1005:
@@ -615,7 +568,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
         break;
     }
 
-    // Moisture
     switch (deviceConfig.configSensor.sensorMoist)
     {
     case 2002:
@@ -626,7 +578,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
         break;
     }
 
-    // Lux
     switch (deviceConfig.configSensor.sensorLight)
     {
     case 1008:
@@ -637,7 +588,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
         break;
     }
 
-    // Co2
     switch (deviceConfig.configSensor.sensorCo2)
     {
     case 1006:
@@ -648,7 +598,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
         break;
     }
 
-    // Tvoc
     switch (deviceConfig.configSensor.sensorTvoc)
     {
     case 1006:
@@ -659,7 +608,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
         break;
     }
 
-    // Pressure
     switch (deviceConfig.configSensor.sensorBarometer)
     {
     case 1003:
@@ -669,7 +617,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
     default:
         break;
     }
-    // Pressure
     switch (deviceConfig.configSensor.sensorBarometer)
     {
     case 1004:
@@ -679,7 +626,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
     default:
         break;
     }
-    // Pressure
     switch (deviceConfig.configSensor.sensorBarometer)
     {
     case 1005:
@@ -690,7 +636,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
         break;
     }
 
-    // Water PH
     switch (deviceConfig.configSensor.sensorPH)
     {
     case 0:
@@ -701,7 +646,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
         break;
     }
 
-    // Water tank
     switch (deviceConfig.configSensor.sensorWaterLevel)
     {
     case 2003:
@@ -712,7 +656,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
         break;
     }
 
-    // Rain
     switch (deviceConfig.configSensor.sensorRainLevel)
     {
     case 0:
@@ -723,7 +666,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
         break;
     }
 
-    // Wind
     switch (deviceConfig.configSensor.sensorWind)
     {
     case 0:
@@ -737,10 +679,6 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
     buildSensorDataPayload();
 
     if(deviceConfig.deviceControllerEnabled){
-        // Roadmap #129: `controller` is now the single canonical ActuatorController instance and
-        // has no deviceConfig member of its own - it reads the same canonical deviceConfig this
-        // function does, so there is no hand-off left to forget (the old separate-instance version
-        // of this bug is what made relay control a silent no-op on real hardware).
         controller.initController(sensorData, device.getEpochSeconds());
     }
 

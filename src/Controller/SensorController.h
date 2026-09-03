@@ -3,7 +3,7 @@
 
 #include "Arduino.h"
 #include "ArduinoJson.h"
-#include <Adafruit_Sensor.h> // sensors_event_t, used by the roadmap #130 DHT report helpers below
+#include <Adafruit_Sensor.h> // sensors_event_t, used by the DHT report helpers below
 
 #include "../Model/DeviceModel.h"
 
@@ -34,16 +34,14 @@ private:
     void sensor_BH1750_lux();         // 1008
 
     void sensor_Wind();
-    void sensor_analog_voltage(); // 2001 - roadmap #12: VoltageDivider battery reading (despite the generic pre-#12 name, this IS the battery divider case)
-    void sensor_battery_max17048(); // 1009, roadmap #12
+    void sensor_analog_voltage(); // 2001, VoltageDivider
+    void sensor_battery_max17048(); // 1009
     void sensor_analog_moist();   // 2002
     void sensor_liquid_PH(); // unavailable
     void sensor_analog_waterLevel(); // unavailable
     void sensor_rainLevel(); // unavailable
 
-    // Roadmap #130: shared print/store tail shared by the DHT11/DHT22, BMP180/BMP280 and
-    // CCS811 co2/tvoc pairs - only the read call itself differs per library, so that part stays
-    // in each sensor_* function and only the identical reporting logic moves here.
+    // Shared print/store tail for the DHT11/DHT22, BMP180/BMP280 and CCS811 co2/tvoc pairs - only the read call differs per library.
     void reportDHTTemperature(sensors_event_t &event, const char *label);
     void reportDHTHumidity(sensors_event_t &event, const char *label);
     void reportSensorInitError(const char *label);
@@ -51,19 +49,14 @@ private:
     void reportPressure(double pascals);
     bool tryReadCCS811(); // available()+readData(), false on either miss or heat-up wait
 
-    // Roadmap #9: drains /buffer oldest-first, deleting each file only after its own 2xx.
-    // Returns true when the queue is empty on exit; false = broke off mid-queue (connection
-    // dropped again), remaining files stay on disk for the next cycle.
+    // Drains /buffer oldest-first, deleting each file only after its own 2xx. Returns false if it broke off mid-queue (connection dropped again).
     bool flushBufferedSensorData();
 
 
 public:
     void setupSensor();
 
-    // Roadmap #129: no deviceConfig member here anymore - unqualified `deviceConfig` inside this
-    // class's own methods now resolves to the single canonical instance (DeviceModel.h extern).
-    // serviceRequest stays a member: unlike deviceConfig, each module legitimately owns its own
-    // (this one always targets the sensor-data/event endpoints, main.cpp's own targets auth/config).
+    // serviceRequest stays a per-module member (unlike deviceConfig): this one always targets the sensor-data/event endpoints.
     ServiceRequest serviceRequest;
 
     void buildSensorData(DeviceConfig deviceConfig);
@@ -71,8 +64,7 @@ public:
     void pushSensorData(JsonDocument payload);
 };
 
-// Roadmap #129: the one SensorController instance, defined in main.cpp - see DeviceModel.h's
-// deviceConfig/serviceEndpoint externs for the same reasoning.
+// The one SensorController instance, defined in main.cpp.
 extern SensorController sensor;
 
 #endif

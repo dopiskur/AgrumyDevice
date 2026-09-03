@@ -9,43 +9,25 @@
 
 #include <ArduinoJson.h>
 
-// Root CA bundle embedded via platformio.ini board_build.embed_files (see roadmap #3 notes).
+// Root CA bundle embedded via platformio.ini board_build.embed_files.
 extern const uint8_t rootca_crt_bundle_start[] asm("_binary_data_cert_x509_crt_bundle_bin_start");
 
-// main.cpp - the RUNNING image's version, reported in the config-poll heartbeat (roadmap #7)
-// and compared against OTA offers below.
-extern const char *firmware;
+extern const char *firmware; // main.cpp - the RUNNING image's version
 
-// Roadmap #94: set per environment in platformio.ini; the fallback only covers a build that
-// bypassed it, and deliberately matches no catalog board so such an image is never OTA'd.
+// Deliberately matches no catalog board, so a build that bypassed platformio.ini's define is never OTA'd.
 #ifndef AGRUMY_BOARD
 #define AGRUMY_BOARD "unknown"
 #endif
 
-// Roadmap #149: which commercial KIT (physical PCB) this image was built for, separate from
-// AGRUMY_BOARD above - Board picks the OTA binary (roadmap #94), Kit tells the server which
-// physical board self-reported so it can look up known relay-hardware capability
-// (deviceTypeKit). Empty on every generic chip-target environment (esp32dev/esp32s3usbotg) - the
-// server falls back to the existing, admin-controlled DeviceType/DeviceControllerEnabled for those.
+// Which commercial KIT (physical PCB) this image was built for, separate from AGRUMY_BOARD: Board picks the OTA binary, Kit tells the server which relay-hardware capability to look up. Empty on generic chip-target environments.
 #ifndef AGRUMY_KIT
 #define AGRUMY_KIT ""
 #endif
 
-// Roadmap #129: `serviceEndpoint` is the single canonical instance (DeviceModel.h extern) - this
-// file no longer keeps its own separate copy. (The old file-static `serviceRequest` here was dead:
-// every method that touches serviceRequest takes it as its own parameter.)
-// requestPost()'s Authorization header is built from THIS file-static, not ServiceRequest.header -
-// ServiceHeader had its own apiAuth field until roadmap #98 removed it: it was written in three
-// places but never once read, since every actual Authorization header send already used this
-// static (see requestPost() below).
+// requestPost()'s Authorization header is built from this file-static, not ServiceRequest.header.
 static String apiAuth;
 
-// Roadmap #20: apiKey/authKey are usable to impersonate the device if copied off Serial (confirmed
-// live during the #77 physical test) - mask the middle like SQL data masking (first 4 + last 4
-// visible) so serial debugging still shows enough to spot an obviously wrong/truncated value,
-// without ever printing a value someone reading the monitor could copy-paste as a working secret.
-// Blank stays blank (nothing to mask, and most calls legitimately send an empty apiKey/authKey -
-// see the session-vs-apiKey-auth comments in apiConfig()/apiAuthenticate() below).
+// Masks the middle (first 4 + last 4 visible) so serial debugging can spot an obviously wrong value without ever printing a copy-pasteable secret.
 String ServiceController::maskSecret(const String &value)
 {
     if (value.length() == 0)
@@ -71,7 +53,7 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
         HTTPClient http;
         String serviceURL = service.url();
         Serial.println("[Service] POST: " + serviceURL);
-        Serial.println("[Service] apiId: " + service.header.apiId); // identifier, not a secret - see roadmap #73
+        Serial.println("[Service] apiId: " + service.header.apiId); // identifier, not a secret
         Serial.println("[Service] apiKey: " + maskSecret(service.header.apiKey));
         Serial.println("[Service] authKey: " + maskSecret(apiAuth));
 
@@ -136,11 +118,7 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
     {
         serviceData.eventlog.errorCode = 1000;
         serviceData.eventlog.errorData = "Wifi not available";
-        // Guard against recursing into pushEvent() -> requestPost() -> "still no WiFi" -> pushEvent()
-        // forever: only fire if THIS request isn't itself the event push (pushEvent() rewrites
-        // .endpoint to apiEvent before calling back in, so the second pass trips this and stops).
-        // Reporting "NoInternet" while there genuinely is none can never actually reach the server -
-        // this attempt fails the same way and is a harmless no-op, not a bug.
+        // Guard against recursing into pushEvent() -> requestPost() -> "still no WiFi" -> pushEvent() forever.
         if (service.endpoint != serviceEndpoint.apiEvent)
         {
             pushEvent(service, "NoInternet", "WiFi not connected");
@@ -149,10 +127,7 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
     return serviceData;
 }
 
-// Roadmap #28: fire-and-forget event push, reusing whatever apiId/serviceType/servicePoint the
-// caller's ServiceRequest already carries. Never checks the result and never retries - a failed
-// event push (no internet, stale apiAuth, etc.) must stay silent, not chase itself with another
-// event about its own failure.
+// Fire-and-forget: never checks the result or retries, so a failed push doesn't chase itself with another event about its own failure.
 void ServiceController::pushEvent(ServiceRequest service, String eventType, String message, int commandId)
 {
     service.endpoint = serviceEndpoint.apiEvent;
@@ -163,17 +138,14 @@ void ServiceController::pushEvent(ServiceRequest service, String eventType, Stri
     payload["Message"] = message;
     if (commandId >= 0)
     {
-        payload["CommandId"] = commandId; // roadmap #34: links this event back to the specific command row
+        payload["CommandId"] = commandId; // links this event back to the specific command row
     }
 
     Serial.println("[Service] pushEvent: " + eventType + (message.length() > 0 ? " (" + message + ")" : ""));
     requestPost(payload, service);
 }
 
-// Roadmap #34: ack happens BEFORE execute, per the design's hard requirement (a Reboot has no
-// "after" on this same connection to report from). The ack itself is fire-and-forget like
-// pushEvent - if it's lost, MarkExecutedAsync server-side still accepts Pending as a valid prior
-// state, so the CommandExecuted push below still lands the command in the right final state.
+// Ack happens BEFORE execute: a Reboot has no "after" on this same connection to report from.
 void ServiceController::processPendingCommand(DeviceConfig& config, ServiceRequest serviceRequest, DeviceController& device)
 {
     if (!config.pendingCommand.present)
@@ -197,15 +169,14 @@ void ServiceController::processPendingCommand(DeviceConfig& config, ServiceReque
     {
     case COMMAND_REBOOT:
         Serial.println("[Service] Executing command " + String(commandId) + ": Reboot");
-        device.reboot(); // never returns - nothing to report from, per roadmap #34
+        device.reboot(); // never returns
         break;
 
     case COMMAND_FORCE_OTA:
     {
-        // "Force" = skip apiConfig()'s normal fwVersion != running-image gate, not a different
-        // download path - same device.firmwareUpdate() the regular OTA check already uses.
+        // "Force" = skip apiConfig()'s normal fwVersion != running-image gate; same device.firmwareUpdate() the regular OTA check uses.
         String fwUrl = config.firmwareUrl;
-        String fwSha256 = config.firmwareSha256; // roadmap #131
+        String fwSha256 = config.firmwareSha256;
         bool otaHttps = fwUrl.startsWith("https://") || fwUrl.startsWith("HTTPS://");
 
         if (fwUrl.length() == 0)
@@ -228,9 +199,7 @@ void ServiceController::processPendingCommand(DeviceConfig& config, ServiceReque
     }
 
     case COMMAND_FORCE_CONFIG_SYNC:
-        // Roadmap #34: the full config the server just sent in THIS SAME poll response (the reason
-        // pendingCommand rides Config's response at all) already IS the resync - there is nothing
-        // left for this action to do differently. Kept in v1 per instruction, not dropped.
+        // The config the server just sent in THIS SAME poll response already IS the resync - nothing left to do differently.
         Serial.println("[Service] Command " + String(commandId) + " (ForceConfigSync): config already current from this same poll, nothing further to do");
         pushEvent(serviceRequest, "CommandExecuted", "config already current from this poll", commandId);
         break;
@@ -241,7 +210,6 @@ void ServiceController::processPendingCommand(DeviceConfig& config, ServiceReque
     }
 }
 
-// API requests
 void ServiceController::apiAuthenticate(DeviceConfig deviceConfig, ServiceRequest serviceRequest, DeviceController& device)
 {
     Serial.println("[Service] apiAuthentication: ");
@@ -253,11 +221,7 @@ void ServiceController::apiAuthenticate(DeviceConfig deviceConfig, ServiceReques
     JsonDocument payload;
     serviceData = requestPost(payload, serviceRequest);
 
-    // Roadmap #97: tolerate a transient auth failure (network blip, server restart mid-request)
-    // the same way apiConfig() already tolerates a transient config-sync failure - factory reset
-    // only after several consecutive failures, not on the very first one. Same counter-before-
-    // terminal-action shape as apiConfig()'s consecutiveFailures/MAX_CONSECUTIVE_CONFIG_FAILURES,
-    // applied here to specifically-401 (a genuinely rejected apiId/apiKey, not just any error).
+    // Tolerate a transient auth failure - factory reset only after several consecutive 401s, not the first one.
     static int consecutiveAuthFailures = 0;
     const int MAX_CONSECUTIVE_AUTH_FAILURES = 3;
     if(serviceData.eventlog.errorCode==401){
@@ -266,8 +230,7 @@ void ServiceController::apiAuthenticate(DeviceConfig deviceConfig, ServiceReques
         if (consecutiveAuthFailures >= MAX_CONSECUTIVE_AUTH_FAILURES)
         {
             Serial.println("[Service] Too many consecutive auth failures, reseting device to defaults...");
-            // Best-effort: this push will very likely also fail (no valid apiAuth yet, that's exactly
-            // what just failed) - expected and acceptable, not something to special-case.
+            // Best-effort: this push will very likely also fail (no valid apiAuth yet) - expected, not special-cased.
             pushEvent(serviceRequest, "AuthFailed", "apiId/apiKey rejected by server, consecutive failures: " + String(consecutiveAuthFailures));
             device.reset();
         }
@@ -304,17 +267,12 @@ bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest ser
     ServiceData serviceData;
     JsonDocument payload;
     payload["ConfigVersion"] = configVersion;
-    // Roadmap #7: the config poll doubles as the heartbeat - see contracts/device-api/
-    // config.request.schema.json. esp_timer, not millis(): 64-bit, no 49-day wrap.
+    // The config poll doubles as the heartbeat. esp_timer, not millis(): 64-bit, no 49-day wrap.
     payload["Uptime"] = (uint32_t)(esp_timer_get_time() / 1000000ULL);
     payload["Rssi"] = WiFi.RSSI();
     payload["FreeHeap"] = ESP.getFreeHeap();
     payload["FirmwareVersion"] = firmware;
-    // Roadmap #94: which release .bin fits this hardware - the PlatformIO env name from the
-    // AGRUMY_BOARD build flag (platformio.ini), never guessed from the chip at runtime.
-    payload["Board"] = AGRUMY_BOARD;
-    // Roadmap #149: which commercial kit this image was built for (empty on generic environments)
-    // - lets the server auto-detect relay-hardware capability without an admin guess.
+    payload["Board"] = AGRUMY_BOARD; // PlatformIO env name from the build flag, never guessed from the chip at runtime
     payload["Kit"] = AGRUMY_KIT;
 
     serviceData = requestPost(payload, serviceRequest);
@@ -344,30 +302,24 @@ bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest ser
         consecutiveFailures = 0;
     }
 
-    // roadmap #3 (OTA): derive firmware state from the config about to run - the new one if received, else the boot config (admin may set the flag without bumping configVersion -> 200, no body).
+    // Derive firmware state from the config about to run - the new one if received, else the boot config (admin may set the flag without bumping configVersion -> 200, no body).
     bool   fwFlag    = deviceConfig.firmwareUpdate;
     String fwVersion = deviceConfig.firmwareVersion;
     String fwUrl     = deviceConfig.firmwareUrl;
-    String fwSha256  = deviceConfig.firmwareSha256; // roadmap #131
+    String fwSha256  = deviceConfig.firmwareSha256;
 
     bool receivedNewConfig = !serviceData.payload.isEmpty();
     DeviceConfig newConfig;
 
     if (receivedNewConfig) {
         Serial.println(serviceData.payload);
-        // Roadmap #67: parse-gate BEFORE persisting - a truncated body must neither clobber
-        // config.json nor be applied; keep running on the current config, the server keeps
-        // offering the new one on every poll while our configVersion is behind.
+        // Parse-gate BEFORE persisting - a truncated body must neither clobber config.json nor be applied.
         JsonDocument parseCheck;
         if (deserializeJson(parseCheck, serviceData.payload) != DeserializationError::Ok) {
             Serial.println("[Service] New config payload failed to parse - ignoring it this cycle");
             receivedNewConfig = false;
         } else {
-            // Roadmap #107: loadConfig() now gates on required identity keys (apiId/apiKey/
-            // servicePoint) - run it BEFORE saveConfigFile so a valid-but-incomplete payload
-            // (contract drift, e.g. "{}") never reaches disk, same "validate before persisting"
-            // principle as the #67 parse-gate above. loadConfig() does no disk I/O itself, so this
-            // reorder changes nothing about what it parses.
+            // loadConfig() gates on required identity keys (apiId/apiKey/servicePoint) and does no disk I/O, so it runs before saveConfigFile.
             newConfig = device.loadConfig(serviceData.payload);
             if (newConfig.eventlog.error) {
                 Serial.println("[Service] New config rejected (code " + String(newConfig.eventlog.errorCode) + "): " + newConfig.eventlog.errorData);
@@ -375,18 +327,15 @@ bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest ser
                 receivedNewConfig = false;
             } else {
                 Serial.println("[Service] New config received, saving new config");
-                device.saveConfigFile(serviceData.payload); // backs up the old config.json before overwriting it (config integrity)
-                device.waitForFileCommitted("config.json"); // roadmap #110: verified, not a bare delay()
+                device.saveConfigFile(serviceData.payload); // backs up the old config.json before overwriting it
+                device.waitForFileCommitted("config.json"); // verified, not a bare delay()
 
                 fwFlag    = newConfig.firmwareUpdate;
                 fwVersion = newConfig.firmwareVersion;
                 fwUrl     = newConfig.firmwareUrl;
-                fwSha256  = newConfig.firmwareSha256; // roadmap #131
+                fwSha256  = newConfig.firmwareSha256;
 
-                // Roadmap #34: ahead of the regular OTA gate below on purpose - a pending Reboot
-                // must fire before anything else in this cycle, and a pending ForceOTA should get
-                // its own shot even if the regular fwFlag/version-mismatch gate would otherwise
-                // skip OTA entirely this cycle.
+                // Ahead of the regular OTA gate below on purpose: a pending Reboot must fire before anything else this cycle, and a pending ForceOTA gets its own shot even if the version-mismatch gate would otherwise skip it.
                 processPendingCommand(newConfig, serviceRequest, device);
             }
         }
@@ -406,12 +355,7 @@ bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest ser
     }
 
     if (receivedNewConfig) {
-        // Roadmap #67: reboot only when a field tied to boot-time state changed - transport
-        // (deviceTypeServiceID/servicePoint/servicePublicKey: static WiFiClientSecure TLS state,
-        // serviceRequest derived once in setup()), identity (apiId/apiKey: safer rotated through
-        // a clean restart), sleepDeep (a property of the boot/sleep cycle itself). Everything
-        // else - thresholds, hysteresis, intervals, relay assignments, the enable flags - is
-        // read from deviceConfig every cycle and takes effect immediately without a reboot.
+        // Reboot only when a field tied to boot-time state changed (transport/TLS setup, identity, sleep mode); everything else is read from deviceConfig every cycle and applies without a reboot.
         bool rebootRequired =
             newConfig.deviceTypeServiceID != deviceConfig.deviceTypeServiceID ||
             newConfig.servicePoint        != deviceConfig.servicePoint ||
@@ -421,18 +365,11 @@ bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest ser
             newConfig.sleepDeep           != deviceConfig.sleepDeep;
 
         if (rebootRequired) {
-            // Config-integrity crash-loop guard: feed the counter ONLY here, right before this
-            // specific reboot - never on the OTA reboot above or the too-many-failures reboot,
-            // so an unrelated reboot cause never falsely triggers a rollback in setup().
+            // Feed the crash-loop-guard counter ONLY here, never on the OTA or too-many-failures reboots, so an unrelated reboot cause never falsely triggers a rollback in setup().
             device.notePendingConfigReboot(millis());
             device.reboot(); // boot into the newly saved config
         }
 
-        // Hot-apply: update the caller's instance through the reference and confirm to the
-        // server now - the boot-time ConfigApplied path (#37) never runs because there is no
-        // reboot. #62's crash-loop rollback deliberately stays scoped to reboot-applied configs:
-        // the fields that can reach this branch are re-read every cycle and cannot wedge the
-        // boot path, so arming the counter here would only risk false rollbacks.
         deviceConfig = newConfig;
         Serial.println("[Service] Config hot-applied without reboot (version " + String(deviceConfig.configVersion) + ")");
         pushEvent(serviceRequest, "ConfigApplied", "version=" + String(deviceConfig.configVersion));
