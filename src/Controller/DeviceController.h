@@ -65,6 +65,12 @@ public:
     // applying the OLD backup, not the new config this flag was set for.
     bool consumeConfigAppliedPending();
 
+    // Roadmap #135: reads and clears any pending core dump the ESP-IDF panic handler wrote to the
+    // dedicated `coredump` partition on the LAST crash - arduino-esp32's default sdkconfig already
+    // has CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH on, so there is nothing to enable, only to read back.
+    // Call once from setup(). Empty string means no crash since the partition was last cleared.
+    String consumeCrashSummary();
+
     void initializeDevice(); // sets up the WiFi AP
     void registerDevice(String configRegistration);
     DeviceConfig initializeDefaults(DeviceConfig deviceConfig);

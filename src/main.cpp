@@ -68,6 +68,12 @@ void setup()
   Serial.println();
   Serial.println("[Initialization started]");
 
+  // Roadmap #135: read (and clear) any core dump the panic handler wrote on the LAST crash before
+  // anything else touches flash/WiFi - it has no dependency on either, and doing it first keeps the
+  // summary ready for the "confirm last reboot's outcome" reporting block further down, once
+  // apiAuthenticate() is available.
+  String crashSummary = device.consumeCrashSummary();
+
   // Roadmap #26: on a deep-sleeping node every cycle re-enters setup() - say so explicitly,
   // otherwise a serial log full of reboots is indistinguishable from a crash loop.
   if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER)
@@ -137,12 +143,13 @@ void setup()
 
   sensor.serviceRequest = serviceRequest;
 
-  // Roadmap #28/#37: confirm the outcome of the reboot that just happened back to the server, now
-  // that deviceConfig/serviceRequest are populated (too early to do this above, where the rollback
-  // branch runs). A rollback boot always wins over configJustApplied - both flags are set together
-  // on the reboot that triggered the rollback (see notePendingConfigReboot()), but that boot is
-  // applying the OLD backup, not the new config configJustApplied refers to.
-  if (rollbackToBackup || configJustApplied)
+  // Roadmap #28/#37/#135: confirm the outcome of the reboot that just happened back to the server,
+  // now that deviceConfig/serviceRequest are populated (too early to do this above, where the
+  // rollback branch runs). A rollback boot always wins over configJustApplied - both flags are set
+  // together on the reboot that triggered the rollback (see notePendingConfigReboot()), but that
+  // boot is applying the OLD backup, not the new config configJustApplied refers to. A crash summary
+  // only reports when NEITHER of those (orderly, config-triggered) reboots is what actually happened.
+  if (rollbackToBackup || configJustApplied || !crashSummary.isEmpty())
   {
     // apiAuthenticate() takes serviceRequest by value, so its internal apiId/apiKey/endpoint
     // mutations never reach this copy - re-set apiId here before reusing serviceRequest below.
@@ -155,9 +162,13 @@ void setup()
       // even though the counter itself is already reset by the time this message is composed.
       service.pushEvent(serviceRequest, "CrashLoopRollback", "3 consecutive early reboots detected");
     }
-    else
+    else if (configJustApplied)
     {
       service.pushEvent(serviceRequest, "ConfigApplied", "version=" + String(deviceConfig.configVersion));
+    }
+    else
+    {
+      service.pushEvent(serviceRequest, "Crash", crashSummary);
     }
   }
 

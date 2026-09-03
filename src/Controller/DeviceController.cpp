@@ -12,6 +12,7 @@
 
 #include <NTPClient.h>
 #include <WiFiUdp.h>
+#include <esp_core_dump.h> // roadmap #135
 
 // Roadmap #129: `service`/`deviceConfig`/`serviceEndpoint` are the single canonical instances
 // (declared in main.cpp, extern-visible via ServiceController.h/DeviceModel.h) - this file no
@@ -104,6 +105,61 @@ bool DeviceController::consumeConfigAppliedPending()
   bool pending = rtcConfigJustAppliedPending;
   rtcConfigJustAppliedPending = false;
   return pending;
+}
+
+// Roadmap #135. exc_bt_info.bt holds up to 16 return addresses but the reported Message stays
+// short on purpose - symbolicating ANY of them still needs firmware.elf (xtensa-esp32-elf-addr2line
+// against the exact version this device reports) regardless of how many are included, so more than
+// a handful adds length without adding usable signal without that file already in hand.
+static const uint32_t MaxCrashBacktraceAddresses = 8;
+
+String DeviceController::consumeCrashSummary()
+{
+  if (esp_core_dump_image_check() != ESP_OK)
+  {
+    return ""; // no dump since the partition was last cleared - the common case, every normal boot
+  }
+
+  // Per esp_core_dump.h's own documented usage: heap-allocated, not a ~250+ byte stack frame that
+  // would otherwise sit in setup()'s frame for the rest of the function on every single boot.
+  esp_core_dump_summary_t *summary = (esp_core_dump_summary_t *)malloc(sizeof(esp_core_dump_summary_t));
+  String result = "";
+  if (summary != nullptr && esp_core_dump_get_summary(summary) == ESP_OK)
+  {
+    String backtrace = "";
+    uint32_t depth = summary->exc_bt_info.depth;
+    if (depth > MaxCrashBacktraceAddresses)
+    {
+      depth = MaxCrashBacktraceAddresses;
+    }
+    for (uint32_t i = 0; i < depth; i++)
+    {
+      if (i > 0)
+      {
+        backtrace += ",";
+      }
+      backtrace += "0x" + String(summary->exc_bt_info.bt[i], HEX);
+    }
+
+    result = "task=" + String(summary->exc_task) +
+             " pc=0x" + String(summary->exc_pc, HEX) +
+             " cause=" + String(summary->ex_info.exc_cause) +
+             " vaddr=0x" + String(summary->ex_info.exc_vaddr, HEX) +
+             (summary->exc_bt_info.corrupted ? " bt(corrupted)=" : " bt=") + backtrace;
+    Serial.println("[Device] Pending crash dump found: " + result);
+  }
+  else
+  {
+    Serial.println("[Device] Core dump present but its summary could not be read");
+  }
+  free(summary);
+
+  // Best-effort, same as the rest of #28's reporting (pushEvent never retries): erase regardless of
+  // whether the summary above actually got formatted, so a corrupt/unreadable dump never wedges
+  // every future boot into re-attempting the same failed read forever.
+  esp_core_dump_image_erase();
+
+  return result;
 }
 
 String DeviceController::loadFile(String filename)
