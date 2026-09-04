@@ -48,12 +48,25 @@ void SensorController::setupSensor()
     dht11.begin();
     dht22.begin();
 
-    bmp180status = bmp180.begin(0x77);
-    bmp280status = bmp280.begin(0x76);
-
-    ccs811.begin(0x5A); // 0x5B is default, mine is older version
-
-    bh1750status = Bh1750.begin(BH1750::CONTINUOUS_HIGH_RES_MODE);
+    // Only probe a chip this device's own config actually selects - deviceConfig is already
+    // loaded by the time setupSensor() runs (main.cpp). Calling begin() on an address nothing
+    // answers at is what produced the "i2cWriteReadNonStop returned Error -1" bus-probe noise.
+    if (deviceConfig.configSensor.sensorTemp == 1003 || deviceConfig.configSensor.sensorBarometer == 1003)
+    {
+        bmp180status = bmp180.begin(0x77);
+    }
+    if (deviceConfig.configSensor.sensorTemp == 1004 || deviceConfig.configSensor.sensorBarometer == 1004)
+    {
+        bmp280status = bmp280.begin(0x76);
+    }
+    if (deviceConfig.configSensor.sensorCo2 == 1006 || deviceConfig.configSensor.sensorTvoc == 1006)
+    {
+        ccs811.begin(0x5A); // 0x5B is default, mine is older version
+    }
+    if (deviceConfig.configSensor.sensorLight == 1008)
+    {
+        bh1750status = Bh1750.begin(BH1750::CONTINUOUS_HIGH_RES_MODE);
+    }
 
     // Fixed I2C address 0x36, shares the bus already begun above. Harmless to call when BatterySensorType is None/VoltageDivider - it just never gets read.
     max17048status = maxlipo.begin();
