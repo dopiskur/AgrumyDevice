@@ -219,6 +219,9 @@ void DeviceController::registerDevice(String configRegistration)
 
   DeserializationError error = deserializeJson(config, configRegistration);
 
+  // Unparseable registration data means the file itself is corrupt, not just one bad write -
+  // retrying would just read the same bad bytes again, so format()+restart is the deliberate
+  // recovery here (see StorageController::saveFile's comment on where format() is/isn't used).
   if (error)
   {
     Serial.print("[Device] RegisterDevice; deserializeJson() failed, reseting to defaults ");
