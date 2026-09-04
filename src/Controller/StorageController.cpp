@@ -13,11 +13,17 @@ bool StorageController::saveFile(String data, String filename)
   String path = "/" + filename;
   String tmpPath = path + ".tmp";
 
+  // Roadmap #168: a transient open() failure (one bad write, momentary I/O hiccup) used to trigger
+  // an immediate LittleFS.format() - wiping config.json, config.json.bak, deviceRegistration.json
+  // and every buffered sensor reading on the FIRST failed open. Now this just fails this one save
+  // (#167's bool return lets the caller decide what to do), the same as an incomplete write or a
+  // failed rename just below - format() is reserved for the explicit, deliberate factory-reset path
+  // (DeviceController::reset() -> PowerController::reset()), never an implicit side effect of one
+  // I/O error.
   File file = LittleFS.open(tmpPath, "w");
   if (!file)
   {
-    Serial.println("Failed to open file for write, formating device");
-    LittleFS.format();
+    Serial.println("[Device] saveFile: failed to open " + tmpPath + " for write");
     return false;
   }
 
