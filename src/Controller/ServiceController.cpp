@@ -148,10 +148,7 @@ void ServiceController::pushEvent(ServiceRequest service, String eventType, Stri
 // Ack happens BEFORE execute: a Reboot has no "after" on this same connection to report from.
 void ServiceController::processPendingCommand(DeviceConfig& config, ServiceRequest serviceRequest, DeviceController& device)
 {
-    // Roadmap #157: paired with the "nothing queued" log in apiConfig() - if THIS logs "reached with
-    // none present" instead, a new config WAS received but ConfigParser.cpp didn't find a
-    // "pendingCommand" key in it, which points at BuildDeviceConfigAsync/GetPendingCommandAsync
-    // server-side rather than anything below this line.
+    // Paired with the "nothing queued" log in apiConfig() below - if THIS fires instead, the config arrived but had no pendingCommand.
     if (!config.pendingCommand.present)
     {
         Serial.println("[Service] processPendingCommand: reached with none present");
@@ -316,10 +313,7 @@ bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest ser
     bool receivedNewConfig = !serviceData.payload.isEmpty();
     DeviceConfig newConfig;
 
-    // Roadmap #157: diagnostic for the "queued command never executes" report - an empty body here
-    // means the server decided nothing changed AND nothing is queued (DeviceApiController.GetConfig's
-    // own check), so if a command was supposedly issued but this still logs "nothing queued", the bug
-    // is server-side, not in this file's dispatch below.
+    // An empty body means the server decided nothing changed AND nothing is queued for this device.
     if (!receivedNewConfig) {
         Serial.println("[Service] apiConfig: no new config this cycle (up to date, nothing queued)");
     }

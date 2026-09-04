@@ -13,11 +13,7 @@ bool StorageController::saveFile(String data, String filename)
   String path = "/" + filename;
   String tmpPath = path + ".tmp";
 
-  // Roadmap #195: #168 stopped format()-ing on the FIRST failed open, but flash genuinely degrades
-  // over time (bad blocks, wear leveling) - when that's the real cause, format() is the correct
-  // recovery, just not for one transient I/O hiccup. Same consecutive-failure-counter pattern as
-  // MAX_CONSECUTIVE_AUTH_FAILURES/MAX_CONSECUTIVE_CONFIG_FAILURES in ServiceController.cpp: only
-  // format() once several opens in a row have failed, and reset the counter on any success.
+  // format() only after repeated failures (real flash degradation), not one transient I/O hiccup - same pattern as MAX_CONSECUTIVE_AUTH_FAILURES.
   static int consecutiveOpenFailures = 0;
   const int MAX_CONSECUTIVE_OPEN_FAILURES = 3;
   File file = LittleFS.open(tmpPath, "w");
