@@ -46,6 +46,8 @@ private:
 
     time_t waterPumpOnSinceEpoch[8] = {0};
     time_t waterPumpOffSinceEpoch[8] = {0};
+    // Last tick's relay1..8 function assignment per slot, so a remap (e.g. WaterPump->Light->WaterPump) can be detected and the stale slot's on/off-since history cleared instead of reused.
+    int lastConfiguredType[8] = {0};
     String pendingSafetyEventMessage = "";
 };
 

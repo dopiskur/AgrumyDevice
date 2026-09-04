@@ -162,6 +162,17 @@ void ActuatorController::initController(SensorData sensorData, time_t epochSecon
         deviceConfig.configPin.RELAY_7, deviceConfig.configPin.RELAY_8,
     };
 
+    // A slot whose function assignment changed since last tick can't trust its old WaterPump on/off-since history, even if it isn't WaterPump now (a later remap back to WaterPump would otherwise reuse it).
+    for (int i = 0; i < 8; i++)
+    {
+        if (configuredType[i] != lastConfiguredType[i])
+        {
+            waterPumpOnSinceEpoch[i] = 0;
+            waterPumpOffSinceEpoch[i] = 0;
+            lastConfiguredType[i] = configuredType[i];
+        }
+    }
+
     // Master safety switch - was loaded from config but never actually checked, so the server had no way to force relays off.
     if (!deviceConfig.configController.relayEnabled)
     {
