@@ -382,7 +382,11 @@ void SensorController::buildSensorDataPayload()
     jsonSensorData["rainLevel"]=(sensorData.rainLevel)!=""? sensorData.rainLevel:  JsonVariant();
     jsonSensorData["waterLevel"]=(sensorData.waterLevel)!=""? sensorData.waterLevel:  JsonVariant();
     jsonSensorData["wind"]=(sensorData.wind)!=""? sensorData.wind:  JsonVariant();
-    jsonSensorData["dateCreated"]=(device.getDateTime())!=""? device.getDateTime():  JsonVariant(); // timestamp for buffering
+    // Roadmap #175: was calling getDateTime() twice in one expression - the two calls could
+    // straddle a second boundary and disagree, so the emptiness check and the stored value could
+    // end up describing two different timestamps. Computed once here instead.
+    String dateCreated = device.getDateTime();
+    jsonSensorData["dateCreated"]=(dateCreated)!=""? dateCreated:  JsonVariant(); // timestamp for buffering
 
     sensorDataJsonArray.add(jsonSensorData); // buffer if the service point is unavailable
 
