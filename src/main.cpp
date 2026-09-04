@@ -25,7 +25,8 @@ const String CONFIG_BASE = "deviceRegistration.json";
 const String CONFIG_DEFAULTS = "config.json";
 
 // arduino-esp32's default loopTask stack (8192 bytes) overflows on two back-to-back HTTPS/mbedTLS handshakes in one loop() cycle (apiConfig's 401 retry chains into apiAuthenticate). A `-D CONFIG_ARDUINO_LOOP_STACK_SIZE=...` build flag can't fix this: sdkconfig.h unconditionally clobbers that macro back to 8192 - SET_LOOP_TASK_STACK_SIZE overrides the weak getArduinoLoopTaskStackSize() at link time instead, which sdkconfig.h can't touch.
-SET_LOOP_TASK_STACK_SIZE(16384);
+// 16384 still wasn't enough: a live esp32dev crashed mid-loop with a null-deref deep in mbedTLS ECC/SHA code, and a stack high-water-mark probe on the same device showed only ~3964 bytes free after a single cycle with a 401 retry (config -> authenticate -> config again, all TLS over the full CA bundle since no pinned servicePublicKey was set).
+SET_LOOP_TASK_STACK_SIZE(24576);
 
 // Reboots if a loop() cycle wedges before completing. Sized to clear ~4 sequential HTTPClient calls per cycle (config sync, re-auth, retry, sensor push) at the default 5s TCP timeout each, with margin. Independent of server-set sleepSeconds - the inter-cycle sleep is fed separately in loop().
 static const uint32_t WDT_TIMEOUT_SECONDS = 90;
