@@ -188,10 +188,7 @@ void DeviceController::initializeDevice()
 
   wifiManager.startConfigPortal(("Agrumy_" + macAddr()).c_str());
 
-  // Roadmap #176: strncpy(dst, src, sizeof(dst)) does NOT guarantee a null terminator when src is
-  // >= sizeof(dst) chars - a later read of these fields as a C-string (e.g. config["userLogin"] =
-  // deviceRegistration.userLogin) could then run past the buffer into whatever follows it in
-  // memory. Copy one byte short of the buffer and explicitly terminate the last byte instead.
+  // strncpy(dst, src, sizeof(dst)) doesn't guarantee null termination when src is >= sizeof(dst).
   strncpy(deviceRegistration.userLogin, userLogin.getValue(), sizeof(deviceRegistration.userLogin) - 1);
   deviceRegistration.userLogin[sizeof(deviceRegistration.userLogin) - 1] = 0;
   strncpy(deviceRegistration.devicePin, userPin.getValue(), sizeof(deviceRegistration.devicePin) - 1);
