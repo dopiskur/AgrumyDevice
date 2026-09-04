@@ -136,8 +136,6 @@ void setup()
   // Unconditional on purpose: for a non-battery (mains) device, loop()'s batteryEnabled cycling never touches these pins, so this is the ONLY place that powers them. A battery device's loop() takes over duty-cycling from the next iteration.
   device.powerRailPrimary(true);
   device.powerRailSecondary(true);
-  // One-shot electrical settling (capacitor/regulator) after both rails power up, before any sensor is first touched - enough for simple unheated analog sensors, NOT a MOX-gas-sensor-style warm-up (would need separate handling if one is ever added here).
-  delay(500);
 
   sensor.setupSensor();    // early init for more precise measurement
   device.setupController(); // initialize time

@@ -17,6 +17,7 @@ void PowerController::railPrimary(int pin, bool state)
     digitalWrite(pin, LOW);
     Serial.println("[Power rail off]");
   }
+  delay(500); // Delay for power stabilization
 }
 
 void PowerController::railSecondary(int pin, bool state)
@@ -33,6 +34,7 @@ void PowerController::railSecondary(int pin, bool state)
     digitalWrite(pin, LOW);
     Serial.println("[Power analog sensor off]");
   }
+  delay(500); // Delay for power stabilization
 }
 
 void PowerController::sleep(int sleepSeconds, bool sleepDeep)

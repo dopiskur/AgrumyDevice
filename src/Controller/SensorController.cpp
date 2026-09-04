@@ -324,7 +324,6 @@ void SensorController::sensor_analog_voltage() // 2001, VoltageDivider
 {
     Serial.println("[Sensor battery - voltage divider]");
     device.powerRailSecondary(true);
-    delay(500); // rail-on settling before reading - PowerController itself no longer delays around the toggle.
 
     // analogReadMilliVolts(), not raw analogRead(): the ESP32 Arduino core already runs it through esp-idf's adc_cali API (eFuse-based per-chip calibration).
     uint32_t measuredMilliVolts = analogReadMilliVolts(deviceConfig.configPin.BATTERY_ADC);
@@ -364,7 +363,6 @@ void SensorController::sensor_analog_moist()
     
     Serial.println("[Sensor moisture]");
     device.powerRailSecondary(true);
-    delay(500); // rail-on settling before reading - PowerController itself no longer delays around the toggle.
 
     int moisture = analogRead(deviceConfig.configPin.MOIST);
 
@@ -413,7 +411,6 @@ void SensorController::sensor_analog_waterLevel()
 {
     Serial.println("[Sensor water level]");
     device.powerRailSecondary(true);
-    delay(500); // rail-on settling before reading - PowerController itself no longer delays around the toggle.
 
     int waterTank = analogRead(deviceConfig.configPin.WaterTank);
 
