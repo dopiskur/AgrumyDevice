@@ -426,13 +426,23 @@ bool SensorController::flushBufferedSensorData()
             Serial.println("[Sensor] Buffered file /" + filename + " unreadable - dropping it");
             device.removeBufferedFile(filename);
         }
-        else if (service.requestPost(payload, serviceRequest).eventlog.error)
-        {
-            Serial.println("[Sensor] Flush stopped at /" + filename + " - connection lost again, remaining files stay queued");
-            return false;
-        }
         else
         {
+            ServiceData result = service.requestPost(payload, serviceRequest);
+            if (result.eventlog.errorCode == 401)
+            {
+                // One re-auth retry, same as apiConfig()'s 401 handling.
+                Serial.println("[Sensor] Flush /" + filename + " got 401 - re-authenticating once");
+                service.apiAuthenticate(deviceConfig, serviceRequest, device);
+                result = service.requestPost(payload, serviceRequest);
+            }
+
+            if (result.eventlog.error)
+            {
+                Serial.println("[Sensor] Flush stopped at /" + filename + " - connection lost again, remaining files stay queued");
+                return false;
+            }
+
             Serial.println("[Sensor] Flushed /" + filename);
             device.removeBufferedFile(filename); // per-file delete, only after ITS OWN 2xx
         }
