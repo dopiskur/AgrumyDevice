@@ -10,8 +10,11 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP085.h> // BMP180 temp, pressure
 #include <Adafruit_BMP280.h>
+#include <Adafruit_BME280.h> // BME280 temp, humidity, pressure
 #include <Adafruit_CCS811.h> // CCS811 CO2, TVOC
 #include <SparkFun_MAX1704x_Fuel_Gauge_Arduino_Library.h> // MAX17048 battery fuel gauge
+#include <OneWire.h>
+#include <DallasTemperature.h> // DS18B20 soil temperature, single-wire bus
 
 #include <esp_task_wdt.h>
 
@@ -32,13 +35,22 @@ static DHT_Unified dht11(defaultPins.DHT, DHT11); // temp, humidity
 static DHT_Unified dht22(defaultPins.DHT, DHT22); // temp, humidity
 static Adafruit_BMP085 bmp180;                               // temp, pressure
 static Adafruit_BMP280 bmp280;                               // temp, pressure
+static Adafruit_BME280 bme280;                               // temp, humidity, pressure
 BH1750 Bh1750;                                               // light
 static SFE_MAX1704X maxlipo;                                  // battery fuel gauge
 
+// OneWire's pin is a constructor argument, not a begin() parameter, and the bus pin comes from
+// deviceConfig (not known at static-init time - same reason defaultPins exists above) - so these
+// stay null until setupSensor() constructs them at runtime, once the real pin is loaded.
+static OneWire *oneWireTempSoil;
+static DallasTemperature *ds18b20;
+
 static unsigned bmp280status;
 static unsigned bmp180status;
+static unsigned bme280status;
 static unsigned bh1750status;
 static bool max17048status;
+static bool ds18b20status; // true once at least one DS18B20 answers on the bus
 
 
 void SensorController::setupSensor()
@@ -58,6 +70,17 @@ void SensorController::setupSensor()
     if (deviceConfig.configSensor.sensorTemp == 1004 || deviceConfig.configSensor.sensorBarometer == 1004)
     {
         bmp280status = bmp280.begin(0x76);
+    }
+    if (deviceConfig.configSensor.sensorTemp == 1005 || deviceConfig.configSensor.sensorHumid == 1005 || deviceConfig.configSensor.sensorBarometer == 1005)
+    {
+        bme280status = bme280.begin(0x76);
+    }
+    if (deviceConfig.configSensor.sensorTempSoil == 1007)
+    {
+        oneWireTempSoil = new OneWire(deviceConfig.configPin.TEMPSOIL);
+        ds18b20 = new DallasTemperature(oneWireTempSoil);
+        ds18b20->begin();
+        ds18b20status = ds18b20->getDeviceCount() > 0;
     }
     if (deviceConfig.configSensor.sensorCo2 == 1006 || deviceConfig.configSensor.sensorTvoc == 1006)
     {
@@ -194,16 +217,52 @@ void SensorController::sensor_BMP280_pres()
 
 void SensorController::sensor_BME280_temp()
 {
+    Serial.println("[Sensor] BME280 temperature");
+    if (!bme280status) reportSensorInitError("BME280");
+    else reportTemperature(bme280.readTemperature());
 }
 void SensorController::sensor_BME280_humid()
 {
+    Serial.println("[Sensor] BME280 humidity");
+    if (!bme280status)
+    {
+        reportSensorInitError("BME280");
+        return;
+    }
+    float humidity = bme280.readHumidity();
+    Serial.print("Humidity = ");
+    Serial.print(humidity);
+    Serial.println(" %");
+    sensorData.humidity = humidity;
 }
 void SensorController::sensor_BME280_pres()
 {
+    Serial.println("[Sensor] BME280 pressure");
+    if (!bme280status) reportSensorInitError("BME280");
+    else reportPressure(bme280.readPressure());
 }
 
 void SensorController::sensor_DS18B20_temp()
 {
+    Serial.println("[Sensor] DS18B20 soil temperature");
+    if (!ds18b20status)
+    {
+        reportSensorInitError("DS18B20");
+        return;
+    }
+
+    ds18b20->requestTemperatures();
+    float celsius = ds18b20->getTempCByIndex(0);
+    if (celsius == DEVICE_DISCONNECTED_C)
+    {
+        reportSensorInitError("DS18B20");
+        return;
+    }
+
+    Serial.print("Soil temperature = ");
+    Serial.print(celsius);
+    Serial.println(" *C");
+    sensorData.temperatureSoil = celsius;
 }
 
 void SensorController::sensor_BH1750_lux()
