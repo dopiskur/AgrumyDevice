@@ -3,7 +3,7 @@
 These 7 JSON Schema files are a **copy** of the source-of-truth in the API repo:
 
 > **Source:** `dopiskur/AgrumyService`, path `contracts/device-api/`
-> **Copied from commit:** `99c9a8c` (`master`) - roadmap #94, Board added to the config-poll request (which release .bin fits this hardware)
+> **Copied from commit:** `70b550f` (`master`) - config.request.schema.json's "Kit" field (roadmap #149) was the one file that had drifted; the other 6 were already current
 
 We copy rather than submodule because the schemas change rarely (only when the
 firmware<->API payloads change) and a submodule would add init/update friction to
