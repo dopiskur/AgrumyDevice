@@ -144,16 +144,48 @@ bool ActuatorController::consumeSafetyLimitEvent(String &outMessage)
 
 void ActuatorController::initController(SensorData sensorData, time_t epochSeconds)
 {
+    // Routes through RelayIO so an I2C-expander kit (KC868-A6) works the same as a direct-GPIO one.
+    int i2cAddr = deviceConfig.configPin.RELAY_I2C_ADDRESS;
+    int i2cSda = deviceConfig.configPin.RELAY_I2C_SDA;
+    int i2cScl = deviceConfig.configPin.RELAY_I2C_SCL;
+
+    const int configuredType[8] = {
+        deviceConfig.configController.relay1, deviceConfig.configController.relay2,
+        deviceConfig.configController.relay3, deviceConfig.configController.relay4,
+        deviceConfig.configController.relay5, deviceConfig.configController.relay6,
+        deviceConfig.configController.relay7, deviceConfig.configController.relay8,
+    };
+    const int relayPin[8] = {
+        deviceConfig.configPin.RELAY_1, deviceConfig.configPin.RELAY_2,
+        deviceConfig.configPin.RELAY_3, deviceConfig.configPin.RELAY_4,
+        deviceConfig.configPin.RELAY_5, deviceConfig.configPin.RELAY_6,
+        deviceConfig.configPin.RELAY_7, deviceConfig.configPin.RELAY_8,
+    };
+
+    // Master safety switch (server-controlled ConfigController.relayEnabled) - was loaded from
+    // config but never actually checked (roadmap #166), so the server had no way to disable relay
+    // output short of unassigning every relay1..8 slot individually. Force every assigned relay pin
+    // OFF and skip rule evaluation/safety-limit bookkeeping entirely, rather than leaving pins in
+    // whatever state they last had.
+    if (!deviceConfig.configController.relayEnabled)
+    {
+        for (int i = 0; i < 8; i++)
+        {
+            if ((RelayFunctionType)configuredType[i] == RelayFunctionType::None)
+            {
+                continue;
+            }
+            relayPinMode(relayPin[i], i2cAddr, i2cSda, i2cScl);
+            relayWrite(relayPin[i], false, i2cAddr, i2cSda, i2cScl);
+        }
+        return;
+    }
+
     // gmtime() on a pre-shifted epoch yields LOCAL wall-clock calendar fields with no timezone database needed. Computed once here, not once per rule evaluated below.
     time_t localEpoch = epochSeconds + deviceConfig.utcOffsetSeconds;
     struct tm *localTm = gmtime(&localEpoch);
     int localWeekday = localTm->tm_wday;      // 0=Sunday..6=Saturday
     int localSecondsOfDay = localTm->tm_hour * 3600 + localTm->tm_min * 60 + localTm->tm_sec;
-
-    // Routes through RelayIO so an I2C-expander kit (KC868-A6) works the same as a direct-GPIO one.
-    int i2cAddr = deviceConfig.configPin.RELAY_I2C_ADDRESS;
-    int i2cSda = deviceConfig.configPin.RELAY_I2C_SDA;
-    int i2cScl = deviceConfig.configPin.RELAY_I2C_SCL;
 
     // ONE pass per relay function: every rule targeting it is OR'd together (any rule saying "on" wins), then the single result is written to every pin assigned to it.
     const RelayFunctionType functions[4] = {
@@ -197,22 +229,10 @@ void ActuatorController::initController(SensorData sensorData, time_t epochSecon
         }
     }
 
-    // Safety limits are applied per PHYSICAL SLOT (not once for the function, unlike the loop above) - each relay slot sharing the WaterPump function keeps its own independent on/off-since history.
-    const int relayType[8] = {
-        deviceConfig.configController.relay1, deviceConfig.configController.relay2,
-        deviceConfig.configController.relay3, deviceConfig.configController.relay4,
-        deviceConfig.configController.relay5, deviceConfig.configController.relay6,
-        deviceConfig.configController.relay7, deviceConfig.configController.relay8,
-    };
-    const int relayPin[8] = {
-        deviceConfig.configPin.RELAY_1, deviceConfig.configPin.RELAY_2,
-        deviceConfig.configPin.RELAY_3, deviceConfig.configPin.RELAY_4,
-        deviceConfig.configPin.RELAY_5, deviceConfig.configPin.RELAY_6,
-        deviceConfig.configPin.RELAY_7, deviceConfig.configPin.RELAY_8,
-    };
+    // Safety limits are applied per PHYSICAL SLOT (not once for the function, unlike the loop above) - each relay slot sharing the WaterPump function keeps its own independent on/off-since history. Reuses configuredType/relayPin declared at the top of this function.
     for (int i = 0; i < 8; i++)
     {
-        if ((RelayFunctionType)relayType[i] == RelayFunctionType::WaterPump)
+        if ((RelayFunctionType)configuredType[i] == RelayFunctionType::WaterPump)
         {
             applyWaterPumpSafetyLimits(i, relayPin[i], epochSeconds);
         }
