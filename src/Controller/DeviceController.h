@@ -71,7 +71,7 @@ public:
     String camera();
 
     void sleep();
-    // Downloads+flashes a .bin, returns true on success (caller reboots). expectedSha256: lowercase hex from the catalog, "" to skip verification.
+    // Downloads+flashes a .bin, returns true on success (caller reboots). Requires isHttps=true and a real 64-char hex expectedSha256 - see OtaController::update.
     bool firmwareUpdate(String url, bool isHttps, String expectedSha256);
     void reboot();
     void reset();

@@ -26,6 +26,20 @@ bool OtaController::update(String url, bool isHttps, const String &servicePublic
 {
   Serial.println("[Firmware] Starting OTA update from: " + url);
 
+  // Both required, no soft-skip: HTTP OTA has no transport integrity at all, and a missing/
+  // malformed hash used to just proceed unverified - together that combination let a firmware
+  // image reach the flash write with zero cryptographic verification of its contents.
+  if (!isHttps)
+  {
+    Serial.println("[Firmware] Refusing OTA over HTTP - only HTTPS is allowed");
+    return false;
+  }
+  if (expectedSha256.length() != 64)
+  {
+    Serial.println("[Firmware] Refusing OTA without a valid SHA-256 (expected 64 hex chars)");
+    return false;
+  }
+
   if (WiFi.status() != WL_CONNECTED)
   {
     Serial.println("[Firmware] No WiFi, aborting OTA");
@@ -83,18 +97,12 @@ bool OtaController::update(String url, bool isHttps, const String &servicePublic
     return false;
   }
 
-  // Hashed WHILE streaming (not re-read from flash afterwards) so the check covers exactly the bytes handed to Update.write(). Anything other than a 64-char lowercase-hex hash (including "") skips verification rather than failing closed.
-  bool verifyHash = expectedSha256.length() == 64;
+  // Hashed WHILE streaming (not re-read from flash afterwards) so the check covers exactly the
+  // bytes handed to Update.write(). Always on now - the early-return guards above guarantee
+  // expectedSha256 is a real 64-char hex hash by this point, no soft-skip path left.
   mbedtls_sha256_context shaCtx;
-  if (verifyHash)
-  {
-    mbedtls_sha256_init(&shaCtx);
-    mbedtls_sha256_starts(&shaCtx, 0); // 0 = SHA-256, not the truncated SHA-224 variant
-  }
-  else if (expectedSha256.length() > 0)
-  {
-    Serial.println("[Firmware] Ignoring malformed expected SHA-256 (not 64 hex chars) - proceeding unverified");
-  }
+  mbedtls_sha256_init(&shaCtx);
+  mbedtls_sha256_starts(&shaCtx, 0); // 0 = SHA-256, not the truncated SHA-224 variant
 
   WiFiClient *stream = http.getStreamPtr();
   uint8_t buf[1024];
@@ -112,13 +120,10 @@ bool OtaController::update(String url, bool isHttps, const String &servicePublic
       Serial.printf("[Firmware] Update.write failed: %s\n", Update.errorString());
       Update.abort();
       http.end();
-      if (verifyHash) mbedtls_sha256_free(&shaCtx);
+      mbedtls_sha256_free(&shaCtx);
       return false;
     }
-    if (verifyHash)
-    {
-      mbedtls_sha256_update(&shaCtx, buf, got);
-    }
+    mbedtls_sha256_update(&shaCtx, buf, got);
     remaining -= got;
   }
 
@@ -127,11 +132,10 @@ bool OtaController::update(String url, bool isHttps, const String &servicePublic
     Serial.printf("[Firmware] Wrote %u/%d bytes\n", (unsigned)(contentLength - remaining), contentLength);
     Update.abort();
     http.end();
-    if (verifyHash) mbedtls_sha256_free(&shaCtx);
+    mbedtls_sha256_free(&shaCtx);
     return false;
   }
 
-  if (verifyHash)
   {
     unsigned char digest[32];
     mbedtls_sha256_finish(&shaCtx, digest);
