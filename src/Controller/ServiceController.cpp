@@ -291,7 +291,7 @@ bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest ser
     const int MAX_CONSECUTIVE_CONFIG_FAILURES = 3;
     if(serviceData.eventlog.error){
         consecutiveFailures++;
-        Serial.print("[Service] Error accesing service point: ");
+        Serial.print("[Service] Error accessing service point: ");
         Serial.println(serviceData.eventlog.errorCode);
         Serial.printf("[Service] Consecutive failed config cycles: %d/%d\n", consecutiveFailures, MAX_CONSECUTIVE_CONFIG_FAILURES);
         if (consecutiveFailures >= MAX_CONSECUTIVE_CONFIG_FAILURES)
