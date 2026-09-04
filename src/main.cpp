@@ -6,6 +6,8 @@
 #include <ArduinoJson.h>
 #include <esp_task_wdt.h>
 #include <esp_sleep.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #include "Model/DeviceModel.h"
 
@@ -157,6 +159,9 @@ void loop()
 
   // deviceConfig is passed by reference and is the single canonical instance, so a hot-applied config (no reboot) is visible to every module the instant apiConfig() returns.
   service.apiConfig(deviceConfig, serviceRequest, device);
+
+  // Temporary: measuring how close loopTask's 16384-byte stack gets to empty during the CA-bundle TLS verify path, to size a fix off a real number instead of a guess.
+  Serial.printf("[Loop] loopTask stack high-water mark: %u bytes free\n", uxTaskGetStackHighWaterMark(NULL));
 
   if (deviceConfig.enabled) {
     sensor.buildSensorData(deviceConfig);
