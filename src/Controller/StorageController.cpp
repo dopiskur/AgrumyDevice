@@ -100,15 +100,26 @@ String StorageController::loadFile(String filename)
   Serial.print("Reading file: ");
   Serial.println(filename);
 
-  // Bounded read - do not trust available() alone: a corrupt LittleFS size field spun this loop forever.
-  size_t want = file.size();
-  if (want > 16384)
+  // Roadmap #174: a file over this cap used to be silently truncated and returned as if it were
+  // legitimate (short) data - deserializeJson() would then fail on the truncated JSON, which reads
+  // to a caller/log as "corrupt config", not "file too large". Refuse outright instead, same
+  // explicit-error convention (log + return empty, "caller treats the file as absent" above) as
+  // every other failure path in this function.
+  const size_t MAX_FILE_SIZE = 16384;
+  size_t fileSize = file.size();
+  if (fileSize > MAX_FILE_SIZE)
   {
-    want = 16384;
+    Serial.printf("[Device] loadFile: %s is %u bytes, exceeds the %u byte cap - refusing to load\n",
+                   path.c_str(), (unsigned)fileSize, (unsigned)MAX_FILE_SIZE);
+    file.close();
+    return String();
   }
+
+  // Reads exactly fileSize bytes, not available()-driven - do not trust available() alone: a
+  // corrupt LittleFS size field spun this loop forever before this bound existed.
   String data;
-  data.reserve(want + 1);
-  while (data.length() < want)
+  data.reserve(fileSize + 1);
+  while (data.length() < fileSize)
   {
     int c = file.read();
     if (c < 0)
