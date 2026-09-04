@@ -182,9 +182,19 @@ void DeviceController::initializeDevice()
   WiFiManagerParameter userPin("devicePin", "User PIN", deviceRegistration.devicePin, 8);
   WiFiManagerParameter servicePoint("servicePoint", "Service Point (default:api.agrumy.com)", deviceRegistration.servicePoint, 256);
 
+  MqttConfig mqttRegistration;
+  WiFiManagerParameter mqttHost("mqttHost", "MQTT Broker (optional, blank=disabled)", mqttRegistration.brokerHost, 128);
+  WiFiManagerParameter mqttPort("mqttPort", "MQTT Port (1883, 8883=TLS)", mqttRegistration.brokerPort, 6);
+  WiFiManagerParameter mqttUser("mqttUser", "MQTT Username (optional)", mqttRegistration.username, 64);
+  WiFiManagerParameter mqttPass("mqttPass", "MQTT Password (optional)", mqttRegistration.password, 64);
+
   wifiManager.addParameter(&userLogin);
   wifiManager.addParameter(&userPin);
   wifiManager.addParameter(&servicePoint);
+  wifiManager.addParameter(&mqttHost);
+  wifiManager.addParameter(&mqttPort);
+  wifiManager.addParameter(&mqttUser);
+  wifiManager.addParameter(&mqttPass);
 
   wifiManager.startConfigPortal(("Agrumy_" + macAddr()).c_str());
 
@@ -197,6 +207,15 @@ void DeviceController::initializeDevice()
   deviceRegistration.servicePoint[sizeof(deviceRegistration.servicePoint) - 1] = 0;
 
   deviceRegistration.initialize = true;
+
+  strncpy(mqttRegistration.brokerHost, mqttHost.getValue(), sizeof(mqttRegistration.brokerHost) - 1);
+  mqttRegistration.brokerHost[sizeof(mqttRegistration.brokerHost) - 1] = 0;
+  strncpy(mqttRegistration.brokerPort, mqttPort.getValue(), sizeof(mqttRegistration.brokerPort) - 1);
+  mqttRegistration.brokerPort[sizeof(mqttRegistration.brokerPort) - 1] = 0;
+  strncpy(mqttRegistration.username, mqttUser.getValue(), sizeof(mqttRegistration.username) - 1);
+  mqttRegistration.username[sizeof(mqttRegistration.username) - 1] = 0;
+  strncpy(mqttRegistration.password, mqttPass.getValue(), sizeof(mqttRegistration.password) - 1);
+  mqttRegistration.password[sizeof(mqttRegistration.password) - 1] = 0;
 
 
   JsonDocument config;
@@ -214,6 +233,19 @@ void DeviceController::initializeDevice()
   Serial.println("[Device] Saving registration data " + data);
   saveFile(data, "deviceRegistration.json");
   waitForFileCommitted("deviceRegistration.json");
+
+  // Blank brokerHost is saved too, so a re-run of this portal (factory reset) always overwrites any prior MQTT settings.
+  JsonDocument mqttConfigJson;
+  mqttConfigJson["brokerHost"] = mqttRegistration.brokerHost;
+  mqttConfigJson["brokerPort"] = strlen(mqttRegistration.brokerPort) > 0 ? atoi(mqttRegistration.brokerPort) : 1883;
+  mqttConfigJson["username"] = mqttRegistration.username;
+  mqttConfigJson["password"] = mqttRegistration.password;
+  String mqttData;
+  serializeJsonPretty(mqttConfigJson, mqttData);
+  Serial.println("[Device] Saving MQTT config: broker=" + String(mqttRegistration.brokerHost) + ":" + String(mqttRegistration.brokerPort)); // password never printed, even masked
+  saveFile(mqttData, "mqttConfig.json");
+  waitForFileCommitted("mqttConfig.json");
+
   reboot();
 };
 

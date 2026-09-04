@@ -22,6 +22,7 @@
 #include "DeviceController.h"
 #include "ServiceController.h"
 #include "ActuatorController.h"
+#include "MqttController.h"
 #include "../Logic/BatteryLogic.h" // divider math + LiPo voltage->percent curve
 
 static JsonDocument jsonDoc;
@@ -384,20 +385,19 @@ void SensorController::sensor_analog_moist()
         Serial.println("Status: Soil is too dry");
     }
 
-    // TODO: convert raw reading to a 0-100 percentage (100/4096 per step)
-
     if (moisture != 0)
     {
-        sensorData.moisture = moisture;
+        // soilWet (low raw ADC) is 100% wet, soilDry (high raw ADC) is 0% - constrain first so a reading past either calibration bound still clamps to 0-100 instead of extrapolating past it.
+        sensorData.moisture = map(constrain(moisture, soilWet, soilDry), soilWet, soilDry, 100, 0);
     }
     else
     {
         Serial.println("Moisture sensor not present");
+        service.pushEvent(serviceRequest, "SensorMissing", "Moisture sensor reading 0 - likely disconnected");
     }
 
     device.powerRailSecondary(false);
     Serial.println();
-    // TODO: eventlog error when reading is 0 (no sensor present)
 }
 void SensorController::sensor_Wind()
 {
@@ -461,6 +461,9 @@ void SensorController::buildSensorDataPayload()
     jsonSensorData["dateCreated"]=(dateCreated)!=""? dateCreated:  JsonVariant(); // timestamp for buffering
 
     sensorDataJsonArray.add(jsonSensorData); // buffer if the service point is unavailable
+
+    // Additive channel alongside the HTTPS buffer above - best-effort, never buffered/retried.
+    mqtt.publishSensorData(deviceConfig, jsonSensorData);
 
     String sensorDataDebug;
     serializeJsonPretty(jsonSensorData,sensorDataDebug);

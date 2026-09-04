@@ -13,6 +13,7 @@
 #include "Controller/SensorController.h"
 #include "Controller/ServiceController.h"
 #include "Controller/ActuatorController.h"
+#include "Controller/MqttController.h"
 
 // Injected by tools/firmware_version.py (git tag / FIRMWARE_VERSION env var); the fallback only covers a build that skipped extra_scripts.
 #ifndef FIRMWARE_VERSION
@@ -139,6 +140,7 @@ void setup()
 
   sensor.setupSensor();    // early init for more precise measurement
   device.setupController(); // initialize time
+  mqtt.begin(device);        // loads mqttConfig.json - no-op if MQTT was never configured
 
   // Arm the watchdog only now that setup (incl. the blocking WiFi portal/registration path) is done - those legitimately take longer than one loop cycle. esp_task_wdt_init() is a no-op if the WDT (arduino-esp32's own 5s default) is already initialized, so tear it down first.
   esp_task_wdt_deinit();
