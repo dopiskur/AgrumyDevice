@@ -196,12 +196,16 @@ void SensorController::sensor_DS18B20_temp()
 void SensorController::sensor_BH1750_lux()
 {
     Serial.println("[Sensor] BH1750 lux");
-    BH1750 lightMeter;
+    // Uses the global Bh1750 object setupSensor() already began in CONTINUOUS_HIGH_RES_MODE - a
+    // second, local BH1750 instance here used to shadow it and call begin() again, ignoring
+    // bh1750status entirely (so this always "succeeded" even when the sensor never initialized).
+    if (!bh1750status)
+    {
+        reportSensorInitError("BH1750");
+        return;
+    }
 
-    lightMeter.begin();
-    delay(500);
-
-    double lux = lightMeter.readLightLevel();
+    double lux = Bh1750.readLightLevel();
     Serial.print("Light: ");
     Serial.print(lux);
     Serial.println(" lx");
