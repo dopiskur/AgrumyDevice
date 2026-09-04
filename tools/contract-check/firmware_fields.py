@@ -86,17 +86,18 @@ CONTRACT = {
             },
             "deviceConfigController": {
                 "def": "deviceConfigController",
+                # Roadmap #21: threshold/interval/schedule per-condition-type fields replaced by a
+                # single "rules" array (ConfigParser.cpp reads deviceConfigController["rules"], each
+                # entry's relayFunction/conditionType/conditionConfig - see ActuatorController for
+                # the per-conditionType conditionConfig shape, not re-validated at this flat level).
+                # idDeviceConfigController excluded, same as idDeviceConfigSensor/idDeviceConfig*
+                # elsewhere in this file - firmware ignores it.
                 "keys": [
-                    "tempLow", "tempHigh", "humidLow", "humidHigh", "moistLow", "moistHigh",
-                    "lightLow", "lightHigh", "waterLow", "waterHigh",
-                    "ventilationIntervalEnabled", "ventilationInterval", "ventilationIntervalLength",
-                    "lightIntervalEnabled", "lightInterval", "lightIntervalLength",
-                    "heatingIntervalEnabled", "heatingInterval", "heatingIntervalLength",
-                    "waterPumpIntervalEnabled", "waterPumpInterval", "waterPumpIntervalLength",
-                    # roadmap #39/#115 - each an array of {daysOfWeek, start, duration} windows now
-                    "ventilationSchedule", "lightSchedule", "heatingSchedule", "waterPumpSchedule",
+                    "rules",
+                    "waterPumpMaxRunSeconds", "waterPumpCooldownSeconds",
                     "relayEnabled",
                     "relay1", "relay2", "relay3", "relay4", "relay5", "relay6", "relay7", "relay8",
+                    "skipWaterPumpForRain",  # roadmap #11
                 ],
             },
         },
