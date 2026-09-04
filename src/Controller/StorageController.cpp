@@ -13,19 +13,28 @@ bool StorageController::saveFile(String data, String filename)
   String path = "/" + filename;
   String tmpPath = path + ".tmp";
 
-  // Roadmap #168: a transient open() failure (one bad write, momentary I/O hiccup) used to trigger
-  // an immediate LittleFS.format() - wiping config.json, config.json.bak, deviceRegistration.json
-  // and every buffered sensor reading on the FIRST failed open. Now this just fails this one save
-  // (#167's bool return lets the caller decide what to do), the same as an incomplete write or a
-  // failed rename just below - format() is reserved for the explicit, deliberate factory-reset path
-  // (DeviceController::reset() -> PowerController::reset()), never an implicit side effect of one
-  // I/O error.
+  // Roadmap #195: #168 stopped format()-ing on the FIRST failed open, but flash genuinely degrades
+  // over time (bad blocks, wear leveling) - when that's the real cause, format() is the correct
+  // recovery, just not for one transient I/O hiccup. Same consecutive-failure-counter pattern as
+  // MAX_CONSECUTIVE_AUTH_FAILURES/MAX_CONSECUTIVE_CONFIG_FAILURES in ServiceController.cpp: only
+  // format() once several opens in a row have failed, and reset the counter on any success.
+  static int consecutiveOpenFailures = 0;
+  const int MAX_CONSECUTIVE_OPEN_FAILURES = 3;
   File file = LittleFS.open(tmpPath, "w");
   if (!file)
   {
-    Serial.println("[Device] saveFile: failed to open " + tmpPath + " for write");
+    consecutiveOpenFailures++;
+    Serial.printf("[Device] saveFile: failed to open %s for write (%d/%d consecutive)\n",
+                   tmpPath.c_str(), consecutiveOpenFailures, MAX_CONSECUTIVE_OPEN_FAILURES);
+    if (consecutiveOpenFailures >= MAX_CONSECUTIVE_OPEN_FAILURES)
+    {
+      Serial.println("[Device] Too many consecutive open failures, formatting filesystem...");
+      LittleFS.format();
+      consecutiveOpenFailures = 0;
+    }
     return false;
   }
+  consecutiveOpenFailures = 0;
 
   Serial.print("Saving file: ");
   Serial.println(filename);
