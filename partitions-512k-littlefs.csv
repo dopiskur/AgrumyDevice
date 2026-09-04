@@ -1,0 +1,15 @@
+# Custom 4MB partition table for esp32dev/kc868-a6 (board_build.partitions in platformio.ini).
+# Derived from the Arduino-ESP32 stock default.csv (nvs/otadata/coredump untouched) - LittleFS
+# shrunk from 1441792B (1.38MB) to 524288B (512KB), freeing 917504B split evenly between the two
+# OTA app slots (app0/app1 each +458752B). 512KB LittleFS holds ~1260 buffered sensor readings
+# worst-case (~416B/record incl. LittleFS overhead) - roughly 4.4 days of offline buffering at a
+# 5-minute sample interval, comfortably more than a real network outage needs; the 1.38MB default
+# was over 98% unused in practice (deviceDiagnostic boot-log measurement, roadmap #157).
+#
+# Name,   Type, SubType, Offset,  Size,     Flags
+nvs,      data, nvs,     0x9000,  0x5000,
+otadata,  data, ota,     0xe000,  0x2000,
+app0,     app,  ota_0,   0x10000, 0x1B0000,
+app1,     app,  ota_1,   0x1C0000,0x1B0000,
+spiffs,   data, spiffs,  0x370000,0x80000,
+coredump, data, coredump,0x3F0000,0x10000,
