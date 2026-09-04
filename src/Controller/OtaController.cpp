@@ -22,10 +22,7 @@ static void sha256ToHex(const unsigned char digest[32], char out[65])
   out[64] = '\0';
 }
 
-// The authority (host[:port]) segment of a URL - "https://api.agrumy.com/x" -> "api.agrumy.com".
-// Empty if url has no "://". Used for an EXACT host comparison rather than substring matching -
-// "https://api.agrumy.com.attacker.example/x" contains "api.agrumy.com" as a substring but must
-// NOT be treated as the same host.
+// The authority (host[:port]) segment of a URL, for an EXACT host comparison, not substring matching.
 static String extractHost(const String &url)
 {
   int schemeEnd = url.indexOf("://");
@@ -42,9 +39,7 @@ bool OtaController::update(String url, bool isHttps, const String &servicePublic
 {
   Serial.println("[Firmware] Starting OTA update from: " + url);
 
-  // Both required, no soft-skip: HTTP OTA has no transport integrity at all, and a missing/
-  // malformed hash used to just proceed unverified - together that combination let a firmware
-  // image reach the flash write with zero cryptographic verification of its contents.
+  // Both required, no soft-skip - see below, hash verification used to be optional.
   if (!isHttps)
   {
     Serial.println("[Firmware] Refusing OTA over HTTP - only HTTPS is allowed");
@@ -113,9 +108,7 @@ bool OtaController::update(String url, bool isHttps, const String &servicePublic
     return false;
   }
 
-  // Hashed WHILE streaming (not re-read from flash afterwards) so the check covers exactly the
-  // bytes handed to Update.write(). Always on now - the early-return guards above guarantee
-  // expectedSha256 is a real 64-char hex hash by this point, no soft-skip path left.
+  // Hashed WHILE streaming so the check covers exactly the bytes handed to Update.write().
   mbedtls_sha256_context shaCtx;
   mbedtls_sha256_init(&shaCtx);
   mbedtls_sha256_starts(&shaCtx, 0); // 0 = SHA-256, not the truncated SHA-224 variant
