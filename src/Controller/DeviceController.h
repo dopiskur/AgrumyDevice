@@ -29,7 +29,7 @@ public:
 
     // LittleFS-backed. saveFile() writes atomically (temp file + rename), so a power loss
     // mid-write leaves the target file either untouched or fully replaced, never half-written.
-    // Returns false if the write/rename did not actually complete (roadmap #167).
+    // Returns false if the write/rename did not actually complete.
     bool saveFile(String data, String filename);
     String loadFile(String filename);
 

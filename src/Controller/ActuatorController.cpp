@@ -162,11 +162,7 @@ void ActuatorController::initController(SensorData sensorData, time_t epochSecon
         deviceConfig.configPin.RELAY_7, deviceConfig.configPin.RELAY_8,
     };
 
-    // Master safety switch (server-controlled ConfigController.relayEnabled) - was loaded from
-    // config but never actually checked (roadmap #166), so the server had no way to disable relay
-    // output short of unassigning every relay1..8 slot individually. Force every assigned relay pin
-    // OFF and skip rule evaluation/safety-limit bookkeeping entirely, rather than leaving pins in
-    // whatever state they last had.
+    // Master safety switch - was loaded from config but never actually checked, so the server had no way to force relays off.
     if (!deviceConfig.configController.relayEnabled)
     {
         for (int i = 0; i < 8; i++)

@@ -5,9 +5,7 @@
 
 #include "StorageController.h"
 
-// Roadmap #167: return value tells the caller whether data actually reached disk - a rename()
-// failure used to only be logged, so a caller like bufferSensorDataToDisk() had no way to know its
-// write hadn't really landed before discarding its own in-RAM copy.
+// Return value tells the caller whether data actually reached disk, not just whether it was logged.
 bool StorageController::saveFile(String data, String filename)
 {
   String path = "/" + filename;
@@ -96,11 +94,7 @@ String StorageController::loadFile(String filename)
   Serial.print("Reading file: ");
   Serial.println(filename);
 
-  // Roadmap #174: a file over this cap used to be silently truncated and returned as if it were
-  // legitimate (short) data - deserializeJson() would then fail on the truncated JSON, which reads
-  // to a caller/log as "corrupt config", not "file too large". Refuse outright instead, same
-  // explicit-error convention (log + return empty, "caller treats the file as absent" above) as
-  // every other failure path in this function.
+  // Refuse outright rather than silently truncating - a truncated file used to look like "corrupt config", not "too large".
   const size_t MAX_FILE_SIZE = 16384;
   size_t fileSize = file.size();
   if (fileSize > MAX_FILE_SIZE)
@@ -190,9 +184,7 @@ bool StorageController::bufferSensorDataToDisk(String payloadJson)
   char name[24];
   snprintf(name, sizeof(name), "buffer/%05d.json", nextIndex);
   nextIndex++;
-  // Roadmap #167: must not report success (and let the caller drop its own RAM copy) when the
-  // data never actually made it to disk - nextIndex is still incremented above even on failure,
-  // deliberately, so a later successful spill doesn't reuse this file name.
+  // nextIndex is still incremented above even on failure, so a later successful spill doesn't reuse this file name.
   if (!saveFile(payloadJson, name))
   {
     Serial.printf("[Device] Sensor buffer spill to /%s FAILED - readings not persisted\n", name);
