@@ -22,6 +22,22 @@ static void sha256ToHex(const unsigned char digest[32], char out[65])
   out[64] = '\0';
 }
 
+// The authority (host[:port]) segment of a URL - "https://api.agrumy.com/x" -> "api.agrumy.com".
+// Empty if url has no "://". Used for an EXACT host comparison rather than substring matching -
+// "https://api.agrumy.com.attacker.example/x" contains "api.agrumy.com" as a substring but must
+// NOT be treated as the same host.
+static String extractHost(const String &url)
+{
+  int schemeEnd = url.indexOf("://");
+  if (schemeEnd < 0)
+  {
+    return String();
+  }
+  int hostStart = schemeEnd + 3;
+  int hostEnd = url.indexOf('/', hostStart);
+  return hostEnd < 0 ? url.substring(hostStart) : url.substring(hostStart, hostEnd);
+}
+
 bool OtaController::update(String url, bool isHttps, const String &servicePublicKey, const String &servicePoint, const String &expectedSha256)
 {
   Serial.println("[Firmware] Starting OTA update from: " + url);
@@ -54,7 +70,7 @@ bool OtaController::update(String url, bool isHttps, const String &servicePublic
     // The download host decides which trust to use: our own API validates against a pinned servicePublicKey (if set), any other host (GitHub release, Custom repository) against the embedded CA bundle - a pinned cert can never match those.
     bool ownServer = servicePublicKey.length() > 0 &&
                      servicePoint.length() > 0 &&
-                     url.indexOf(servicePoint) >= 0;
+                     extractHost(url).equalsIgnoreCase(servicePoint);
     if (ownServer)
     {
       secureClient.setCACert(servicePublicKey.c_str());
