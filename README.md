@@ -26,6 +26,13 @@ voltage curve (`Logic/BatteryLogic.h`, necessity/fallback path). Relay functions
 threshold+hysteresis control, or a wall-clock schedule with up to
 `MAX_SCHEDULE_SLOTS_PER_FUNCTION` (4) windows a day per function (roadmap #115).
 
+## Offline resilience
+
+A controller/sensor node keeps running its relay logic (thresholds, schedules)
+against its own last-known-good `config.json`, loaded from local flash
+(LittleFS) early in `setup()` before any network call - the server or the
+internet being unreachable doesn't stop it from doing its job.
+
 ## Build
 
 ```
