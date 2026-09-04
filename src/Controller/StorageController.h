@@ -7,8 +7,7 @@ class StorageController
 public:
     // LittleFS "spiffs" partition: ~1.4-1.5MB depending on board, separate flash region from the OTA app partitions (ota_0/ota_1). config.json + deviceRegistration.json use <2%, leaving the rest for the store-and-forward queue.
     // Atomic write: writes to a .tmp copy, only replacing the real file once that write is confirmed complete - a power loss mid-write leaves the old file untouched.
-    // Returns false if the write or the final rename failed (roadmap #167) - the data must be
-    // treated as NOT persisted, not just logged and forgotten.
+    // Returns false if the write or the final rename failed - data must be treated as NOT persisted.
     static bool saveFile(String data, String filename);
     static String loadFile(String filename);
 

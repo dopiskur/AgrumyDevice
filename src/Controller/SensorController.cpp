@@ -382,9 +382,7 @@ void SensorController::buildSensorDataPayload()
     jsonSensorData["rainLevel"]=(sensorData.rainLevel)!=""? sensorData.rainLevel:  JsonVariant();
     jsonSensorData["waterLevel"]=(sensorData.waterLevel)!=""? sensorData.waterLevel:  JsonVariant();
     jsonSensorData["wind"]=(sensorData.wind)!=""? sensorData.wind:  JsonVariant();
-    // Roadmap #175: was calling getDateTime() twice in one expression - the two calls could
-    // straddle a second boundary and disagree, so the emptiness check and the stored value could
-    // end up describing two different timestamps. Computed once here instead.
+    // Computed once - calling getDateTime() twice in one expression let the two calls straddle a second boundary and disagree.
     String dateCreated = device.getDateTime();
     jsonSensorData["dateCreated"]=(dateCreated)!=""? dateCreated:  JsonVariant(); // timestamp for buffering
 
@@ -478,10 +476,7 @@ void SensorController::pushSensorData(JsonDocument payload){
         serializeJson(sensorDataJsonArray, spill);
         if (!device.bufferSensorDataToDisk(spill))
         {
-            // Two distinct causes share this branch (roadmap #167): partition >= 70% full
-            // (deliberate data loss by design) or the write/rename itself failed - either way the
-            // data is gone, so the event fires the same either way; StorageController::saveFile's
-            // own Serial log carries the specific cause.
+            // Covers both a full partition (deliberate data loss) and a write/rename failure - same event either way, StorageController's own log has the specific cause.
             service.pushEvent(serviceRequest, "BufferDiscarded", "Sensor buffer could not be persisted to LittleFS, dropped " + String((unsigned)pending) + " bytes of sensor data");
         }
         sensorDataJsonArray = jsonDoc.to<JsonArray>();
