@@ -5,7 +5,10 @@
 
 #include "StorageController.h"
 
-void StorageController::saveFile(String data, String filename)
+// Roadmap #167: return value tells the caller whether data actually reached disk - a rename()
+// failure used to only be logged, so a caller like bufferSensorDataToDisk() had no way to know its
+// write hadn't really landed before discarding its own in-RAM copy.
+bool StorageController::saveFile(String data, String filename)
 {
   String path = "/" + filename;
   String tmpPath = path + ".tmp";
@@ -15,7 +18,7 @@ void StorageController::saveFile(String data, String filename)
   {
     Serial.println("Failed to open file for write, formating device");
     LittleFS.format();
-    return;
+    return false;
   }
 
   Serial.print("Saving file: ");
@@ -28,16 +31,21 @@ void StorageController::saveFile(String data, String filename)
   {
     Serial.println("[Device] saveFile: incomplete write (" + String((unsigned)written) + "/" + String(data.length()) + " bytes) to " + tmpPath + " - leaving " + path + " untouched");
     LittleFS.remove(tmpPath);
-    return;
+    return false;
   }
 
   if (!LittleFS.rename(tmpPath, path))
   {
     Serial.println("[Device] saveFile: rename " + tmpPath + " -> " + path + " failed");
+    return false;
   }
+
+  return true;
 };
 
-void StorageController::saveConfigFile(String newConfigJson)
+// Returns whether the NEW config actually got saved - a failed backup does not block the real
+// save (nothing to roll back to yet is not fatal), but a failed primary save is.
+bool StorageController::saveConfigFile(String newConfigJson)
 {
   String currentConfig = loadFile("config.json");
   if (!currentConfig.isEmpty())
@@ -45,8 +53,14 @@ void StorageController::saveConfigFile(String newConfigJson)
     JsonDocument parseCheck;
     if (deserializeJson(parseCheck, currentConfig) == DeserializationError::Ok)
     {
-      saveFile(currentConfig, "config.json.bak");
-      Serial.println("[Device] Backed up current config.json to config.json.bak");
+      if (saveFile(currentConfig, "config.json.bak"))
+      {
+        Serial.println("[Device] Backed up current config.json to config.json.bak");
+      }
+      else
+      {
+        Serial.println("[Device] Failed to back up current config.json - continuing anyway");
+      }
     }
     else
     {
@@ -54,7 +68,7 @@ void StorageController::saveConfigFile(String newConfigJson)
     }
   }
 
-  saveFile(newConfigJson, "config.json");
+  return saveFile(newConfigJson, "config.json");
 }
 
 String StorageController::loadFile(String filename)
@@ -154,7 +168,14 @@ bool StorageController::bufferSensorDataToDisk(String payloadJson)
   char name[24];
   snprintf(name, sizeof(name), "buffer/%05d.json", nextIndex);
   nextIndex++;
-  saveFile(payloadJson, name);
+  // Roadmap #167: must not report success (and let the caller drop its own RAM copy) when the
+  // data never actually made it to disk - nextIndex is still incremented above even on failure,
+  // deliberately, so a later successful spill doesn't reuse this file name.
+  if (!saveFile(payloadJson, name))
+  {
+    Serial.printf("[Device] Sensor buffer spill to /%s FAILED - readings not persisted\n", name);
+    return false;
+  }
 
   Serial.printf("[Device] Sensor buffer spilled to /%s - LittleFS now %u/%u bytes\n", name, (unsigned)LittleFS.usedBytes(), (unsigned)total);
   return true;

@@ -29,7 +29,8 @@ public:
 
     // LittleFS-backed. saveFile() writes atomically (temp file + rename), so a power loss
     // mid-write leaves the target file either untouched or fully replaced, never half-written.
-    void saveFile(String data, String filename);
+    // Returns false if the write/rename did not actually complete (roadmap #167).
+    bool saveFile(String data, String filename);
     String loadFile(String filename);
 
     // Bounded verification (not a fixed delay) around saveFile()/loadFile() call sites.
@@ -38,7 +39,8 @@ public:
 
     // Backs up the current config.json to config.json.bak (only if it exists and parses) before
     // atomically replacing it - config integrity, pairs with consumeRollbackTrigger() below.
-    void saveConfigFile(String newConfigJson);
+    // Returns whether the new config.json save succeeded.
+    bool saveConfigFile(String newConfigJson);
 
     // Call ONLY from ServiceController::apiConfig()'s "new config received, about to reboot"
     // branch, nowhere else - feeds the crash-loop counter that consumeRollbackTrigger() reads.

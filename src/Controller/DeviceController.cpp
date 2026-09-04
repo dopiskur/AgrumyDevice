@@ -55,15 +55,15 @@ void DeviceController::setupController()
   timeClient.update();
 }
 
-void DeviceController::saveFile(String data, String filename)
+bool DeviceController::saveFile(String data, String filename)
 {
-  StorageController::saveFile(data, filename);
+  return StorageController::saveFile(data, filename);
 };
 
 // See StorageController.h for the config-integrity rationale.
-void DeviceController::saveConfigFile(String newConfigJson)
+bool DeviceController::saveConfigFile(String newConfigJson)
 {
-  StorageController::saveConfigFile(newConfigJson);
+  return StorageController::saveConfigFile(newConfigJson);
 }
 
 void DeviceController::notePendingConfigReboot(unsigned long uptimeMs)

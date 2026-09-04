@@ -474,8 +474,11 @@ void SensorController::pushSensorData(JsonDocument payload){
         serializeJson(sensorDataJsonArray, spill);
         if (!device.bufferSensorDataToDisk(spill))
         {
-            // Partition >= 70% full: deliberate data loss by design.
-            service.pushEvent(serviceRequest, "BufferDiscarded", "LittleFS >= 70% full, dropped " + String((unsigned)pending) + " bytes of sensor data");
+            // Two distinct causes share this branch (roadmap #167): partition >= 70% full
+            // (deliberate data loss by design) or the write/rename itself failed - either way the
+            // data is gone, so the event fires the same either way; StorageController::saveFile's
+            // own Serial log carries the specific cause.
+            service.pushEvent(serviceRequest, "BufferDiscarded", "Sensor buffer could not be persisted to LittleFS, dropped " + String((unsigned)pending) + " bytes of sensor data");
         }
         sensorDataJsonArray = jsonDoc.to<JsonArray>();
     }
