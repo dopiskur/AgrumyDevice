@@ -217,6 +217,15 @@ String StorageController::oldestBufferedSensorFile()
   {
     String name = entry.name();
     entry.close();
+    // Roadmap #177: File::name()'s return format (bare "00042.json" vs. already-prefixed
+    // "/buffer/00042.json") is not confirmed on this exact ESP32 Arduino core version - if it ever
+    // returns the prefixed form, "buffer/" + name below would produce a broken double-prefixed
+    // path ("buffer//buffer/00042.json"). Defensive normalization, harmless no-op if name() is
+    // already bare.
+    if (name.startsWith("/buffer/"))
+    {
+      name = name.substring(8);
+    }
     if (!name.endsWith(".json")) // skips orphaned .tmp files from an interrupted atomic write
     {
       continue;
