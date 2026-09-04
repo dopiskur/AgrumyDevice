@@ -86,8 +86,8 @@ CONTRACT = {
             },
             "deviceConfigController": {
                 "def": "deviceConfigController",
-                # Roadmap #21: threshold/interval/schedule per-condition-type fields replaced by a
-                # single "rules" array (ConfigParser.cpp reads deviceConfigController["rules"], each
+                # Threshold/interval/schedule per-condition-type fields were replaced by a single
+                # "rules" array (ConfigParser.cpp reads deviceConfigController["rules"], each
                 # entry's relayFunction/conditionType/conditionConfig - see ActuatorController for
                 # the per-conditionType conditionConfig shape, not re-validated at this flat level).
                 # idDeviceConfigController excluded, same as idDeviceConfigSensor/idDeviceConfig*
@@ -97,7 +97,7 @@ CONTRACT = {
                     "waterPumpMaxRunSeconds", "waterPumpCooldownSeconds",
                     "relayEnabled",
                     "relay1", "relay2", "relay3", "relay4", "relay5", "relay6", "relay7", "relay8",
-                    "skipWaterPumpForRain",  # roadmap #11
+                    "skipWaterPumpForRain",
                 ],
             },
         },
