@@ -48,30 +48,35 @@ bool ActuatorController::evaluateRule(const Rule &rule, SensorData sensorData, t
     {
     case CONDITION_THRESHOLD:
     {
-        double reading;
+        const String *rawReading;
         bool turnsOnAboveThreshold;
         switch ((RelayFunctionType)rule.targetFunction)
         {
         case RelayFunctionType::Ventilation:
-            reading = atof(sensorData.humidity.c_str());
+            rawReading = &sensorData.humidity;
             turnsOnAboveThreshold = true;
             break;
         case RelayFunctionType::Light:
-            reading = atof(sensorData.light.c_str());
+            rawReading = &sensorData.light;
             turnsOnAboveThreshold = false;
             break;
         case RelayFunctionType::Heating:
-            reading = atof(sensorData.temperature.c_str());
+            rawReading = &sensorData.temperature;
             turnsOnAboveThreshold = false;
             break;
         case RelayFunctionType::WaterPump:
-            reading = atof(sensorData.waterLevel.c_str());
+            rawReading = &sensorData.waterLevel;
             turnsOnAboveThreshold = false;
             break;
         default:
             return false; // rule somehow targets no function - never on
         }
-        return computeThresholdState(isCurrentlyOn, reading, rule.threshold, rule.hysteresis, turnsOnAboveThreshold);
+        // atof("") silently returns 0.0 - indistinguishable from a real 0-degree/0-percent reading, so a disconnected/failed sensor would otherwise read as a phantom threshold-crossing value (e.g. Heating turning on for a false "0C").
+        if (rawReading->isEmpty())
+        {
+            return false;
+        }
+        return computeThresholdState(isCurrentlyOn, atof(rawReading->c_str()), rule.threshold, rule.hysteresis, turnsOnAboveThreshold);
     }
     case CONDITION_INTERVAL:
         return rule.interval > 0 && computeIntervalState(rule.interval, rule.intervalLength, epochSeconds);
