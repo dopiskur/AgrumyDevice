@@ -1,3 +1,58 @@
+// Profile B (LoRa, roadmap #220/#225) is a fundamentally different device: no WiFi/HTTP, no
+// OTA/buffer/command queue - EU868's tiny payload limit leaves no room for that stack. Kept as one
+// file with the WiFi profile below (not a separate main.cpp) so both profiles stay buildable from
+// the same source tree, same pattern as the existing AGRUMY_KIT_KC868_A6 board-variant branching.
+#ifdef AGRUMY_PROFILE_LORA
+
+#include <esp_task_wdt.h>
+#include <esp_sleep.h>
+#include "LittleFS.h"
+#include "Controller/LoRaController.h"
+
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION "0.0.0-dev"
+#endif
+
+static const uint32_t LORA_WDT_TIMEOUT_SECONDS = 30;
+
+LoRaController loRaController;
+
+void setup()
+{
+    Serial.begin(115200);
+    Serial.println();
+    Serial.println("[LoRa] Initialization started");
+
+    if (!LittleFS.begin(true))
+    {
+        Serial.println("[LoRa] LittleFS mount/format FAILED");
+    }
+
+    if (!loRaController.begin())
+    {
+        Serial.println("[LoRa] begin() failed - will retry next boot");
+    }
+
+    esp_task_wdt_deinit();
+    esp_task_wdt_init(LORA_WDT_TIMEOUT_SECONDS, true);
+    esp_task_wdt_add(NULL);
+}
+
+void loop()
+{
+    // Mains-powered vs battery is not yet configurable for this profile - assume battery, the more
+    // conservative (longer sleep) choice, until #225's real hardware pass adds provisioning for it.
+    uint32_t sleepSeconds = loRaController.runCycleAndGetSleepSeconds(true);
+    esp_task_wdt_reset();
+
+    Serial.printf("[LoRa] Sleeping %u seconds\n", sleepSeconds);
+    // uint64 math: seconds * 1e6 overflows int32 past ~35 minutes, same overflow PowerController::sleep already guards against.
+    esp_sleep_enable_timer_wakeup((uint64_t)sleepSeconds * 1000000ULL);
+    esp_deep_sleep_start(); // never returns
+}
+
+#else
+
 #include <NTPClient.h>
 #include <Esp.h>
 #include "EEPROM.h"
@@ -202,3 +257,5 @@ void loop()
     sleepRemaining -= chunk;
   }
 }
+
+#endif // AGRUMY_PROFILE_LORA
