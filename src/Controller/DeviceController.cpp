@@ -181,6 +181,7 @@ void DeviceController::initializeDevice()
   WiFiManagerParameter userLogin("login", "User Login", deviceRegistration.userLogin, 128); // id_user can be sent trough wifisave GET
   WiFiManagerParameter userPin("devicePin", "User PIN", deviceRegistration.devicePin, 8);
   WiFiManagerParameter servicePoint("servicePoint", "Service Point (default:api.agrumy.com)", deviceRegistration.servicePoint, 256);
+  WiFiManagerParameter deviceDisplayName("displayName", "Device Name (optional)", deviceRegistration.displayName, 64);
 
   MqttConfig mqttRegistration;
   WiFiManagerParameter mqttHost("mqttHost", "MQTT Broker (optional, blank=disabled)", mqttRegistration.brokerHost, 128);
@@ -191,6 +192,7 @@ void DeviceController::initializeDevice()
   wifiManager.addParameter(&userLogin);
   wifiManager.addParameter(&userPin);
   wifiManager.addParameter(&servicePoint);
+  wifiManager.addParameter(&deviceDisplayName);
   wifiManager.addParameter(&mqttHost);
   wifiManager.addParameter(&mqttPort);
   wifiManager.addParameter(&mqttUser);
@@ -205,6 +207,8 @@ void DeviceController::initializeDevice()
   deviceRegistration.devicePin[sizeof(deviceRegistration.devicePin) - 1] = 0;
   strncpy(deviceRegistration.servicePoint, servicePoint.getValue(), sizeof(deviceRegistration.servicePoint) - 1);
   deviceRegistration.servicePoint[sizeof(deviceRegistration.servicePoint) - 1] = 0;
+  strncpy(deviceRegistration.displayName, deviceDisplayName.getValue(), sizeof(deviceRegistration.displayName) - 1);
+  deviceRegistration.displayName[sizeof(deviceRegistration.displayName) - 1] = 0;
 
   deviceRegistration.initialize = true;
 
@@ -222,6 +226,7 @@ void DeviceController::initializeDevice()
   config["userLogin"] = deviceRegistration.userLogin;
   config["devicePin"] = deviceRegistration.devicePin;
   config["servicePoint"] = deviceRegistration.servicePoint;
+  config["displayName"] = deviceRegistration.displayName;
   if (config["servicePoint"] == "")
   {
 
@@ -267,6 +272,8 @@ void DeviceController::registerDevice(String configRegistration)
   payload["email"] = config["userLogin"];
   payload["devicePin"] = config["devicePin"];
   payload["serviceType"] = deviceDefaults.serviceType;
+  // "| \"\"" defaults a registration file saved before this field existed - deserializeJson leaves the key absent rather than erroring.
+  payload["displayName"] = config["displayName"] | "";
 
   String servicePoint = config["servicePoint"];
   ServiceRequest serviceRequest;

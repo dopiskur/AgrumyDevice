@@ -13,6 +13,8 @@ struct DeviceRegistration
   char userLogin[128];
   char devicePin[8];
   char servicePoint[256];
+  // Optional operator-facing label sent to the server as displayName - never the AP SSID, which stays Agrumy_<mac> regardless.
+  char displayName[64] = "";
   bool initialize=false;
 };
 
