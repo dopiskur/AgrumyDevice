@@ -37,6 +37,7 @@ enum CommandActionType
     COMMAND_REBOOT = 1,
     COMMAND_FORCE_OTA = 2,
     COMMAND_FORCE_CONFIG_SYNC = 3,
+    COMMAND_SCAN_FOR_DEVICES = 4,
 };
 
 struct PendingCommand
@@ -372,6 +373,7 @@ struct ServiceEndpoint
     String apiAuthenticate = "/api/Device/Authenticate";
     String apiEvent = "/api/Device/Event";
     String apiCommandAck = "/api/Device/Command/Ack";
+    String apiDiscoveryReport = "/api/Discovery/Report";
 
     String apiSensorDataPost="/api/SensorData";
     String apiSensorDataGet="";

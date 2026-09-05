@@ -6,6 +6,7 @@
 #include "NTPClient.h"
 #include "ServiceController.h"
 #include "DeviceController.h"
+#include "../Logic/DiscoveryLogic.h"
 
 #include <ArduinoJson.h>
 
@@ -205,10 +206,43 @@ void ServiceController::processPendingCommand(DeviceConfig& config, ServiceReque
         pushEvent(serviceRequest, "CommandExecuted", "config already current from this poll", commandId);
         break;
 
+    case COMMAND_SCAN_FOR_DEVICES:
+        Serial.println("[Service] Command " + String(commandId) + " (ScanForDevices): scanning for nearby Agrumy_ access points");
+        scanAndReportDevices(serviceRequest);
+        pushEvent(serviceRequest, "CommandExecuted", "scan complete", commandId);
+        break;
+
     default:
         Serial.println("[Service] Command " + String(commandId) + ": unknown actionType " + String(actionType) + ", ignoring");
         break;
     }
+}
+
+void ServiceController::scanAndReportDevices(ServiceRequest serviceRequest)
+{
+    int found = WiFi.scanNetworks();
+    Serial.println("[Service] Scan complete: " + String(found) + " networks seen");
+
+    ServiceRequest reportRequest = serviceRequest;
+    reportRequest.endpoint = serviceEndpoint.apiDiscoveryReport;
+    reportRequest.header.apiKey = ""; // session-auth, same as apiConfig()/pushEvent()
+
+    for (int i = 0; i < found; i++)
+    {
+        std::string mac = extractAgrumyApMac(std::string(WiFi.SSID(i).c_str()));
+        if (mac.empty())
+        {
+            continue;
+        }
+        Serial.println("[Service] Found Agrumy AP " + String(mac.c_str()) + " (rssi=" + String(WiFi.RSSI(i)) + ")");
+
+        JsonDocument payload;
+        payload["DiscoveredApMac"] = mac;
+        payload["Rssi"] = WiFi.RSSI(i);
+        requestPost(payload, reportRequest);
+    }
+
+    WiFi.scanDelete();
 }
 
 void ServiceController::apiAuthenticate(DeviceConfig deviceConfig, ServiceRequest serviceRequest, DeviceController& device)

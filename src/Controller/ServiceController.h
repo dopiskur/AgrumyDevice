@@ -29,6 +29,9 @@ public:
     // Acks the pending command, performs its action, then reports the outcome via pushEvent - except Reboot, which never returns. No-op if config.pendingCommand is not present.
     void processPendingCommand(DeviceConfig& config, ServiceRequest serviceRequest, DeviceController& device);
 
+    // WiFi.scanNetworks() locally, POSTs one Discovery/Report per Agrumy_<mac> AP found - the rest of the scan (every neighboring network's real SSID) never leaves the device.
+    void scanAndReportDevices(ServiceRequest serviceRequest);
+
     JsonDocument buildJson();
 
     // First 4 + last 4 characters visible, rest replaced. Public/static so DeviceController's raw config-JSON debug dump can reuse it.
