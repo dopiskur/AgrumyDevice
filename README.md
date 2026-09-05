@@ -5,7 +5,7 @@ This is the device side of the ecosystem; the backend API and admin UI live
 in the separate [AgrumyService](https://github.com/dopiskur/AgrumyService) repository.
 
 > Agrumy core (API, firmware, enclosures) is free and open source under the
-> [Apache 2.0 license](LICENSE.txt). The mobile apps are proprietary.
+> [Apache 2.0 license](LICENSE.txt); the mobile apps are under AGPL-3.0.
 > If you use Agrumy, I'd genuinely love to hear about it — open an issue or
 > drop me a line.
 
@@ -123,3 +123,6 @@ of the License at http://www.apache.org/licenses/LICENSE-2.0
 Unless required by applicable law or agreed to in writing, software distributed
 under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 CONDITIONS OF ANY KIND, either express or implied.
+
+The Android and iOS applications (AgrumyAndroid, AgrumyiOS) are separate
+projects licensed under AGPL-3.0, not this Apache 2.0 license.
