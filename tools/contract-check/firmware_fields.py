@@ -96,7 +96,7 @@ CONTRACT = {
                     "rules",
                     "waterPumpMaxRunSeconds", "waterPumpCooldownSeconds",
                     "relayEnabled",
-                    "relay1", "relay2", "relay3", "relay4", "relay5", "relay6", "relay7", "relay8",
+                    "relays",  # roadmap #309: each entry's slot/relayFunction - see ConfigParser.cpp, not re-validated at this flat level (same as rules)
                     "skipWaterPumpForRain",
                 ],
             },

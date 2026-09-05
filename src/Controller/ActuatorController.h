@@ -11,7 +11,7 @@
 class DeviceController;
 class SensorController;
 
-// Must match deviceTypeRelay's DB seed order (1=Ventilation, 2=Light, 3=Heating, 4=Water pump) - the Web admin dropdown stores this ID directly into ConfigController.relay1..relay8.
+// Must match deviceTypeRelay's DB seed order (1=Ventilation, 2=Light, 3=Heating, 4=Water pump) - the Web admin dropdown stores this ID directly into one of ConfigController.relays[].relayFunction.
 enum class RelayFunctionType
 {
     None = 0,
@@ -33,21 +33,21 @@ public:
     bool consumeSafetyLimitEvent(String &outMessage);
 
 private:
-    // Walks ConfigController.relay1..relay8 and collects the physical pin of every slot assigned to relayFunction into pins[] (caller-provided, must hold 8). Returns how many were found.
-    int collectPinsForFunction(RelayFunctionType relayFunction, int pins[8]) const;
+    // Walks ConfigController.relays[] and collects the physical pin of every slot assigned to relayFunction into pins[] (caller-provided, must hold MAX_RELAY_SLOTS). Returns how many were found.
+    int collectPinsForFunction(RelayFunctionType relayFunction, int pins[MAX_RELAY_SLOTS]) const;
 
     // localWeekday (0=Sunday..6=Saturday) and localSecondsOfDay (0..86399) are computed ONCE per initController() tick and passed through rather than re-derived per rule. isCurrentlyOn is the target function's CURRENT physical pin state, needed only by Threshold's hysteresis math.
     bool evaluateRule(const Rule &rule, SensorData sensorData, time_t epochSeconds,
                        int localWeekday, int localSecondsOfDay, bool isCurrentlyOn) const;
 
-    // The LAST word for a WaterPump-assigned physical relay slot, applied right after this function's rules are OR'd and written for this tick. slot (0..7) is the physical relay index, not the discovery order collectPinsForFunction gives - so each slot's history stays independent even if several relays share the WaterPump function.
-    void applyWaterPumpSafetyLimits(int slot, int pin, time_t epochSeconds);
+    // The LAST word for a WaterPump-assigned physical relay slot, applied right after this function's rules are OR'd and written for this tick. slotIndex (0..MAX_RELAY_SLOTS-1) is the physical relay index, not the discovery order collectPinsForFunction gives - so each slot's history stays independent even if several relays share the WaterPump function.
+    void applyWaterPumpSafetyLimits(int slotIndex, int pin, time_t epochSeconds);
     void reportSafetyLimitTripped(const String &message);
 
-    time_t waterPumpOnSinceEpoch[8] = {0};
-    time_t waterPumpOffSinceEpoch[8] = {0};
-    // Last tick's relay1..8 function assignment per slot, so a remap (e.g. WaterPump->Light->WaterPump) can be detected and the stale slot's on/off-since history cleared instead of reused.
-    int lastConfiguredType[8] = {0};
+    time_t waterPumpOnSinceEpoch[MAX_RELAY_SLOTS] = {0};
+    time_t waterPumpOffSinceEpoch[MAX_RELAY_SLOTS] = {0};
+    // Last tick's function assignment per physical slot index, so a remap (e.g. WaterPump->Light->WaterPump) can be detected and the stale slot's on/off-since history cleared instead of reused.
+    int lastConfiguredType[MAX_RELAY_SLOTS] = {0};
     String pendingSafetyEventMessage = "";
 };
 

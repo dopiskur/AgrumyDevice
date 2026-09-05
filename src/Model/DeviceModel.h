@@ -56,7 +56,7 @@ struct PendingCommand
 struct ConfigPin // default values, cannot be changed during the setup phase
 {
 #if defined(AGRUMY_KIT_KC868_A6)
-    // Not physically verified against real KC868-A6 hardware (confirm before first field deploy) - relays sit behind a PCF8574 I2C expander, so RELAY_1..6 here are PCF8574 bit indices (0-5), not GPIO numbers.
+    // Not physically verified against real KC868-A6 hardware (confirm before first field deploy) - relays sit behind a PCF8574 I2C expander, so RELAY_PINS[0..5] here are PCF8574 bit indices (0-5), not GPIO numbers.
     int POWER_RAIL_PRIMARY=0; //UNDEFINED
     int POWER_RAIL_SECONDARY=0; //UNDEFINED
 
@@ -73,14 +73,7 @@ struct ConfigPin // default values, cannot be changed during the setup phase
     int PH=0; //UNDEFINED
     int BATTERY_ADC=0; //UNDEFINED
 
-    int RELAY_1=0;
-    int RELAY_2=1;
-    int RELAY_3=2;
-    int RELAY_4=3;
-    int RELAY_5=4;
-    int RELAY_6=5;
-    int RELAY_7=0; //UNDEFINED
-    int RELAY_8=0; //UNDEFINED
+    int RELAY_PINS[8] = {0, 1, 2, 3, 4, 5, 0, 0}; // slots 7-8 UNDEFINED
 #elif defined(AGRUMY_KIT_ESP32S3_RELAY6CH)
     // Not physically verified against real hardware (confirm before first field deploy) - direct GPIO, same digitalWrite/pinMode model as esp32dev/esp32s3usbotg, no I2C expander on this kit.
     int POWER_RAIL_PRIMARY=0; //UNDEFINED
@@ -99,14 +92,7 @@ struct ConfigPin // default values, cannot be changed during the setup phase
     int PH=0; //UNDEFINED
     int BATTERY_ADC=0; //UNDEFINED
 
-    int RELAY_1=1;
-    int RELAY_2=2;
-    int RELAY_3=41;
-    int RELAY_4=42;
-    int RELAY_5=45;
-    int RELAY_6=46;
-    int RELAY_7=0; //UNDEFINED
-    int RELAY_8=0; //UNDEFINED
+    int RELAY_PINS[8] = {1, 2, 41, 42, 45, 46, 0, 0}; // slots 7-8 UNDEFINED
 #else
     int POWER_RAIL_PRIMARY=2;
     int POWER_RAIL_SECONDARY=15;
@@ -124,14 +110,7 @@ struct ConfigPin // default values, cannot be changed during the setup phase
     int PH=33;
     int BATTERY_ADC=36;
 
-    int RELAY_1=14;
-    int RELAY_2=27;
-    int RELAY_3=26;
-    int RELAY_4=25;
-    int RELAY_5=0; //UNDEFINED
-    int RELAY_6=0; //UNDEFINED
-    int RELAY_7=0; //UNDEFINED
-    int RELAY_8=0; //UNDEFINED
+    int RELAY_PINS[8] = {14, 27, 26, 25, 0, 0, 0, 0}; // slots 5-8 UNDEFINED
 #endif
 
     // SDA/SCL only meaningful when RELAY_I2C_ADDRESS is nonzero (else direct GPIO, no I2C expander).
@@ -164,21 +143,6 @@ struct ModuleEnabled
 
     bool rtc;   // Clock module
     bool relay;
-};
-
-struct RelayFunction
-{
-
-    String relay1; // valve, pump, fan, heating
-    String relay2; // valve, pump, fan, heating
-    String relay3; // valve, pump, fan, heating
-    String relay4; // valve, pump, fan, heating
-
-    // Standalone Relay module without sensors
-    String relay5; // valve, pump, fan, heating
-    String relay6; // valve, pump, fan, heating
-    String relay7; // valve, pump, fan, heating
-    String relay8; // valve, pump, fan, heating
 };
 
 struct SensorType
@@ -242,6 +206,16 @@ struct Rule
 // Beyond this cap, ConfigParser silently drops extra rules (ArduinoJson has no dynamic growth on-device).
 static const int MAX_RULES = 32;
 
+// Ceiling on physically-wired relay slots a board can report - bump this (and each board's ConfigPin.RELAY_PINS array) for a bigger relay bank, no other schema/wire-format change needed (roadmap #309).
+static const int MAX_RELAY_SLOTS = 8;
+
+// One physically-wired relay position (Slot, 1-based, indexes ConfigPin.RELAY_PINS[Slot-1]) and which RelayFunctionType it's assigned to - only slots the server actually assigned arrive over the wire, an unlisted slot is unassigned.
+struct RelaySlot
+{
+    int slot = 0;
+    int relayFunction = 0;
+};
+
 struct ConfigController
 {
     // Empty (ruleCount 0) when the device has no assigned zone, meaning every relay function stays off.
@@ -256,14 +230,8 @@ struct ConfigController
     bool skipWaterPumpForRain = false;
 
     int relayEnabled;
-    int relay1;
-    int relay2;
-    int relay3;
-    int relay4;
-    int relay5;
-    int relay6;
-    int relay7;
-    int relay8;
+    RelaySlot relays[MAX_RELAY_SLOTS];
+    int relayCount = 0;
 };
 
 

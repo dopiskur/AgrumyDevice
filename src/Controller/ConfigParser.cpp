@@ -168,14 +168,21 @@ DeviceConfig ConfigParser::parse(const String &configJson, DeviceConfig currentC
     currentConfig.configController.skipWaterPumpForRain = deviceConfigController["skipWaterPumpForRain"] | currentConfig.configController.skipWaterPumpForRain;
 
     currentConfig.configController.relayEnabled = deviceConfigController["relayEnabled"];
-    currentConfig.configController.relay1 = deviceConfigController["relay1"];
-    currentConfig.configController.relay2 = deviceConfigController["relay2"];
-    currentConfig.configController.relay3 = deviceConfigController["relay3"];
-    currentConfig.configController.relay4 = deviceConfigController["relay4"];
-    currentConfig.configController.relay5 = deviceConfigController["relay5"];
-    currentConfig.configController.relay6 = deviceConfigController["relay6"];
-    currentConfig.configController.relay7 = deviceConfigController["relay7"];
-    currentConfig.configController.relay8 = deviceConfigController["relay8"];
+
+    // Capped at MAX_RELAY_SLOTS - same "ArduinoJson has no dynamic growth on-device" reasoning as rules above; only slots the server actually assigned ride along, an unlisted slot is unassigned.
+    JsonArray relays = deviceConfigController["relays"];
+    currentConfig.configController.relayCount = 0;
+    for (JsonObject r : relays)
+    {
+        if (currentConfig.configController.relayCount >= MAX_RELAY_SLOTS)
+        {
+            break;
+        }
+        RelaySlot &relaySlot = currentConfig.configController.relays[currentConfig.configController.relayCount];
+        relaySlot.slot = r["slot"];
+        relaySlot.relayFunction = r["relayFunction"];
+        currentConfig.configController.relayCount++;
+    }
   }
 
   return currentConfig;
