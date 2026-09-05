@@ -60,30 +60,30 @@ void SensorController::setupSensor()
     dht22.begin();
 
     // Only probe a chip this device's config actually selects - begin() on an address nothing answers at produces "i2cWriteReadNonStop returned Error -1" bus-probe noise.
-    if (deviceConfig.configSensor.sensorTemp == 1003 || deviceConfig.configSensor.sensorBarometer == 1003)
+    if (deviceConfig.configSensor.sensorTemp == SensorTypeIds::Bmp180 || deviceConfig.configSensor.sensorBarometer == SensorTypeIds::Bmp180)
     {
         bmp180status = bmp180.begin(0x77);
     }
-    if (deviceConfig.configSensor.sensorTemp == 1004 || deviceConfig.configSensor.sensorBarometer == 1004)
+    if (deviceConfig.configSensor.sensorTemp == SensorTypeIds::Bmp280 || deviceConfig.configSensor.sensorBarometer == SensorTypeIds::Bmp280)
     {
         bmp280status = bmp280.begin(0x76);
     }
-    if (deviceConfig.configSensor.sensorTemp == 1005 || deviceConfig.configSensor.sensorHumid == 1005 || deviceConfig.configSensor.sensorBarometer == 1005)
+    if (deviceConfig.configSensor.sensorTemp == SensorTypeIds::Bme280 || deviceConfig.configSensor.sensorHumid == SensorTypeIds::Bme280 || deviceConfig.configSensor.sensorBarometer == SensorTypeIds::Bme280)
     {
         bme280status = bme280.begin(0x76);
     }
-    if (deviceConfig.configSensor.sensorTempSoil == 1007)
+    if (deviceConfig.configSensor.sensorTempSoil == SensorTypeIds::Ds18B20)
     {
         oneWireTempSoil = new OneWire(deviceConfig.configPin.TEMPSOIL);
         ds18b20 = new DallasTemperature(oneWireTempSoil);
         ds18b20->begin();
         ds18b20status = ds18b20->getDeviceCount() > 0;
     }
-    if (deviceConfig.configSensor.sensorCo2 == 1006 || deviceConfig.configSensor.sensorTvoc == 1006)
+    if (deviceConfig.configSensor.sensorCo2 == SensorTypeIds::Ccs811 || deviceConfig.configSensor.sensorTvoc == SensorTypeIds::Ccs811)
     {
         ccs811.begin(0x5A); // 0x5B is default, mine is older version
     }
-    if (deviceConfig.configSensor.sensorLight == 1008)
+    if (deviceConfig.configSensor.sensorLight == SensorTypeIds::Bh1750)
     {
         bh1750status = Bh1750.begin(BH1750::CONTINUOUS_HIGH_RES_MODE);
     }
@@ -317,7 +317,7 @@ void SensorController::sensor_CCS811_tvoc()
     }
 }
 
-void SensorController::sensor_analog_voltage() // 2001, VoltageDivider
+void SensorController::sensor_analog_voltage() // SensorTypeIds::AnalogVoltage, VoltageDivider
 {
     Serial.println("[Sensor battery - voltage divider]");
     device.powerRailSecondary(true);
@@ -341,7 +341,7 @@ void SensorController::sensor_analog_voltage() // 2001, VoltageDivider
     sensorData.battery = percent;
 }
 
-void SensorController::sensor_battery_max17048() // 1009
+void SensorController::sensor_battery_max17048() // SensorTypeIds::Max17048
 {
     Serial.println("[Sensor battery - MAX17048]");
     if (!max17048status)
@@ -585,10 +585,10 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
 
     switch (deviceConfig.configSensor.sensorBattery)
     {
-    case 1009:
+    case SensorTypeIds::Max17048:
         sensor_battery_max17048();
         break;
-    case 2001:
+    case SensorTypeIds::AnalogVoltage:
         sensor_analog_voltage();
         break;
     default:
@@ -597,19 +597,19 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
 
     switch (deviceConfig.configSensor.sensorTemp)
     {
-    case 1001:
+    case SensorTypeIds::Dht11:
         sensor_DHT11_temp();
         break;
-    case 1002:
+    case SensorTypeIds::Dht22:
         sensor_DHT22_temp();
         break;
-    case 1003:
+    case SensorTypeIds::Bmp180:
         sensor_BMP180_temp();
         break;
-    case 1004:
+    case SensorTypeIds::Bmp280:
         sensor_BMP280_temp();
         break;
-    case 1005:
+    case SensorTypeIds::Bme280:
         sensor_BME280_temp();
         break;
     default:
@@ -618,7 +618,7 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
 
     switch (deviceConfig.configSensor.sensorTempSoil)
     {
-    case 1007:
+    case SensorTypeIds::Ds18B20:
         sensor_DS18B20_temp();
         break;
 
@@ -628,7 +628,7 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
 
     switch (deviceConfig.configSensor.sensorHumid)
     {
-    case 1001:
+    case SensorTypeIds::Dht11:
         sensor_DHT11_humid();
         break;
 
@@ -637,7 +637,7 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
     }
     switch (deviceConfig.configSensor.sensorHumid)
     {
-    case 1002:
+    case SensorTypeIds::Dht22:
         sensor_DHT22_humid();
         break;
 
@@ -646,7 +646,7 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
     }
     switch (deviceConfig.configSensor.sensorHumid)
     {
-    case 1005:
+    case SensorTypeIds::Bme280:
         sensor_BME280_humid();
         break;
 
@@ -656,7 +656,7 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
 
     switch (deviceConfig.configSensor.sensorMoist)
     {
-    case 2002:
+    case SensorTypeIds::AnalogMoisture:
         sensor_analog_moist();
         break;
 
@@ -666,7 +666,7 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
 
     switch (deviceConfig.configSensor.sensorLight)
     {
-    case 1008:
+    case SensorTypeIds::Bh1750:
         sensor_BH1750_lux();
         break;
 
@@ -676,7 +676,7 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
 
     switch (deviceConfig.configSensor.sensorCo2)
     {
-    case 1006:
+    case SensorTypeIds::Ccs811:
         sensor_CCS811_co2();
         break;
 
@@ -686,7 +686,7 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
 
     switch (deviceConfig.configSensor.sensorTvoc)
     {
-    case 1006:
+    case SensorTypeIds::Ccs811:
         sensor_CCS811_tvoc();
         break;
 
@@ -696,7 +696,7 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
 
     switch (deviceConfig.configSensor.sensorBarometer)
     {
-    case 1003:
+    case SensorTypeIds::Bmp180:
         sensor_BMP180_pres();
         break;
 
@@ -705,7 +705,7 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
     }
     switch (deviceConfig.configSensor.sensorBarometer)
     {
-    case 1004:
+    case SensorTypeIds::Bmp280:
         sensor_BMP280_pres();
         break;
 
@@ -714,7 +714,7 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
     }
     switch (deviceConfig.configSensor.sensorBarometer)
     {
-    case 1005:
+    case SensorTypeIds::Bme280:
         sensor_BME280_pres();
         break;
 
@@ -734,7 +734,7 @@ void SensorController::buildSensorData(DeviceConfig deviceConfig)
 
     switch (deviceConfig.configSensor.sensorWaterLevel)
     {
-    case 2003:
+    case SensorTypeIds::AnalogWaterLevel:
         sensor_analog_waterLevel();
         break;
 

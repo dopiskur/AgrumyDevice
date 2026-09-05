@@ -6,6 +6,7 @@
 #include <Adafruit_Sensor.h> // sensors_event_t, used by the DHT report helpers below
 
 #include "../Model/DeviceModel.h"
+#include "../Model/SensorTypeIds.h"
 
 // Forward declarations instead of includes
 class DeviceController;
@@ -17,28 +18,28 @@ class SensorController
 private:
     SensorData sensorData;
 
-    void sensor_DHT11_temp();          // 1001
-    void sensor_DHT11_humid();          // 1001
-    void sensor_DHT22_temp();          // 1002
-    void sensor_DHT22_humid();          // 1002
-    void sensor_BMP180_temp();         // 1003
-    void sensor_BMP180_pres();         // 1003
-    void sensor_BMP280_temp();         // 1004
-    void sensor_BMP280_pres();         // 1004
-    void sensor_BME280_temp();         // 1005
-    void sensor_BME280_humid();         // 1005
-    void sensor_BME280_pres();         // 1005
-    void sensor_CCS811_co2();         // 1006
-    void sensor_CCS811_tvoc();         // 1006
-    void sensor_DS18B20_temp();        // 1007
-    void sensor_BH1750_lux();         // 1008
+    void sensor_DHT11_temp();          // SensorTypeIds::Dht11
+    void sensor_DHT11_humid();          // SensorTypeIds::Dht11
+    void sensor_DHT22_temp();          // SensorTypeIds::Dht22
+    void sensor_DHT22_humid();          // SensorTypeIds::Dht22
+    void sensor_BMP180_temp();         // SensorTypeIds::Bmp180
+    void sensor_BMP180_pres();         // SensorTypeIds::Bmp180
+    void sensor_BMP280_temp();         // SensorTypeIds::Bmp280
+    void sensor_BMP280_pres();         // SensorTypeIds::Bmp280
+    void sensor_BME280_temp();         // SensorTypeIds::Bme280
+    void sensor_BME280_humid();         // SensorTypeIds::Bme280
+    void sensor_BME280_pres();         // SensorTypeIds::Bme280
+    void sensor_CCS811_co2();         // SensorTypeIds::Ccs811
+    void sensor_CCS811_tvoc();         // SensorTypeIds::Ccs811
+    void sensor_DS18B20_temp();        // SensorTypeIds::Ds18B20
+    void sensor_BH1750_lux();         // SensorTypeIds::Bh1750
 
     void sensor_Wind();
-    void sensor_analog_voltage(); // 2001, VoltageDivider
-    void sensor_battery_max17048(); // 1009
-    void sensor_analog_moist();   // 2002
+    void sensor_analog_voltage(); // SensorTypeIds::AnalogVoltage, VoltageDivider
+    void sensor_battery_max17048(); // SensorTypeIds::Max17048
+    void sensor_analog_moist();   // SensorTypeIds::AnalogMoisture
     void sensor_liquid_PH(); // unavailable
-    void sensor_analog_waterLevel(); // unavailable
+    void sensor_analog_waterLevel(); // SensorTypeIds::AnalogWaterLevel
     void sensor_rainLevel(); // unavailable
 
     // Shared print/store tail for the DHT11/DHT22, BMP180/BMP280 and CCS811 co2/tvoc pairs - only the read call differs per library.
