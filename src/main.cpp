@@ -160,8 +160,10 @@ void loop()
 
   // deviceConfig is passed by reference and is the single canonical instance, so a hot-applied config (no reboot) is visible to every module the instant apiConfig() returns.
   service.apiConfig(deviceConfig, serviceRequest, device);
+  // >0 only right after a 429 ("Wait") - skip the sensor push too, no point adding another request while the relay/server asked us to back off.
+  bool waitingForServer = service.waitSeconds > 0;
 
-  if (deviceConfig.enabled) {
+  if (deviceConfig.enabled && !waitingForServer) {
     sensor.buildSensorData(deviceConfig);
   }
 
@@ -170,25 +172,27 @@ void loop()
     device.powerRailPrimary(false);
     device.powerRailSecondary(false);
   }
-  
+
   Serial.println("[Loop]-----> END <-----[Loop]");
   Serial.println("");
 
   // A full cycle finished without wedging - feed the watchdog. Anything that hangs inside apiConfig()/buildSensorData() never reaches this point, so the reboot backstop stays effective against a real stall.
   esp_task_wdt_reset();
 
+  uint32_t cycleSeconds = waitingForServer ? (uint32_t)service.waitSeconds : (uint32_t)deviceConfig.sleepSeconds;
+
   // A device that drives relays must NOT deep sleep: GPIO outputs drop during deep sleep and ActuatorController's interval state is lost, so it falls through to the powered chunked delay below.
-  if (deviceConfig.sleepDeep && deviceConfig.sleepSeconds > 0)
+  if (deviceConfig.sleepDeep && cycleSeconds > 0)
   {
     if (!deviceConfig.deviceControllerEnabled)
     {
-      device.sleep(); // never returns
+      waitingForServer ? device.sleep((int)cycleSeconds) : device.sleep(); // never returns
     }
     Serial.println("[Sleep] sleepDeep is set but this device drives relays - staying powered");
   }
 
   // Bounded idle wait, not work that can hang - keep petting the watchdog through it in steps shorter than the timeout, otherwise a server-set sleepSeconds longer than WDT_TIMEOUT_SECONDS looks like a stall.
-  uint32_t sleepRemaining = (uint32_t)deviceConfig.sleepSeconds * 1000UL;
+  uint32_t sleepRemaining = cycleSeconds * 1000UL;
   const uint32_t sleepStep = WDT_TIMEOUT_SECONDS * 1000UL / 3;
   while (sleepRemaining > 0)
   {

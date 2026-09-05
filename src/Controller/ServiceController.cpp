@@ -83,6 +83,9 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
         http.addHeader("apiId", service.header.apiId);
         http.addHeader("apiKey", service.header.apiKey);
         http.addHeader("Authorization", apiAuth);
+        // Only headers named here reach header() below - HTTPClient doesn't retain arbitrary response headers by default.
+        static const char *collectedHeaders[] = {"Retry-After"};
+        http.collectHeaders(collectedHeaders, 1);
 
         int httpCode = http.POST(jsonRequest);
 
@@ -101,6 +104,14 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
             else
             {
                 serviceData.eventlog.error = true;
+                if (httpCode == 429)
+                {
+                    String retryAfter = http.header("Retry-After");
+                    if (retryAfter.length() > 0)
+                    {
+                        serviceData.retryAfterSeconds = retryAfter.toInt();
+                    }
+                }
             }
         }
         else
@@ -373,6 +384,7 @@ void ServiceController::apiAuthenticate(DeviceConfig deviceConfig, ServiceReques
 
 bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest serviceRequest, DeviceController& device)
 {
+    waitSeconds = 0; // only set below on a 429 ("Wait") response - stale from a previous cycle otherwise
     String configVersion=String(deviceConfig.configVersion);
 
     Serial.print("[Service] Current configVersion: ");
@@ -400,6 +412,15 @@ bool ServiceController::apiConfig(DeviceConfig& deviceConfig, ServiceRequest ser
         Serial.println("[Service] apiConfig: failed to authenticate: ");
         apiAuthenticate(deviceConfig,serviceRequest, device);
         serviceData = requestPost(payload, serviceRequest);
+    }
+
+    // A relay under load (or the server's own rate limiter) asking us to back off, not a real failure - honor it and skip straight to the next normal cycle instead of feeding the reboot-escalation counter below.
+    if (serviceData.eventlog.errorCode == 429)
+    {
+        waitSeconds = serviceData.retryAfterSeconds > 0 ? serviceData.retryAfterSeconds : 30;
+        waitSeconds = constrain(waitSeconds, 10, 300); // same bound as ServerConfig's RelayWaitWindowSeconds
+        Serial.printf("[Service] apiConfig: server asked us to wait %d s before the next cycle\n", waitSeconds);
+        return false;
     }
 
     // Reboot only after several failed cycles in a row - a reboot clears a fragmented heap but shouldn't fire on one transient hiccup.

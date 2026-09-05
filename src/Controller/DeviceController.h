@@ -65,6 +65,7 @@ public:
     String camera();
 
     void sleep();
+    void sleep(int overrideSleepSeconds); // same deviceConfig.sleepDeep gate, but a caller-given duration instead of deviceConfig.sleepSeconds - used for a server-requested "Wait" window
     // Downloads+flashes a .bin, returns true on success (caller reboots). Requires isHttps=true and a real 64-char hex expectedSha256 - see OtaController::update.
     bool firmwareUpdate(String url, bool isHttps, String expectedSha256);
     void reboot();

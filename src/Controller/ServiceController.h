@@ -40,6 +40,9 @@ public:
     // First 4 + last 4 characters visible, rest replaced. Public/static so DeviceController's raw config-JSON debug dump can reuse it.
     static String maskSecret(const String &value);
 
+    // >0 right after apiConfig() returned a 429 ("Wait" - see RelayRateLimitedException server-side): main.cpp's loop() sleeps this many seconds instead of the normal cycle before polling again. Always reset to 0 at the top of apiConfig().
+    int waitSeconds = 0;
+
 private:
 };
 

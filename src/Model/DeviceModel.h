@@ -345,9 +345,11 @@ struct SensorData
 
 // HTTP/MQTT payload
 struct ServiceData
-{   
-    String payload=""; 
+{
+    String payload="";
     EventLog eventlog;
+    // Seconds from a 429 response's Retry-After header; -1 when the response wasn't a 429 or carried no such header.
+    int retryAfterSeconds = -1;
 };
 
 

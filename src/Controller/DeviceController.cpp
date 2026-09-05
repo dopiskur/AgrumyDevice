@@ -350,6 +350,11 @@ void DeviceController::sleep()
   PowerController::sleep(deviceConfig.sleepSeconds, deviceConfig.sleepDeep);
 }
 
+void DeviceController::sleep(int overrideSleepSeconds)
+{
+  PowerController::sleep(overrideSleepSeconds, deviceConfig.sleepDeep);
+}
+
 void DeviceController::reboot()
 {
   PowerController::reboot();
