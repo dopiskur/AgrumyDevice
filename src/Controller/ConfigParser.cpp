@@ -98,6 +98,7 @@ DeviceConfig ConfigParser::parse(const String &configJson, DeviceConfig currentC
     currentConfig.pendingCommand.idDeviceCommand = pendingCommandJson["idDeviceCommand"];
     currentConfig.pendingCommand.actionType = pendingCommandJson["actionType"];
     currentConfig.pendingCommand.expiresAt = pendingCommandJson["expiresAt"] | String("");
+    currentConfig.pendingCommand.payload = pendingCommandJson["payload"] | String("");
   }
 
   if (currentConfig.deviceSensorEnabled)

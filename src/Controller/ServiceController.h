@@ -32,6 +32,9 @@ public:
     // WiFi.scanNetworks() locally, POSTs one Discovery/Report per Agrumy_<mac> AP found - the rest of the scan (every neighboring network's real SSID) never leaves the device.
     void scanAndReportDevices(ServiceRequest serviceRequest);
 
+    // Connects as a client to the discovered device's Agrumy_<mac> AP, POSTs {Username, PIN, SSID, password} to its WiFiManager /wifisave, then reconnects to this device's own network. Returns true only if the target's /wifisave answered 200.
+    bool provisionDiscoveredDevice(const String& payloadJson);
+
     JsonDocument buildJson();
 
     // First 4 + last 4 characters visible, rest replaced. Public/static so DeviceController's raw config-JSON debug dump can reuse it.

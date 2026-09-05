@@ -35,6 +35,21 @@ void test_CaseSensitive_LowercasePrefixDoesNotMatch(void)
     TEST_ASSERT_EQUAL_STRING("", extractAgrumyApMac("agrumy_AABBCCDDEEFF").c_str());
 }
 
+void test_UrlEncode_UnreservedCharsUnchanged(void)
+{
+    TEST_ASSERT_EQUAL_STRING("Abc123-_.~", urlEncodeFormValue("Abc123-_.~").c_str());
+}
+
+void test_UrlEncode_SpaceAndSpecialChars_PercentEncoded(void)
+{
+    TEST_ASSERT_EQUAL_STRING("My%20WiFi%26Pass%2B1", urlEncodeFormValue("My WiFi&Pass+1").c_str());
+}
+
+void test_UrlEncode_EmptyString_ReturnsEmpty(void)
+{
+    TEST_ASSERT_EQUAL_STRING("", urlEncodeFormValue("").c_str());
+}
+
 int main(int argc, char **argv)
 {
     UNITY_BEGIN();
@@ -44,5 +59,8 @@ int main(int argc, char **argv)
     RUN_TEST(test_PrefixOnly_ReturnsEmptySuffix);
     RUN_TEST(test_EmptySsid_ReturnsEmpty);
     RUN_TEST(test_CaseSensitive_LowercasePrefixDoesNotMatch);
+    RUN_TEST(test_UrlEncode_UnreservedCharsUnchanged);
+    RUN_TEST(test_UrlEncode_SpaceAndSpecialChars_PercentEncoded);
+    RUN_TEST(test_UrlEncode_EmptyString_ReturnsEmpty);
     return UNITY_END();
 }

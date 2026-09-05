@@ -38,6 +38,7 @@ enum CommandActionType
     COMMAND_FORCE_OTA = 2,
     COMMAND_FORCE_CONFIG_SYNC = 3,
     COMMAND_SCAN_FOR_DEVICES = 4,
+    COMMAND_PROVISION_DEVICE = 5,
 };
 
 struct PendingCommand
@@ -46,6 +47,8 @@ struct PendingCommand
     int idDeviceCommand = 0;
     int actionType = 0;
     String expiresAt = "";
+    // Only ProvisionDevice sets this - JSON, api.Models.DiscoveryProvisionPayload on the server side.
+    String payload = "";
 };
 
 struct ConfigPin // default values, cannot be changed during the setup phase

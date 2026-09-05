@@ -212,6 +212,14 @@ void ServiceController::processPendingCommand(DeviceConfig& config, ServiceReque
         pushEvent(serviceRequest, "CommandExecuted", "scan complete", commandId);
         break;
 
+    case COMMAND_PROVISION_DEVICE:
+    {
+        Serial.println("[Service] Command " + String(commandId) + " (ProvisionDevice): connecting to target AP");
+        bool provisioned = provisionDiscoveredDevice(config.pendingCommand.payload);
+        pushEvent(serviceRequest, "CommandExecuted", provisioned ? "provisioning POST accepted" : "provisioning failed", commandId);
+        break;
+    }
+
     default:
         Serial.println("[Service] Command " + String(commandId) + ": unknown actionType " + String(actionType) + ", ignoring");
         break;
@@ -243,6 +251,81 @@ void ServiceController::scanAndReportDevices(ServiceRequest serviceRequest)
     }
 
     WiFi.scanDelete();
+}
+
+// A blank targetSsid/password argument to WiFi.begin() is a valid "open network" request on ESP32, so ownPsk staying empty for an open home network is not a special case here.
+static bool waitForWifiConnect(unsigned long timeoutMs)
+{
+    unsigned long start = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - start < timeoutMs)
+    {
+        delay(250);
+    }
+    return WiFi.status() == WL_CONNECTED;
+}
+
+bool ServiceController::provisionDiscoveredDevice(const String& payloadJson)
+{
+    JsonDocument payload;
+    if (deserializeJson(payload, payloadJson) != DeserializationError::Ok)
+    {
+        Serial.println("[Service] ProvisionDevice: payload failed to parse");
+        return false;
+    }
+
+    String discoveredApMac = payload["DiscoveredApMac"] | String("");
+    if (discoveredApMac.isEmpty())
+    {
+        Serial.println("[Service] ProvisionDevice: payload missing DiscoveredApMac");
+        return false;
+    }
+    String username = payload["Username"] | String("");
+    String pin = payload["Pin"] | String("");
+    String ssid = payload["Ssid"] | String("");
+    String wifiPassword = payload["WifiPassword"] | String("");
+
+    // Read back BEFORE disconnecting - WiFi.SSID()/psk() report the currently connected STA credentials on ESP32.
+    String ownSsid = WiFi.SSID();
+    String ownPsk = WiFi.psk();
+
+    WiFi.disconnect();
+    String targetSsid = "Agrumy_" + discoveredApMac;
+    Serial.println("[Service] ProvisionDevice: connecting to " + targetSsid);
+    WiFi.begin(targetSsid.c_str());
+
+    const unsigned long connectTimeoutMs = 15000;
+    bool success = false;
+    if (waitForWifiConnect(connectTimeoutMs))
+    {
+        String body =
+            "s=" + String(urlEncodeFormValue(ssid.c_str()).c_str()) +
+            "&p=" + String(urlEncodeFormValue(wifiPassword.c_str()).c_str()) +
+            "&login=" + String(urlEncodeFormValue(username.c_str()).c_str()) +
+            "&devicePin=" + String(urlEncodeFormValue(pin.c_str()).c_str()) +
+            "&servicePoint=" + String(urlEncodeFormValue(deviceConfig.servicePoint.c_str()).c_str()) +
+            "&mqttHost=&mqttPort=&mqttUser=&mqttPass=";
+
+        HTTPClient http;
+        http.begin("http://192.168.4.1/wifisave");
+        http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+        int httpCode = http.POST(body);
+        Serial.println("[Service] ProvisionDevice: /wifisave POST returned " + String(httpCode));
+        success = (httpCode == 200);
+        http.end();
+    }
+    else
+    {
+        Serial.println("[Service] ProvisionDevice: could not connect to " + targetSsid);
+    }
+
+    WiFi.disconnect();
+    WiFi.begin(ownSsid.c_str(), ownPsk.c_str());
+    if (!waitForWifiConnect(connectTimeoutMs))
+    {
+        Serial.println("[Service] ProvisionDevice: failed to reconnect to " + ownSsid + " after provisioning attempt");
+    }
+
+    return success;
 }
 
 void ServiceController::apiAuthenticate(DeviceConfig deviceConfig, ServiceRequest serviceRequest, DeviceController& device)
