@@ -359,6 +359,7 @@ struct ServiceEndpoint
 // Single canonical instance, defined once in main.cpp: every translation unit reads/writes the same object, so a config update is visible everywhere without re-copying.
 extern DeviceConfig deviceConfig;
 extern ServiceEndpoint serviceEndpoint;
+extern ServiceRequest serviceRequest;
 
 
 

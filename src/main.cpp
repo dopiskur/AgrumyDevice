@@ -91,7 +91,9 @@ static String servicePoint;
 DeviceConfig deviceConfig;
 ServiceEndpoint serviceEndpoint;
 
-static ServiceRequest serviceRequest;
+// Non-static (see extern ServiceRequest in DeviceModel.h) - MqttController's persistent-connection
+// command callback needs it to hand a received command straight to ServiceController::processPendingCommand.
+ServiceRequest serviceRequest;
 static ServiceData serviceData;
 
 DeviceController device;
@@ -249,10 +251,14 @@ void loop()
   // Bounded idle wait, not work that can hang - keep petting the watchdog through it in steps shorter than the timeout, otherwise a server-set sleepSeconds longer than WDT_TIMEOUT_SECONDS looks like a stall.
   uint32_t sleepRemaining = cycleSeconds * 1000UL;
   const uint32_t sleepStep = WDT_TIMEOUT_SECONDS * 1000UL / 3;
+  // No-op unless mqttConfig.json opted into persistentCommandChannel (roadmap #146) - this is the
+  // only place in the WiFi profile a device stays powered/idle long enough for it to be worthwhile.
+  mqtt.beginPersistentIfEnabled(deviceConfig);
   while (sleepRemaining > 0)
   {
     uint32_t chunk = sleepRemaining < sleepStep ? sleepRemaining : sleepStep;
     delay(chunk);
+    mqtt.poll(); // pumps the persistent client's receive loop so a pushed command isn't missed
     esp_task_wdt_reset();
     sleepRemaining -= chunk;
   }
