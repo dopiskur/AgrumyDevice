@@ -294,6 +294,8 @@ bool ServiceController::provisionDiscoveredDevice(const String& payloadJson)
     String pin = payload["Pin"] | String("");
     String ssid = payload["Ssid"] | String("");
     String wifiPassword = payload["WifiPassword"] | String("");
+    // Server's own current host, not this scanning device's own (possibly stale) deviceConfig.servicePoint - falls back to it only for a command queued before the server started sending ServicePoint.
+    String provisionedServicePoint = payload["ServicePoint"] | deviceConfig.servicePoint;
 
     // Read back BEFORE disconnecting - WiFi.SSID()/psk() report the currently connected STA credentials on ESP32.
     String ownSsid = WiFi.SSID();
@@ -313,7 +315,7 @@ bool ServiceController::provisionDiscoveredDevice(const String& payloadJson)
             "&p=" + String(urlEncodeFormValue(wifiPassword.c_str()).c_str()) +
             "&login=" + String(urlEncodeFormValue(username.c_str()).c_str()) +
             "&devicePin=" + String(urlEncodeFormValue(pin.c_str()).c_str()) +
-            "&servicePoint=" + String(urlEncodeFormValue(deviceConfig.servicePoint.c_str()).c_str()) +
+            "&servicePoint=" + String(urlEncodeFormValue(provisionedServicePoint.c_str()).c_str()) +
             "&mqttHost=&mqttPort=&mqttUser=&mqttPass=";
 
         HTTPClient http;
