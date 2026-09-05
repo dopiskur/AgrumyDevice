@@ -236,7 +236,22 @@ void loop()
   // A full cycle finished without wedging - feed the watchdog. Anything that hangs inside apiConfig()/buildSensorData() never reaches this point, so the reboot backstop stays effective against a real stall.
   esp_task_wdt_reset();
 
-  uint32_t cycleSeconds = waitingForServer ? (uint32_t)service.waitSeconds : (uint32_t)deviceConfig.sleepSeconds;
+  // Roadmap #325: a relay-driving device dynamically sleeps toward its nearest Schedule/Interval
+  // boundary instead of a fixed sleepSeconds, which can otherwise skip a short window entirely or
+  // run past its end.
+  uint32_t cycleSeconds;
+  if (waitingForServer)
+  {
+    cycleSeconds = (uint32_t)service.waitSeconds;
+  }
+  else if (deviceConfig.deviceControllerEnabled)
+  {
+    cycleSeconds = (uint32_t)controller.computeNextWakeSeconds(device.getEpochSeconds(), deviceConfig.sleepSeconds);
+  }
+  else
+  {
+    cycleSeconds = (uint32_t)deviceConfig.sleepSeconds;
+  }
 
   // A device that drives relays must NOT deep sleep: GPIO outputs drop during deep sleep and ActuatorController's interval state is lost, so it falls through to the powered chunked delay below.
   if (deviceConfig.sleepDeep && cycleSeconds > 0)

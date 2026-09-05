@@ -28,6 +28,37 @@ int ActuatorController::collectPinsForFunction(RelayFunctionType relayFunction, 
     return count;
 }
 
+// Threshold rules are ignored - they're re-evaluated every poll regardless of timing, no boundary to sleep toward. 30s floor avoids excessive wake-cycle thrashing right next to a boundary, especially for battery devices.
+int ActuatorController::computeNextWakeSeconds(time_t epochSeconds, int defaultSleepSeconds) const
+{
+    const int FLOOR_SECONDS = 30;
+
+    time_t localEpoch = epochSeconds + deviceConfig.utcOffsetSeconds;
+    struct tm *localTm = gmtime(&localEpoch);
+    int localWeekday = localTm->tm_wday;
+    int localSecondsOfDay = localTm->tm_hour * 3600 + localTm->tm_min * 60 + localTm->tm_sec;
+
+    int best = defaultSleepSeconds;
+    for (int i = 0; i < deviceConfig.configController.ruleCount; i++)
+    {
+        const Rule &rule = deviceConfig.configController.rules[i];
+        int candidate = -1;
+        if (rule.type == CONDITION_SCHEDULE)
+        {
+            candidate = secondsUntilScheduleBoundary(rule.daysOfWeek, rule.start, rule.duration, localWeekday, localSecondsOfDay);
+        }
+        else if (rule.type == CONDITION_INTERVAL)
+        {
+            candidate = secondsUntilIntervalBoundary(rule.interval, rule.intervalLength, epochSeconds);
+        }
+        if (candidate >= 0 && candidate < best)
+        {
+            best = candidate;
+        }
+    }
+    return clampToSleepFloor(best, FLOOR_SECONDS);
+}
+
 // Ventilation reacts to humidity and is the only function whose "on" direction is inverted (exhausting excess humidity, not replenishing a deficit); Light/Heating/WaterPump all turn on BELOW their threshold and off above threshold+hysteresis. isCurrentlyOn is needed only for this dead-zone math - interval/schedule ignore it entirely.
 bool ActuatorController::evaluateRule(const Rule &rule, SensorData sensorData, time_t epochSeconds,
                                        int localWeekday, int localSecondsOfDay, bool isCurrentlyOn) const

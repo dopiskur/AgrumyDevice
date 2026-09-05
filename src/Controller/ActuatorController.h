@@ -5,6 +5,7 @@
 
 #include "../Model/DeviceModel.h"
 #include "../Logic/RelayLogic.h"
+#include "../Logic/SleepScheduleLogic.h"
 #include "RelayIO.h"
 
 // Forward declarations instead of includes
@@ -31,6 +32,9 @@ public:
 
     // True (and clears the pending message into outMessage) exactly once per trip - a safety limit forcing the pump off THIS tick, not still off from a previous trip. Caller polls once per sensor cycle.
     bool consumeSafetyLimitEvent(String &outMessage);
+
+    // Minimum of defaultSleepSeconds and every configured Schedule/Interval rule's own next boundary, floor-clamped - so a short window isn't skipped or overrun by a longer default sleep (roadmap #325). Returns defaultSleepSeconds unchanged when no Schedule/Interval rule is configured.
+    int computeNextWakeSeconds(time_t epochSeconds, int defaultSleepSeconds) const;
 
 private:
     // Walks ConfigController.relays[] and collects the physical pin of every slot assigned to relayFunction into pins[] (caller-provided, must hold MAX_RELAY_SLOTS). Returns how many were found.
