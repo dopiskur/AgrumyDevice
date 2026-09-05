@@ -2,7 +2,6 @@
 #define RelayLogic_H
 
 // Deliberately plain C++ (no Arduino.h/digitalWrite/pinMode/Serial) so this header and its .cpp compile identically on a dev laptop's native test env and on the device.
-//
 // "enabled" flags are deliberately NOT parameters here for interval/schedule: disabled means "don't touch these pins at all" (leave them under whatever other mode last set them), a different outcome than "should be OFF" - the caller checks *Enabled before ever calling these.
 #include <ctime>
 

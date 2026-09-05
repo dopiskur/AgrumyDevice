@@ -39,7 +39,7 @@ bool OtaController::update(String url, bool isHttps, const String &servicePublic
 {
   Serial.println("[Firmware] Starting OTA update from: " + url);
 
-  // Both required, no soft-skip - see below, hash verification used to be optional.
+  // Both required, no soft-skip - refusing outright is safer than flashing an unverified image.
   if (!isHttps)
   {
     Serial.println("[Firmware] Refusing OTA over HTTP - only HTTPS is allowed");

@@ -67,8 +67,7 @@ ServiceData ServiceController::requestPost(JsonDocument jsonBuffer, ServiceReque
             }
             else
             {
-                // Publicly-trusted cert: validate against the embedded CA bundle so CA rotation doesn't force a re-flash.
-                // secureClient is static, so clear any CA cert a previous call set (setCACertBundle() doesn't).
+                // Publicly-trusted cert: validate against the embedded CA bundle (CA rotation doesn't force a re-flash) - secureClient is static, so clear any prior call's CA cert first (setCACertBundle() doesn't).
                 secureClient.setCACert(nullptr);
                 secureClient.setCACertBundle(rootca_crt_bundle_start);
             }

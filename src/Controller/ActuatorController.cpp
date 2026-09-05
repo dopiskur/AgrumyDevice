@@ -173,7 +173,7 @@ void ActuatorController::initController(SensorData sensorData, time_t epochSecon
         }
     }
 
-    // Master safety switch - was loaded from config but never actually checked, so the server had no way to force relays off.
+    // Master safety switch - lets the server force every relay off regardless of what the rules below would otherwise decide.
     if (!deviceConfig.configController.relayEnabled)
     {
         for (int i = 0; i < 8; i++)

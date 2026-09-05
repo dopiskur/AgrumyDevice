@@ -50,8 +50,7 @@ struct PendingCommand
 struct ConfigPin // default values, cannot be changed during the setup phase
 {
 #if defined(AGRUMY_KIT_KC868_A6)
-    // Not physically verified against real KC868-A6 hardware - confirm before first field deploy.
-    // Relays sit behind a PCF8574 I2C expander, not direct GPIO: RELAY_1..6 here are PCF8574 bit indices (0-5), not GPIO numbers.
+    // Not physically verified against real KC868-A6 hardware (confirm before first field deploy) - relays sit behind a PCF8574 I2C expander, so RELAY_1..6 here are PCF8574 bit indices (0-5), not GPIO numbers.
     int POWER_RAIL_PRIMARY=0; //UNDEFINED
     int POWER_RAIL_SECONDARY=0; //UNDEFINED
 
@@ -77,8 +76,7 @@ struct ConfigPin // default values, cannot be changed during the setup phase
     int RELAY_7=0; //UNDEFINED
     int RELAY_8=0; //UNDEFINED
 #elif defined(AGRUMY_KIT_ESP32S3_RELAY6CH)
-    // Not physically verified against real hardware - confirm before first field deploy.
-    // Direct GPIO, same digitalWrite/pinMode model as esp32dev/esp32s3usbotg - no I2C expander on this kit.
+    // Not physically verified against real hardware (confirm before first field deploy) - direct GPIO, same digitalWrite/pinMode model as esp32dev/esp32s3usbotg, no I2C expander on this kit.
     int POWER_RAIL_PRIMARY=0; //UNDEFINED
     int POWER_RAIL_SECONDARY=0; //UNDEFINED
 
@@ -159,7 +157,7 @@ struct ModuleEnabled
     bool camera;
 
     bool rtc;   // Clock module
-    bool relay; // relay 
+    bool relay;
 };
 
 struct RelayFunction

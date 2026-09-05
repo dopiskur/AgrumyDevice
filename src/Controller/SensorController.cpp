@@ -40,9 +40,7 @@ static Adafruit_BME280 bme280;                               // temp, humidity, 
 BH1750 Bh1750;                                               // light
 static SFE_MAX1704X maxlipo;                                  // battery fuel gauge
 
-// OneWire's pin is a constructor argument, not a begin() parameter, and the bus pin comes from
-// deviceConfig (not known at static-init time - same reason defaultPins exists above) - so these
-// stay null until setupSensor() constructs them at runtime, once the real pin is loaded.
+// OneWire's pin is a constructor argument (not a begin() parameter) and comes from deviceConfig, unknown at static-init time (same reason defaultPins exists above), so these stay null until setupSensor() constructs them at runtime.
 static OneWire *oneWireTempSoil;
 static DallasTemperature *ds18b20;
 
@@ -61,9 +59,7 @@ void SensorController::setupSensor()
     dht11.begin();
     dht22.begin();
 
-    // Only probe a chip this device's own config actually selects - deviceConfig is already
-    // loaded by the time setupSensor() runs (main.cpp). Calling begin() on an address nothing
-    // answers at is what produced the "i2cWriteReadNonStop returned Error -1" bus-probe noise.
+    // Only probe a chip this device's config actually selects - begin() on an address nothing answers at produces "i2cWriteReadNonStop returned Error -1" bus-probe noise.
     if (deviceConfig.configSensor.sensorTemp == 1003 || deviceConfig.configSensor.sensorBarometer == 1003)
     {
         bmp180status = bmp180.begin(0x77);
@@ -269,7 +265,7 @@ void SensorController::sensor_DS18B20_temp()
 void SensorController::sensor_BH1750_lux()
 {
     Serial.println("[Sensor] BH1750 lux");
-    // Uses the global Bh1750 setupSensor() already began - a local instance here used to shadow it.
+    // Uses the global Bh1750 already begun in setupSensor() - do not shadow it with a local instance.
     if (!bh1750status)
     {
         reportSensorInitError("BH1750");
@@ -370,7 +366,7 @@ void SensorController::sensor_analog_moist()
     Serial.print("Analog: ");
     Serial.println(moisture);
 
-    int soilWet = 1200; // Define max value we consider soil 'wet'
+    int soilWet = 1200;
     int soilDry = 3000;
     if (moisture < soilWet)
     {
@@ -443,7 +439,7 @@ void SensorController::buildSensorDataPayload()
     jsonSensorData["deviceUnitZoneID"]=deviceConfig.deviceUnitZoneID;
 
 
-    jsonSensorData["temperature"]=(sensorData.temperature)!=""? sensorData.temperature:  JsonVariant(); // JsonVariant() for null; (char*)0 was memory-unsafe
+    jsonSensorData["temperature"]=(sensorData.temperature)!=""? sensorData.temperature:  JsonVariant(); // JsonVariant() for null - (char*)0 here would be memory-unsafe
     jsonSensorData["soilTemperature"]=(sensorData.temperatureSoil)!=""? sensorData.temperatureSoil:  JsonVariant();
     jsonSensorData["humidity"]=(sensorData.humidity)!=""? sensorData.humidity:  JsonVariant();
     jsonSensorData["battery"]=(sensorData.battery)!=""? sensorData.battery:  JsonVariant();
