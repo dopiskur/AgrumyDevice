@@ -39,8 +39,7 @@ void PowerController::railSecondary(int pin, bool state)
 
 void PowerController::sleep(int sleepSeconds, bool sleepDeep)
 {
-  // uint64 math: seconds * 1e6 overflows int32 for anything past ~35 minutes, and
-  // esp_sleep_enable_timer_wakeup takes uint64 microseconds anyway.
+  // uint64 math: seconds * 1e6 overflows int32 past ~35 minutes, and esp_sleep_enable_timer_wakeup takes uint64 microseconds anyway.
   const uint64_t uS_TO_S_FACTOR = 1000000ULL;
   int TIME_TO_SLEEP = sleepSeconds;
   esp_sleep_enable_timer_wakeup((uint64_t)TIME_TO_SLEEP * uS_TO_S_FACTOR);

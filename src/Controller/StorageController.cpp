@@ -52,8 +52,7 @@ bool StorageController::saveFile(String data, String filename)
   return true;
 };
 
-// Returns whether the NEW config actually got saved - a failed backup does not block the real
-// save (nothing to roll back to yet is not fatal), but a failed primary save is.
+// Returns whether the NEW config actually got saved - a failed backup does not block the real save (nothing to roll back to yet is not fatal), but a failed primary save is.
 bool StorageController::saveConfigFile(String newConfigJson)
 {
   String currentConfig = loadFile("config.json");
@@ -94,7 +93,7 @@ String StorageController::loadFile(String filename)
   Serial.print("Reading file: ");
   Serial.println(filename);
 
-  // Refuse outright rather than silently truncating - a truncated file used to look like "corrupt config", not "too large".
+  // Refuse outright rather than silently truncating, so an oversized file reads as "too large", not "corrupt config".
   const size_t MAX_FILE_SIZE = 16384;
   size_t fileSize = file.size();
   if (fileSize > MAX_FILE_SIZE)
@@ -105,8 +104,7 @@ String StorageController::loadFile(String filename)
     return String();
   }
 
-  // Reads exactly fileSize bytes, not available()-driven - do not trust available() alone: a
-  // corrupt LittleFS size field spun this loop forever before this bound existed.
+  // Reads exactly fileSize bytes, not available()-driven - a corrupt LittleFS size field could otherwise spin this loop forever.
   String data;
   data.reserve(fileSize + 1);
   while (data.length() < fileSize)

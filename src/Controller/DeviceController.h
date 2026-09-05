@@ -27,9 +27,7 @@ public:
 
     String macAddr();
 
-    // LittleFS-backed. saveFile() writes atomically (temp file + rename), so a power loss
-    // mid-write leaves the target file either untouched or fully replaced, never half-written.
-    // Returns false if the write/rename did not actually complete.
+    // LittleFS-backed, atomic write (temp+rename) - a mid-write power loss leaves the file untouched or fully replaced, never half-written; returns false if the write/rename didn't complete.
     bool saveFile(String data, String filename);
     String loadFile(String filename);
 
@@ -37,17 +35,13 @@ public:
     bool waitForFileCommitted(String filename, unsigned long timeoutMs = 1000);
     String loadFileRetry(String filename, int maxAttempts = 5, unsigned long retryDelayMs = 100);
 
-    // Backs up the current config.json to config.json.bak (only if it exists and parses) before
-    // atomically replacing it - config integrity, pairs with consumeRollbackTrigger() below.
-    // Returns whether the new config.json save succeeded.
+    // Backs up config.json to config.json.bak (if it exists and parses) before atomically replacing it, pairing with consumeRollbackTrigger() below; returns whether the new config.json save succeeded.
     bool saveConfigFile(String newConfigJson);
 
-    // Call ONLY from ServiceController::apiConfig()'s "new config received, about to reboot"
-    // branch, nowhere else - feeds the crash-loop counter that consumeRollbackTrigger() reads.
+    // Call ONLY from ServiceController::apiConfig()'s "new config received, about to reboot" branch - feeds the crash-loop counter consumeRollbackTrigger() reads.
     void notePendingConfigReboot(unsigned long uptimeMs);
 
-    // Call once from setup(). True means 3 config-triggered reboots in a row each happened
-    // within 60s of their own boot - caller should load config.json.bak instead of config.json.
+    // Call once from setup(); true means 3 config-triggered reboots in a row each happened within 60s of their own boot, so the caller should load config.json.bak instead of config.json.
     bool consumeRollbackTrigger();
 
     // Set on every config-triggered reboot; call once from setup(). Must be ignored when consumeRollbackTrigger() also returns true - that boot is applying the OLD backup, not the new config this flag was set for.
@@ -77,8 +71,7 @@ public:
     void reset();
     void button(); // short press runs query, long press erase device
 
-    // Each file under /buffer/ is one complete, ready-to-POST SensorData JSON array; zero-padded ascending names make lexicographic order == chronological order.
-    // False = payload was DISCARDED because the partition is already >= 70% full (deliberate data loss, caller reports it). Atomic tmp+rename write, so power loss mid-write never leaves a half-written file.
+    // One ready-to-POST SensorData JSON array per file under /buffer/, zero-padded so lexicographic order == chronological; false means the payload was deliberately discarded (partition >= 70% full), otherwise an atomic tmp+rename write never leaves a half-written file.
     bool bufferSensorDataToDisk(String payloadJson);
 
     // Lowest-numbered (oldest) queued file's name (e.g. "buffer/00001.json"), or "" when the queue is empty.

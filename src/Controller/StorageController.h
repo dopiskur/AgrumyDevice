@@ -5,9 +5,7 @@
 class StorageController
 {
 public:
-    // LittleFS "spiffs" partition: ~1.4-1.5MB depending on board, separate flash region from the OTA app partitions (ota_0/ota_1). config.json + deviceRegistration.json use <2%, leaving the rest for the store-and-forward queue.
-    // Atomic write: writes to a .tmp copy, only replacing the real file once that write is confirmed complete - a power loss mid-write leaves the old file untouched.
-    // Returns false if the write or the final rename failed - data must be treated as NOT persisted.
+    // Atomic write: writes to a .tmp copy, only replacing the real file once that write is confirmed complete, so a power loss mid-write leaves the old file untouched; returns false (data NOT persisted) if the write or final rename failed.
     static bool saveFile(String data, String filename);
     static String loadFile(String filename);
 
@@ -18,8 +16,7 @@ public:
     // Backs up the current config.json to config.json.bak (only if it exists and parses) before atomically replacing it. Returns whether the NEW config.json save succeeded (backup failure alone does not count against it).
     static bool saveConfigFile(String newConfigJson);
 
-    // Each file under /buffer/ is one complete, ready-to-POST SensorData JSON array; zero-padded ascending names make lexicographic order == chronological order.
-    // False = payload was DISCARDED because the partition is already >= 70% full (deliberate data loss, caller reports it). Atomic tmp+rename write.
+    // One ready-to-POST SensorData JSON array per file under /buffer/, zero-padded so lexicographic order == chronological; false means the payload was deliberately discarded (partition >= 70% full), via an atomic tmp+rename write.
     static bool bufferSensorDataToDisk(String payloadJson);
 
     // Lowest-numbered (oldest) queued file's name (e.g. "buffer/00001.json"), or "" when the queue is empty.

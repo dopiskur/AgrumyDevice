@@ -33,14 +33,14 @@ DeviceConfig ConfigParser::parse(const String &configJson, DeviceConfig currentC
     Serial.print("[Device] Load Config; deserializeJson() failed: ");
     Serial.println(error.c_str());
     currentConfig.eventlog.error = true;
-    currentConfig.eventlog.errorCode = 20; // 10 is reserved for deserialize fail
+    currentConfig.eventlog.errorCode = 20; // 10 is reserved for registerDevice's own gate
     currentConfig.eventlog.errorData = error.c_str();
 
     return currentConfig;
   }
 
   String servicePoint = config["servicePoint"];
-  // "| """ matters: a bare assignment from a JSON null does not reliably yield an empty ArduinoJson String, which made requestPost's servicePublicKey.length()>0 check true for a device with no pinned cert, feeding garbage to setCACert() and failing the HTTPS handshake.
+  // "| """ required - a bare null assignment doesn't reliably yield an empty ArduinoJson String, which would wrongly trip servicePublicKey.length()>0 downstream and feed garbage into setCACert().
   String servicePublicKey = config["servicePublicKey"] | "";
   String apiId = config["apiId"];
   String apiKey = config["apiKey"];
