@@ -326,19 +326,20 @@ struct SensorData
     int deviceUnitID;
     int deviceUnitZoneID;
 
-    String battery;
-    String temperature;
-    String temperatureSoil;
-    String humidity;
-    String moisture;
-    String light;
-    String co2;
-    String tvoc;
-    String barometer;
-    String liquidPH;
-    String rainLevel;
-    String waterLevel;
-    String wind;
+    // NAN means "no reading this cycle" (sensor absent/disabled/failed) - never a real 0, and never the String+atof heap churn a 24/7 device would otherwise accumulate (roadmap #326).
+    double battery = NAN;
+    double temperature = NAN;
+    double temperatureSoil = NAN;
+    double humidity = NAN;
+    double moisture = NAN;
+    double light = NAN;
+    double co2 = NAN;
+    double tvoc = NAN;
+    double barometer = NAN;
+    double liquidPH = NAN;
+    double rainLevel = NAN;
+    double waterLevel = NAN;
+    double wind = NAN;
     String dateCreated;
     EventLog eventlog;
 };

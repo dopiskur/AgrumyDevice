@@ -48,35 +48,35 @@ bool ActuatorController::evaluateRule(const Rule &rule, SensorData sensorData, t
     {
     case CONDITION_THRESHOLD:
     {
-        const String *rawReading;
+        double reading;
         bool turnsOnAboveThreshold;
         switch ((RelayFunctionType)rule.targetFunction)
         {
         case RelayFunctionType::Ventilation:
-            rawReading = &sensorData.humidity;
+            reading = sensorData.humidity;
             turnsOnAboveThreshold = true;
             break;
         case RelayFunctionType::Light:
-            rawReading = &sensorData.light;
+            reading = sensorData.light;
             turnsOnAboveThreshold = false;
             break;
         case RelayFunctionType::Heating:
-            rawReading = &sensorData.temperature;
+            reading = sensorData.temperature;
             turnsOnAboveThreshold = false;
             break;
         case RelayFunctionType::WaterPump:
-            rawReading = &sensorData.waterLevel;
+            reading = sensorData.waterLevel;
             turnsOnAboveThreshold = false;
             break;
         default:
             return false; // rule somehow targets no function - never on
         }
-        // atof("") silently returns 0.0 - indistinguishable from a real 0-degree/0-percent reading, so a disconnected/failed sensor would otherwise read as a phantom threshold-crossing value (e.g. Heating turning on for a false "0C").
-        if (rawReading->isEmpty())
+        // NAN means no reading this cycle (sensor absent/disabled/failed) - must not be evaluated as a phantom threshold-crossing value (e.g. Heating turning on for a false 0C). Roadmap #324/#326.
+        if (isnan(reading))
         {
             return false;
         }
-        return computeThresholdState(isCurrentlyOn, atof(rawReading->c_str()), rule.threshold, rule.hysteresis, turnsOnAboveThreshold);
+        return computeThresholdState(isCurrentlyOn, reading, rule.threshold, rule.hysteresis, turnsOnAboveThreshold);
     }
     case CONDITION_INTERVAL:
         return rule.interval > 0 && computeIntervalState(rule.interval, rule.intervalLength, epochSeconds);

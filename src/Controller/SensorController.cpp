@@ -338,7 +338,7 @@ void SensorController::sensor_analog_voltage() // 2001, VoltageDivider
     Serial.print(percent);
     Serial.println("%)");
 
-    sensorData.battery = String(percent);
+    sensorData.battery = percent;
 }
 
 void SensorController::sensor_battery_max17048() // 1009
@@ -352,7 +352,7 @@ void SensorController::sensor_battery_max17048() // 1009
 
     // getSOC() is the fuel gauge's own coulomb-counting percentage - no voltage curve needed.
     float percent = maxlipo.getSOC();
-    sensorData.battery = String((int)constrain(percent, 0.0f, 100.0f));
+    sensorData.battery = (int)constrain(percent, 0.0f, 100.0f);
 }
 
 void SensorController::sensor_analog_moist()
@@ -439,19 +439,20 @@ void SensorController::buildSensorDataPayload()
     jsonSensorData["deviceUnitZoneID"]=deviceConfig.deviceUnitZoneID;
 
 
-    jsonSensorData["temperature"]=(sensorData.temperature)!=""? sensorData.temperature:  JsonVariant(); // JsonVariant() for null - (char*)0 here would be memory-unsafe
-    jsonSensorData["soilTemperature"]=(sensorData.temperatureSoil)!=""? sensorData.temperatureSoil:  JsonVariant();
-    jsonSensorData["humidity"]=(sensorData.humidity)!=""? sensorData.humidity:  JsonVariant();
-    jsonSensorData["battery"]=(sensorData.battery)!=""? sensorData.battery:  JsonVariant();
-    jsonSensorData["moisture"]=(sensorData.moisture)!=""? sensorData.moisture:  JsonVariant();
-    jsonSensorData["light"]=(sensorData.light)!=""? sensorData.light:  JsonVariant();
-    jsonSensorData["co2"]=(sensorData.co2)!=""? sensorData.co2:  JsonVariant();
-    jsonSensorData["tvoc"]=(sensorData.tvoc)!=""? sensorData.tvoc:  JsonVariant();
-    jsonSensorData["barometer"]=(sensorData.barometer)!=""? sensorData.barometer:  JsonVariant();
-    jsonSensorData["liquidPH"]=(sensorData.liquidPH)!=""? sensorData.liquidPH:  JsonVariant();
-    jsonSensorData["rainLevel"]=(sensorData.rainLevel)!=""? sensorData.rainLevel:  JsonVariant();
-    jsonSensorData["waterLevel"]=(sensorData.waterLevel)!=""? sensorData.waterLevel:  JsonVariant();
-    jsonSensorData["wind"]=(sensorData.wind)!=""? sensorData.wind:  JsonVariant();
+    // JsonVariant() serializes as JSON null - isnan(...) is this struct's "no reading this cycle" state (see DeviceModel.h SensorData).
+    jsonSensorData["temperature"]=!isnan(sensorData.temperature)? sensorData.temperature:  JsonVariant();
+    jsonSensorData["soilTemperature"]=!isnan(sensorData.temperatureSoil)? sensorData.temperatureSoil:  JsonVariant();
+    jsonSensorData["humidity"]=!isnan(sensorData.humidity)? sensorData.humidity:  JsonVariant();
+    jsonSensorData["battery"]=!isnan(sensorData.battery)? sensorData.battery:  JsonVariant();
+    jsonSensorData["moisture"]=!isnan(sensorData.moisture)? sensorData.moisture:  JsonVariant();
+    jsonSensorData["light"]=!isnan(sensorData.light)? sensorData.light:  JsonVariant();
+    jsonSensorData["co2"]=!isnan(sensorData.co2)? sensorData.co2:  JsonVariant();
+    jsonSensorData["tvoc"]=!isnan(sensorData.tvoc)? sensorData.tvoc:  JsonVariant();
+    jsonSensorData["barometer"]=!isnan(sensorData.barometer)? sensorData.barometer:  JsonVariant();
+    jsonSensorData["liquidPH"]=!isnan(sensorData.liquidPH)? sensorData.liquidPH:  JsonVariant();
+    jsonSensorData["rainLevel"]=!isnan(sensorData.rainLevel)? sensorData.rainLevel:  JsonVariant();
+    jsonSensorData["waterLevel"]=!isnan(sensorData.waterLevel)? sensorData.waterLevel:  JsonVariant();
+    jsonSensorData["wind"]=!isnan(sensorData.wind)? sensorData.wind:  JsonVariant();
     // Computed once - calling getDateTime() twice in one expression let the two calls straddle a second boundary and disagree.
     String dateCreated = device.getDateTime();
     jsonSensorData["dateCreated"]=(dateCreated)!=""? dateCreated:  JsonVariant(); // timestamp for buffering
@@ -568,19 +569,19 @@ void SensorController::pushSensorData(JsonDocument payload){
 
 void SensorController::buildSensorData(DeviceConfig deviceConfig)
 {
-    sensorData.battery="";
-    sensorData.temperature="";
-    sensorData.temperatureSoil="";
-    sensorData.humidity="";
-    sensorData.moisture="";
-    sensorData.light="";
-    sensorData.co2="";
-    sensorData.tvoc="";
-    sensorData.barometer="";
-    sensorData.liquidPH="";
-    sensorData.rainLevel="";
-    sensorData.waterLevel="";
-    sensorData.wind="";
+    sensorData.battery=NAN;
+    sensorData.temperature=NAN;
+    sensorData.temperatureSoil=NAN;
+    sensorData.humidity=NAN;
+    sensorData.moisture=NAN;
+    sensorData.light=NAN;
+    sensorData.co2=NAN;
+    sensorData.tvoc=NAN;
+    sensorData.barometer=NAN;
+    sensorData.liquidPH=NAN;
+    sensorData.rainLevel=NAN;
+    sensorData.waterLevel=NAN;
+    sensorData.wind=NAN;
 
     switch (deviceConfig.configSensor.sensorBattery)
     {
